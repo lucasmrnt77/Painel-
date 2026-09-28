@@ -1,0 +1,115 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { extrairEventosSendflow, classificarTipo, tipoDaQuery } from "../src/lib/sendflow";
+import { extrairCaptura, nomeDoCampo } from "../src/lib/captura";
+import { normalizarTelefone, chaveTelefone } from "../src/lib/telefone";
+
+test("normalizarTelefone", () => {
+  assert.equal(normalizarTelefone("5511999999999@s.whatsapp.net"), "5511999999999");
+  assert.equal(normalizarTelefone("5511999999999:12@s.whatsapp.net"), "5511999999999");
+  assert.equal(normalizarTelefone("+598 99 123 456"), "59899123456");
+  assert.equal(normalizarTelefone(59899123456), "59899123456");
+  assert.equal(normalizarTelefone("120363025246125486@g.us"), null);
+  assert.equal(normalizarTelefone("123456789012345@lid"), null);
+  assert.equal(normalizarTelefone("abc123456789"), null);
+  assert.equal(normalizarTelefone("1234"), null);
+});
+
+test("chaveTelefone igual à do banco", () => {
+  assert.equal(chaveTelefone("099 123 456"), chaveTelefone("59899123456"));
+  assert.equal(chaveTelefone("11 15 1234-5678"), chaveTelefone("5491112345678"));
+  assert.equal(chaveTelefone("(11) 91234-5678"), chaveTelefone("551112345678"));
+});
+
+test("classificarTipo", () => {
+  for (const t of ["member_added", "participant.join", "group-participants.add", "entrou_no_grupo", "Entrada no grupo", "add", "NEW_MEMBER"])
+    assert.equal(classificarTipo(t), "entrou", t);
+  for (const t of ["member_removed", "participant.leave", "remove", "saiu_do_grupo", "Saída do grupo", "left"])
+    assert.equal(classificarTipo(t), "saiu", t);
+  for (const t of ["message", "update", null, "address_changed"])
+    assert.equal(classificarTipo(t as string | null), "desconhecido", String(t));
+  assert.equal(tipoDaQuery("entrou"), "entrou");
+  assert.equal(tipoDaQuery("xyz"), null);
+});
+
+test("payload simples com lead", () => {
+  const ev = extrairEventosSendflow({
+    event: "lead.joined_group",
+    campaign: { id: "camp-123", name: "Expert Trader Set" },
+    group: { id: "120363025246125486@g.us", name: "Expert Trader Set #3" },
+    lead: { name: "Ana", phone: "+55 11 91234-5678", id: "lead-9" },
+  });
+  assert.equal(ev.length, 1);
+  assert.deepEqual(ev[0], {
+    tipo: "entrou",
+    tipo_original: "lead.joined_group",
+    telefone: "5511912345678",
+    grupo_id: "120363025246125486@g.us",
+    grupo_nome: "Expert Trader Set #3",
+    sendflow_ref: "camp-123",
+  });
+});
+
+test("estilo Evolution: vários participantes e autor ignorado", () => {
+  const ev = extrairEventosSendflow({
+    event: "group-participants.update",
+    instance: "minha-instancia",
+    data: {
+      id: "120363025246125486@g.us",
+      author: "5511000000000@s.whatsapp.net",
+      action: "remove",
+      participants: ["59899123456@s.whatsapp.net", "5491112345678@s.whatsapp.net", "999@lid"],
+    },
+  });
+  assert.equal(ev.length, 2);
+  assert.ok(ev.every((e) => e.tipo === "saiu"));
+  assert.deepEqual(ev.map((e) => e.telefone), ["59899123456", "5491112345678"]);
+  assert.equal(ev[0].grupo_id, "120363025246125486@g.us");
+});
+
+test("tipo forçado pela URL e payload sem tipo", () => {
+  const ev = extrairEventosSendflow({ numero: "59899123456", grupo: "Expert #1" }, "entrou");
+  assert.equal(ev[0].tipo, "entrou");
+  assert.equal(ev[0].telefone, "59899123456");
+});
+
+test("payload sem telefone vira um evento desconhecido", () => {
+  const ev = extrairEventosSendflow({ event: "ping" });
+  assert.equal(ev.length, 1);
+  assert.equal(ev[0].tipo, "desconhecido");
+  assert.equal(ev[0].telefone, null);
+});
+
+test("array no topo", () => {
+  const ev = extrairEventosSendflow([
+    { type: "join", phone: "59899123456" },
+    { type: "leave", phone: "59899777888" },
+  ]);
+  assert.deepEqual(ev.map((e) => [e.tipo, e.telefone]), [["entrou", "59899123456"], ["saiu", "59899777888"]]);
+});
+
+test("captura: JSON simples", () => {
+  const d = extrairCaptura({ name: "Ana", email: "a@x.com", whatsapp: "099123456", utm_source: "ig" });
+  assert.equal(d.nome, "Ana");
+  assert.equal(d.email, "a@x.com");
+  assert.equal(d.telefone, "099123456");
+  assert.deepEqual(d.utm, { utm_source: "ig" });
+});
+
+test("captura: Elementor form-urlencoded e query", () => {
+  const d = extrairCaptura(
+    { "form[name]": "Captura", "fields[name][value]": "Beto", "fields[email][value]": "b@x.com", "fields[phone][value]": "11 1234-5678" },
+    new URLSearchParams("token=zzz&lancamento=set-2026&utm_campaign=c1"),
+  );
+  assert.equal(d.nome, "Beto");
+  assert.equal(d.telefone, "11 1234-5678");
+  assert.equal(d.lancamento, "set-2026");
+  assert.deepEqual(d.utm, { utm_campaign: "c1" });
+});
+
+test("captura: formato {id, value}", () => {
+  const d = extrairCaptura({ fields: { a: { id: "email", value: "c@x.com" }, b: { id: "telefone", value: "099000111" } } });
+  assert.equal(d.email, "c@x.com");
+  assert.equal(d.telefone, "099000111");
+  assert.equal(nomeDoCampo("form_fields.phone"), "phone");
+});
