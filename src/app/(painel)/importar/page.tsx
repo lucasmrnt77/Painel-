@@ -13,14 +13,15 @@ export default async function Importar({ searchParams }: PageProps<"/importar">)
       <Cartao titulo="Planilha de leads (histórico)">
         <div className="mb-4 space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
           <p>
-            Importa a planilha &quot;Página de Traders – Leads&quot; para o lançamento escolhido. Colunas usadas: Fecha, Hora, Experiencia,
-            Telefono, Campana, Anuncio, utm_source, utm_medium, utm_term, Landing, Pagina de gracias e Grupo. CHEQUEO e Pais são ignoradas.
+            <b>Leads:</b> uma planilha por página de captura (Trader ou Nunca operou), escolhendo a página. Colunas reconhecidas: Fecha, Hora,
+            Telefono, Experiencia, Edad, Genero, Respuesta_dinero, Campana/Campaign, Anuncio, utm_source, utm_medium, utm_term, Landing,
+            Pagina_captura (variante da página), Pag. de gracias e Grupo (TRUE/FALSE). CHEQUEO, Pais e as demais são ignoradas.
           </p>
           <p>
-            Importe uma planilha por página de captura (Trader e Nunca operou), escolhendo a página correspondente. Pode importar de novo a
-            planilha atualizada: linhas já importadas não duplicam, só a coluna Grupo e a página de captura são atualizadas. Se o Sendflow
-            tiver dados da pessoa, eles prevalecem sobre a coluna Grupo.
+            <b>Entradas no grupo:</b> a lista de quem entrou nos grupos (Fecha, Hora, Telefono, Grupo), como a aba &quot;Leads Grupo&quot;.
+            Ela marca os leads como &quot;no grupo&quot; e dá o tempo entre a inscrição e a entrada.
           </p>
+          <p>Reimportar é seguro: nada duplica.</p>
         </div>
         <Importador lancamentos={opcoes} />
       </Cartao>

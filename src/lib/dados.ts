@@ -247,6 +247,7 @@ export type ResumoPagina = {
   perfil_sem_resposta: number;
   fora_do_publico: number;
   pct_fora_do_publico: number | null;
+  mediana_minutos_ate_entrar: number | null;
 };
 
 export async function resumoPaginas(lancamentoId: number): Promise<ResumoPagina[]> {

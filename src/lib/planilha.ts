@@ -16,11 +16,29 @@ export type LinhaPlanilha = {
   utm_term: string | null;
   landing: string | null;
   pagina_obrigado: string | null;
+  faixa_etaria: string | null;
+  genero: string | null;
+  resposta_dinheiro: string | null;
   grupo: boolean | null;
+};
+
+export type LinhaEntrada = {
+  chave: string;
+  entrou_em: string;
+  telefone: string;
+  grupo_nome: string | null;
 };
 
 export type ResultadoConversao = {
   linhas: LinhaPlanilha[];
+  rejeitadas: { linha: number; motivo: string; valor: string }[];
+  colunasFaltando: string[];
+  /** A coluna Grupo tem nomes de grupos, não TRUE/FALSE: parece a lista de entradas no grupo. */
+  pareceListaDeGrupo?: boolean;
+};
+
+export type ResultadoEntradas = {
+  linhas: LinhaEntrada[];
   rejeitadas: { linha: number; motivo: string; valor: string }[];
   colunasFaltando: string[];
 };
@@ -28,18 +46,24 @@ export type ResultadoConversao = {
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 // cabeçalho normalizado → campo
-const COLUNAS: Record<string, keyof LinhaPlanilha | "fecha" | "hora"> = {
+const COLUNAS: Record<string, keyof LinhaPlanilha | "fecha" | "hora" | "landing_variante"> = {
   fecha: "fecha", data: "fecha",
   hora: "hora",
   experiencia: "experiencia",
   telefono: "telefone", telefone: "telefone", whatsapp: "telefone",
-  campana: "utm_campaign", campanha: "utm_campaign", utm_campaign: "utm_campaign",
+  campana: "utm_campaign", campanha: "utm_campaign", campaign: "utm_campaign", utm_campaign: "utm_campaign",
   anuncio: "utm_content", utm_content: "utm_content",
   utm_source: "utm_source",
   utm_medium: "utm_medium",
   utm_term: "utm_term",
   landing: "landing",
-  "pagina de gracias": "pagina_obrigado", "pagina de obrigado": "pagina_obrigado",
+  // Na planilha "Nunca operou", Pagina_captura traz a variante da página (Gen-Argentina, Jub-Uruguay...)
+  pagina_captura: "landing_variante", "pagina captura": "landing_variante",
+  "pagina de gracias": "pagina_obrigado", "pagina de obrigado": "pagina_obrigado", "pag.gracias": "pagina_obrigado",
+  "pag. gracias": "pagina_obrigado", "pagina gracias": "pagina_obrigado",
+  edad: "faixa_etaria", idade: "faixa_etaria", faixa_etaria: "faixa_etaria",
+  genero: "genero", sexo: "genero",
+  respuesta_dinero: "resposta_dinheiro", resposta_dinheiro: "resposta_dinheiro", dinero: "resposta_dinheiro",
   grupo: "grupo",
   // CHEQUEO (controle do fluxo de 10 min) e Pais não são importados
 };
@@ -54,7 +78,11 @@ const OBRIGATORIAS = ["fecha", "hora", "telefone"];
  *  "598+1098487009"    → 5981098487009
  */
 export function limparTelefonePlanilha(bruto: string): string {
-  let t = (bruto ?? "").split("#")[0];
+  let t = (bruto ?? "").split("#")[0].trim();
+  // Números exportados do Excel como decimal: "59899605956.0"
+  if (/^\d+\.0+$/.test(t)) t = t.replace(/\.0+$/, "");
+  // Notação científica perde dígitos — não dá para recuperar
+  if (/^\d+(\.\d+)?e\+?\d+$/i.test(t)) return "";
   if (t.includes("+")) {
     const partes = t.split("+").map((p) => p.replace(/\D/g, "")).filter(Boolean);
     if (partes.length >= 2) {
@@ -68,7 +96,10 @@ export function limparTelefonePlanilha(bruto: string): string {
 
 /** "12/07/2026" + "5:06:40" → "2026-07-12T05:06:40-03:00" (horário do Uruguai) */
 export function dataHoraUruguai(fecha: string, hora: string): string | null {
-  const f = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec((fecha ?? "").trim());
+  const bruto = (fecha ?? "").trim().split(/[ T]/)[0];
+  const br = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(bruto);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(bruto);
+  const f = br ?? (iso ? [iso[0], iso[3], iso[2], iso[1]] : null);
   const h = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec((hora ?? "").trim());
   if (!f || !h) return null;
   const [, d, m, a] = f;
@@ -105,6 +136,14 @@ export function converterPlanilha(tabela: string[][]): ResultadoConversao {
     return v === "" ? null : v;
   };
 
+  // Coluna Grupo com nomes de grupo em vez de TRUE/FALSE → é a lista de entradas
+  let pareceListaDeGrupo = false;
+  if (indice.grupo !== undefined) {
+    const valores = dados.map((r) => (r[indice.grupo!] ?? "").trim()).filter(Boolean).slice(0, 200);
+    const naoBool = valores.filter((v) => booleano(v) === null).length;
+    pareceListaDeGrupo = valores.length > 0 && naoBool / valores.length > 0.5;
+  }
+
   dados.forEach((r, n) => {
     if (r.every((c) => !c || !c.trim())) return; // linha vazia
     const numeroLinha = n + 2; // +1 cabeçalho, +1 base 1
@@ -121,6 +160,7 @@ export function converterPlanilha(tabela: string[][]): ResultadoConversao {
       rejeitadas.push({ linha: numeroLinha, motivo: "telefone inválido", valor: telBruto });
       return;
     }
+    const variante = val(r, "landing_variante");
     linhas.push({
       chave: `${fecha}|${hora}|${telBruto}`,
       criado_em: criado,
@@ -131,10 +171,41 @@ export function converterPlanilha(tabela: string[][]): ResultadoConversao {
       utm_source: val(r, "utm_source"),
       utm_medium: val(r, "utm_medium"),
       utm_term: val(r, "utm_term"),
-      landing: val(r, "landing"),
+      landing: variante && variante !== "/" ? variante : val(r, "landing"),
       pagina_obrigado: val(r, "pagina_obrigado"),
-      grupo: booleano(val(r, "grupo") ?? ""),
+      faixa_etaria: val(r, "faixa_etaria"),
+      genero: val(r, "genero"),
+      resposta_dinheiro: val(r, "resposta_dinheiro"),
+      grupo: pareceListaDeGrupo ? null : booleano(val(r, "grupo") ?? ""),
     });
   });
-  return { linhas, rejeitadas, colunasFaltando };
+  return { linhas, rejeitadas, colunasFaltando, pareceListaDeGrupo };
+}
+
+/** Lista de entradas nos grupos (aba "Leads Grupo": Fecha, Hora, Telefono, Grupo). */
+export function converterEntradasGrupo(tabela: string[][]): ResultadoEntradas {
+  const [cab = [], ...dados] = tabela;
+  const idx: Partial<Record<"fecha" | "hora" | "telefone" | "grupo", number>> = {};
+  cab.forEach((c, i) => {
+    const k = semAcento(c);
+    const campo = k === "fecha" || k === "data" ? "fecha" : k === "hora" ? "hora"
+      : ["telefono", "telefone", "whatsapp", "numero", "phone"].includes(k) ? "telefone"
+      : ["grupo", "group", "grupo_nome"].includes(k) ? "grupo" : null;
+    if (campo && idx[campo] === undefined) idx[campo] = i;
+  });
+  const colunasFaltando = (["fecha", "hora", "telefone"] as const).filter((c) => idx[c] === undefined);
+  const linhas: LinhaEntrada[] = [];
+  const rejeitadas: ResultadoEntradas["rejeitadas"] = [];
+  if (colunasFaltando.length) return { linhas, rejeitadas, colunasFaltando: [...colunasFaltando] };
+  const v = (r: string[], k: keyof typeof idx) => (idx[k] === undefined ? "" : (r[idx[k]!] ?? "").trim());
+  dados.forEach((r, n) => {
+    if (r.every((c) => !c || !c.trim())) return;
+    const fecha = v(r, "fecha"), hora = v(r, "hora"), tel = v(r, "telefone"), grupo = v(r, "grupo");
+    const quando = dataHoraUruguai(fecha, hora);
+    if (!quando) { rejeitadas.push({ linha: n + 2, motivo: "data/hora inválida", valor: `${fecha} ${hora}` }); return; }
+    const telefone = limparTelefonePlanilha(tel);
+    if (telefone.length < 8) { rejeitadas.push({ linha: n + 2, motivo: "telefone inválido", valor: tel }); return; }
+    linhas.push({ chave: `${fecha}|${hora}|${tel}|${grupo}`, entrou_em: quando, telefone, grupo_nome: grupo || null });
+  });
+  return { linhas, rejeitadas, colunasFaltando: [] };
 }

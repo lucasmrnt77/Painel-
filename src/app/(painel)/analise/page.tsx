@@ -2,13 +2,13 @@ import Link from "next/link";
 import { exigirLogin } from "@/lib/sessao";
 import { param } from "@/lib/contexto";
 import { escolherLancamento, listarResumos } from "@/lib/dados";
-import { DIMENSOES, FILTROS, agrupar, aplicarFiltros, carregarAnalise, opcoesFiltro, type Filtros } from "@/lib/analise";
+import { DIMENSOES, FILTROS, carregarAnalise, type Filtros } from "@/lib/analise";
 import { numero } from "@/lib/formato";
 import { Cartao, Kpi, montarHref, td } from "@/components/ui";
 import { SemLancamento } from "@/components/cabecalho";
 
 const ROTULO_FILTRO: Record<string, string> = {
-  pagina_captura: "Página de captura", perfil: "Perfil real",
+  pagina_captura: "Página de captura", perfil: "Perfil real", faixa_etaria_norm: "Faixa etária", genero_norm: "Gênero",
   pais: "País", canal: "Canal", experiencia: "Experiência", landing: "Landing",
   pagina_obrigado: "Pág. de obrigado", posicionamento: "Posicionamento", origem: "Origem",
 };
@@ -29,10 +29,9 @@ export default async function Analise({ searchParams }: PageProps<"/analise">) {
     if (v) filtros[k] = v;
   }
 
-  const base = await carregarAnalise(atual?.lancamento_id ?? null);
-  const linhas = aplicarFiltros(base, filtros);
-  const grupos = agrupar(linhas, por);
-  const noGrupo = linhas.filter((l) => l.no_grupo).length;
+  const resumo = await carregarAnalise(atual?.lancamento_id ?? null, por, filtros);
+  const grupos = resumo.grupos;
+  const noGrupo = resumo.noGrupo;
   const maxLeads = Math.max(1, ...grupos.map((g) => g.leads));
   const estado = { l: todos ? "todos" : atual?.slug, por, ...filtros };
   const href = (extra: Record<string, string | undefined>) => montarHref("/analise", { ...estado, ...extra });
@@ -63,7 +62,7 @@ export default async function Analise({ searchParams }: PageProps<"/analise">) {
               <span className="block">{ROTULO_FILTRO[k]}</span>
               <select name={k} defaultValue={filtros[k] ?? ""} className={`${campo} max-w-44`}>
                 <option value="">Todos</option>
-                {opcoesFiltro(base, k).slice(0, 80).map((o) => <option key={o} value={o}>{o}</option>)}
+                {(resumo.opcoes[k] ?? []).slice(0, 80).map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
             </label>
           ))}
@@ -75,9 +74,9 @@ export default async function Analise({ searchParams }: PageProps<"/analise">) {
       </Cartao>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi rotulo="Leads (pessoas únicas)" valor={numero(linhas.length)} detalhe={temFiltro ? `de ${numero(base.length)} no total` : undefined} />
+        <Kpi rotulo="Leads (pessoas únicas)" valor={numero(resumo.total)} detalhe={temFiltro ? `de ${numero(resumo.totalBase)} no total` : undefined} />
         <Kpi rotulo="Entraram no grupo" valor={numero(noGrupo)} destaque="verde" />
-        <Kpi rotulo="Taxa de entrada" valor={linhas.length ? `${((100 * noGrupo) / linhas.length).toFixed(1)}%` : "—"} />
+        <Kpi rotulo="Taxa de entrada" valor={resumo.total ? `${((100 * noGrupo) / resumo.total).toFixed(1)}%` : "—"} />
         <Kpi rotulo="Itens na tabela" valor={numero(grupos.length)} detalhe={DIMENSOES[por].rotulo} />
       </div>
 

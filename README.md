@@ -36,6 +36,9 @@ Stack: Next.js 16 + TypeScript + Tailwind, Supabase (Postgres + PostgREST), depl
    | 13 | `supabase/checks/004-pre.sql` | `pronto_para_migrar = true` |
    | 14 | `supabase/migrations/004-paginas-captura.sql` | "Success. No rows returned" |
    | 15 | `supabase/checks/004-post.sql` | `tudo_ok = true` |
+   | 16 | `supabase/checks/005-pre.sql` | `pronto_para_migrar = true` |
+   | 17 | `supabase/migrations/005-demografia-e-grupos.sql` | "Success. No rows returned" |
+   | 18 | `supabase/checks/005-post.sql` | `tudo_ok = true` |
 
    Rode só as migrations que ainda não foram aplicadas, sempre na ordem.
 
@@ -243,6 +246,23 @@ dimensões e filtros **Página de captura**, **Perfil real** e **Página × Perf
   escolhendo a página preenche a página nas linhas existentes, sem duplicar.
 - **Captura:** cada página manda o campo oculto `pagina_captura` com `trader` ou `nunca_operou`
   (no Elementor, campo Oculto com ID `pagina_captura` e valor fixo).
+
+## Planilha "Nunca operou" e lista de entradas nos grupos
+
+A planilha da página Nunca operou tem outras colunas: Edad, Genero, Respuesta_dinero e
+Pagina_captura (a variante da página: Gen-Argentina, Jub-Uruguay...). Elas são importadas como
+**faixa etária**, **gênero**, **disponibilidade de dinheiro** e **landing** (a Análise também mostra a
+**variante**: Gen, Jub, Trader). Ela não tem a coluna Grupo (TRUE/FALSE): quem entrou no grupo vem da
+aba **Leads Grupo** (Fecha, Hora, Telefono, Grupo), importada em **Importar → Entradas no grupo**.
+Essa lista grava a data/hora real de entrada, então "no grupo" e "minutos até entrar" funcionam para
+o histórico. Se o importador perceber que um arquivo de lista de grupo foi escolhido como "Leads",
+ele avisa.
+
+Cada pessoa conta uma vez por lançamento (a primeira inscrição): quem se inscreveu nas duas páginas
+aparece na página em que se inscreveu primeiro.
+
+Na captura, as páginas podem mandar também `faixa_etaria` (ou `edad`), `genero` e
+`resposta_dinheiro` (ou `respuesta_dinero`).
 
 ## Reenvio automático (próxima etapa)
 

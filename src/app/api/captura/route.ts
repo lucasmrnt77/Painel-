@@ -71,6 +71,9 @@ export async function POST(req: Request) {
       landing: dados.landing,
       pagina_obrigado: dados.pagina_obrigado,
       pagina_captura: dados.pagina_captura,
+      faixa_etaria: dados.faixa_etaria,
+      genero: dados.genero,
+      resposta_dinheiro: dados.resposta_dinheiro,
     },
   });
 

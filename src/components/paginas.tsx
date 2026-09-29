@@ -28,6 +28,7 @@ export function CartaoPaginas({ linhas, slug }: { linhas: ResumoPagina[]; slug: 
               <th className="px-4 py-2 font-medium">Página</th>
               <th className="px-4 py-2 text-right font-medium">Leads</th>
               <th className="px-4 py-2 text-right font-medium">No grupo</th>
+              <th className="px-4 py-2 text-right font-medium">Mediana até entrar</th>
               <th className="px-4 py-2 text-right font-medium">Nunca operou</th>
               <th className="px-4 py-2 text-right font-medium">Já opera</th>
               <th className="px-4 py-2 text-right font-medium">Sem resposta</th>
@@ -41,6 +42,9 @@ export function CartaoPaginas({ linhas, slug }: { linhas: ResumoPagina[]; slug: 
                 <td className={`${td} tabular text-right`}>{numero(l.leads)}</td>
                 <td className={`${td} tabular text-right`}>
                   {numero(l.no_grupo)} <span className="text-xs text-zinc-500">({l.pct_no_grupo ?? "—"}%)</span>
+                </td>
+                <td className={`${td} tabular text-right`}>
+                  {l.mediana_minutos_ate_entrar != null ? `${Math.round(l.mediana_minutos_ate_entrar)} min` : "—"}
                 </td>
                 <td className={`${td} tabular text-right`}>{numero(l.perfil_nunca_operou)}</td>
                 <td className={`${td} tabular text-right`}>{numero(l.perfil_ja_opera)}</td>
