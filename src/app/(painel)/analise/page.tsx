@@ -8,6 +8,7 @@ import { Cartao, Kpi, montarHref, td } from "@/components/ui";
 import { SemLancamento } from "@/components/cabecalho";
 
 const ROTULO_FILTRO: Record<string, string> = {
+  pagina_captura: "Página de captura", perfil: "Perfil real",
   pais: "País", canal: "Canal", experiencia: "Experiência", landing: "Landing",
   pagina_obrigado: "Pág. de obrigado", posicionamento: "Posicionamento", origem: "Origem",
 };
@@ -21,7 +22,7 @@ export default async function Analise({ searchParams }: PageProps<"/analise">) {
   const lParam = param(sp, "l");
   const todos = lParam === "todos";
   const atual = todos ? null : escolherLancamento(resumos, lParam);
-  const por = DIMENSOES[param(sp, "por") ?? ""] ? param(sp, "por")! : "anuncio";
+  const por = DIMENSOES[param(sp, "por") ?? ""] ? param(sp, "por")! : "pagina_captura";
   const filtros: Filtros = {};
   for (const k of [...FILTROS, "de", "ate"] as const) {
     const v = param(sp, k);
@@ -77,7 +78,7 @@ export default async function Analise({ searchParams }: PageProps<"/analise">) {
         <Kpi rotulo="Leads (pessoas únicas)" valor={numero(linhas.length)} detalhe={temFiltro ? `de ${numero(base.length)} no total` : undefined} />
         <Kpi rotulo="Entraram no grupo" valor={numero(noGrupo)} destaque="verde" />
         <Kpi rotulo="Taxa de entrada" valor={linhas.length ? `${((100 * noGrupo) / linhas.length).toFixed(1)}%` : "—"} />
-        <Kpi rotulo={`${DIMENSOES[por].rotulo}s distintos`} valor={numero(grupos.length)} />
+        <Kpi rotulo="Itens na tabela" valor={numero(grupos.length)} detalhe={DIMENSOES[por].rotulo} />
       </div>
 
       <Cartao>

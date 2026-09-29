@@ -17,7 +17,8 @@ export default async function Importar({ searchParams }: PageProps<"/importar">)
             Telefono, Campana, Anuncio, utm_source, utm_medium, utm_term, Landing, Pagina de gracias e Grupo. CHEQUEO e Pais são ignoradas.
           </p>
           <p>
-            Pode importar de novo a planilha atualizada: linhas já importadas não duplicam, só a coluna Grupo é atualizada. Se o Sendflow
+            Importe uma planilha por página de captura (Trader e Nunca operou), escolhendo a página correspondente. Pode importar de novo a
+            planilha atualizada: linhas já importadas não duplicam, só a coluna Grupo e a página de captura são atualizadas. Se o Sendflow
             tiver dados da pessoa, eles prevalecem sobre a coluna Grupo.
           </p>
         </div>

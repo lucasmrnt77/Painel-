@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { contexto } from "@/lib/contexto";
-import { serieDiaria, serieHoraria, situacaoMonitor, ultimosAlertas } from "@/lib/dados";
+import { resumoPaginas, serieDiaria, serieHoraria, situacaoMonitor, ultimosAlertas } from "@/lib/dados";
+import { CartaoPaginas } from "@/components/paginas";
 import { envioConfigurado } from "@/lib/whatsapp";
 import { CartaoMonitor, GraficoHoras } from "@/components/monitor";
 import { AutoAtualizar } from "@/components/auto-atualizar";
@@ -13,11 +14,12 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   if (!atual) {
     return (<><CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={null} /><SemLancamento /></>);
   }
-  const [serie, horas, situacao, alertas] = await Promise.all([
+  const [serie, horas, situacao, alertas, paginas] = await Promise.all([
     serieDiaria(atual.lancamento_id),
     serieHoraria(atual.lancamento_id, 24),
     situacaoMonitor(atual.lancamento_id),
     ultimosAlertas(atual.lancamento_id),
+    resumoPaginas(atual.lancamento_id),
   ]);
   const maximo = Math.max(1, ...serie.map((s) => s.inscricoes));
   const pct = (n: number) => (atual.inscritos ? `${Math.round((100 * n) / atual.inscritos)}% dos inscritos` : undefined);
@@ -48,6 +50,8 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
         <Kpi rotulo="No grupo sem inscrição" valor={numero(atual.membros_sem_inscricao)} detalhe="entraram sem passar pela captura" />
         <Kpi rotulo="Mediana até entrar" valor={atual.mediana_minutos_ate_entrar != null ? `${Math.round(atual.mediana_minutos_ate_entrar)} min` : "—"} detalhe="da inscrição à entrada" />
       </div>
+
+      <CartaoPaginas linhas={paginas} slug={atual.slug} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Cartao titulo="Por dia — últimos 21 dias com movimento (horário UY)" className="lg:col-span-2">

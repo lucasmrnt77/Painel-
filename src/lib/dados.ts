@@ -236,3 +236,25 @@ export async function configsLancamentos(): Promise<Map<number, ConfigLancamento
   if (error) falhar("configs", error);
   return new Map(((data ?? []) as ConfigLancamento[]).map((c) => [c.id, c]));
 }
+
+export type ResumoPagina = {
+  pagina_captura: string;
+  leads: number;
+  no_grupo: number;
+  pct_no_grupo: number | null;
+  perfil_nunca_operou: number;
+  perfil_ja_opera: number;
+  perfil_sem_resposta: number;
+  fora_do_publico: number;
+  pct_fora_do_publico: number | null;
+};
+
+export async function resumoPaginas(lancamentoId: number): Promise<ResumoPagina[]> {
+  const { data, error } = await db()
+    .from("v_resumo_paginas")
+    .select("*")
+    .eq("lancamento_id", lancamentoId)
+    .order("leads", { ascending: false });
+  if (error) falhar("resumo_paginas", error);
+  return (data ?? []) as ResumoPagina[];
+}

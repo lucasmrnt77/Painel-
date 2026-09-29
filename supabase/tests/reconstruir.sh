@@ -30,3 +30,4 @@ echo "== comportamento"
 $P -f tests/comportamento.sql
 [ -f tests/monitor.sql ] && $P -f tests/monitor.sql
 [ -f tests/historico.sql ] && $P -f tests/historico.sql
+[ -f tests/paginas.sql ] && $P -f tests/paginas.sql

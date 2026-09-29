@@ -33,7 +33,11 @@ Stack: Next.js 16 + TypeScript + Tailwind, Supabase (Postgres + PostgREST), depl
    | 11 | `supabase/migrations/003-historico.sql` | "Success. No rows returned" |
    | 12 | `supabase/checks/003-post.sql` | `tudo_ok = true` |
 
-   Quem já rodou 000 e 001 roda só do passo 7 em diante.
+   | 13 | `supabase/checks/004-pre.sql` | `pronto_para_migrar = true` |
+   | 14 | `supabase/migrations/004-paginas-captura.sql` | "Success. No rows returned" |
+   | 15 | `supabase/checks/004-post.sql` | `tudo_ok = true` |
+
+   Rode só as migrations que ainda não foram aplicadas, sempre na ordem.
 
    Se algum check não der `true`, pare e me mande o resultado.
 3. Em **Project Settings → API** copie:
@@ -221,7 +225,24 @@ lançamento, com filtros. As UTMs do Meta são quebradas assim:
 | `utm_content` | código curto (ex.: `105v15`) | Anúncio (agrupamento principal) |
 
 Para os próximos lançamentos, a página de captura deve mandar os mesmos campos: além de nome,
-e-mail, telefone e UTMs, os campos ocultos `experiencia`, `landing` e `pagina_obrigado`.
+e-mail, telefone e UTMs, os campos ocultos `experiencia`, `landing`, `pagina_obrigado` e `pagina_captura`.
+
+## Páginas de captura (Trader / Nunca operou)
+
+Cada lançamento usa duas páginas de captura. Cada inscrição guarda:
+
+- **Página de captura** (`trader` ou `nunca_operou`): por onde a pessoa entrou.
+- **Perfil real**, calculado pela resposta de experiência: "nunca…" = *Nunca operou*; qualquer outra
+  resposta = *Já opera*.
+
+A Visão geral mostra a tabela **Por página de captura** (leads, % no grupo, perfil e quantos estão
+fora do público da página, ex.: quem entrou pela página Trader mas nunca operou). Na Análise há as
+dimensões e filtros **Página de captura**, **Perfil real** e **Página × Perfil**.
+
+- **Planilhas:** ao importar, escolha a página correspondente. Reimportar uma planilha já importada
+  escolhendo a página preenche a página nas linhas existentes, sem duplicar.
+- **Captura:** cada página manda o campo oculto `pagina_captura` com `trader` ou `nunca_operou`
+  (no Elementor, campo Oculto com ID `pagina_captura` e valor fixo).
 
 ## Reenvio automático (próxima etapa)
 

@@ -7,6 +7,7 @@ export type DadosCaptura = {
   experiencia: string | null;
   landing: string | null;
   pagina_obrigado: string | null;
+  pagina_captura: string | null;
   utm: Record<string, string>;
 };
 
@@ -23,6 +24,8 @@ const ALIAS: Record<string, keyof Omit<DadosCaptura, "utm"> | `utm_${string}`> =
   landing: "landing", landing_page: "landing",
   pagina_obrigado: "pagina_obrigado", pagina_de_obrigado: "pagina_obrigado", pagina_gracias: "pagina_obrigado",
   pagina_de_gracias: "pagina_obrigado", thank_you_page: "pagina_obrigado", obrigado: "pagina_obrigado",
+  pagina_captura: "pagina_captura", pagina_de_captura: "pagina_captura", captura: "pagina_captura",
+  persona: "pagina_captura", publico: "pagina_captura",
   utm_source: "utm_source", utm_medium: "utm_medium", utm_campaign: "utm_campaign",
   utm_content: "utm_content", utm_term: "utm_term",
 };
@@ -63,7 +66,7 @@ export function extrairCaptura(bruto: unknown, query?: URLSearchParams): DadosCa
   const plano = achatar(bruto);
   const out: DadosCaptura = {
     nome: null, email: null, telefone: null, lancamento: null, pagina: null,
-    experiencia: null, landing: null, pagina_obrigado: null, utm: {},
+    experiencia: null, landing: null, pagina_obrigado: null, pagina_captura: null, utm: {},
   };
   const aplicar = (chave: string, valor: string) => {
     const v = valor.trim();

@@ -13,6 +13,7 @@ const LOTE = 1000;
 export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
   const router = useRouter();
   const [lancId, setLancId] = useState<number | "">(lancamentos[0]?.id ?? "");
+  const [pagina, setPagina] = useState<"" | "trader" | "nunca_operou">("");
   const [arquivo, setArquivo] = useState<string>("");
   const [conv, setConv] = useState<ResultadoConversao | null>(null);
   const [progresso, setProgresso] = useState<number | null>(null);
@@ -29,7 +30,7 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
   }
 
   async function importar() {
-    if (!conv || lancId === "") return;
+    if (!conv || lancId === "" || !pagina) return;
     setErro(""); setTotais(null); setProgresso(0);
     const t: Totais = { novas: 0, atualizadas: 0, repetidas: 0, invalidas: 0 };
     try {
@@ -37,7 +38,7 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
         const r = await fetch("/api/importar", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ lancamento_id: lancId, linhas: conv.linhas.slice(i, i + LOTE) }),
+          body: JSON.stringify({ lancamento_id: lancId, pagina_captura: pagina, linhas: conv.linhas.slice(i, i + LOTE) }),
         });
         const j = await r.json();
         if (!r.ok) throw new Error(j.erro ?? `HTTP ${r.status}`);
@@ -59,11 +60,19 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
           Lançamento de destino
           <select className={`${campo} w-full`} value={lancId} onChange={(e) => setLancId(Number(e.target.value))}>
             {lancamentos.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+          Página de captura desta planilha
+          <select className={`${campo} w-full`} value={pagina} onChange={(e) => setPagina(e.target.value as typeof pagina)}>
+            <option value="">Escolha…</option>
+            <option value="trader">Trader (quem já opera)</option>
+            <option value="nunca_operou">Nunca operou</option>
           </select>
         </label>
         <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
@@ -93,17 +102,18 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
           </ul>
           <button
             onClick={importar}
-            disabled={progresso !== null || conv.linhas.length === 0 || lancId === ""}
+            disabled={progresso !== null || conv.linhas.length === 0 || lancId === "" || !pagina}
             className="mt-4 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
           >
             {progresso !== null ? `Importando… ${progresso}/${conv.linhas.length}` : "Importar"}
           </button>
+          {!pagina && <span className="ml-3 text-xs text-amber-700 dark:text-amber-400">Escolha a página de captura antes de importar.</span>}
         </div>
       )}
 
       {totais && (
         <p className="text-sm text-emerald-700 dark:text-emerald-400">
-          Pronto: {totais.novas} novas, {totais.atualizadas} atualizadas (coluna Grupo mudou)
+          Pronto: {totais.novas} novas, {totais.atualizadas} atualizadas (Grupo ou página de captura)
           {totais.repetidas ? `, ${totais.repetidas} repetidas na planilha` : ""}
           {totais.invalidas ? `, ${totais.invalidas} inválidas` : ""}. Linhas já importadas antes foram ignoradas.
         </p>
