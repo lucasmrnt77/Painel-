@@ -94,3 +94,32 @@ test("converterEntradasGrupo", async () => {
   });
   assert.equal(r.linhas[1].grupo_nome, null);
 });
+
+test("celulaParaTexto e classificarAba", async () => {
+  const { celulaParaTexto, classificarAba } = await import("../src/lib/planilha");
+  assert.equal(celulaParaTexto(new Date("2026-07-12T00:00:00Z")), "12/07/2026");
+  assert.equal(celulaParaTexto(new Date("1899-12-30T05:04:13Z")), "5:04:13");
+  assert.equal(celulaParaTexto(59899605956), "59899605956");
+  assert.equal(celulaParaTexto(true), "TRUE");
+  assert.equal(celulaParaTexto(null), "");
+  const leads = [["Fecha", "Hora", "Telefono", "Edad", "Anuncio"], ["12/07/2026", "5:04:13", "59899605956", "55_64", "21v4"]];
+  const grupo = [["Fecha", "Hora", "Telefono", "Grupo"], ["12/07/2026", "5:05", "59899605956", "La Semana #8"]];
+  const trader = [["Fecha", "Hora", "Telefono", "Grupo"], ["12/07/2026", "5:05", "59899605956", "TRUE"]];
+  assert.equal(classificarAba("Hoja 1", leads).tipo, "leads");
+  assert.equal(classificarAba("Copia de Hoja 1", leads).copia, true);
+  assert.equal(classificarAba("Leads Grupo", grupo).tipo, "entradas");
+  assert.equal(classificarAba("X", trader).tipo, "leads");
+  assert.equal(classificarAba("Hoja 22", [[""], ["5698250684"]]).tipo, "ignorar");
+});
+
+test("lista de grupo sem título na coluna do grupo (planilha de traders)", async () => {
+  const { classificarAba, converterEntradasGrupo } = await import("../src/lib/planilha");
+  const t = [["Fecha", "Hora", "Telefono", "", "5239"]];
+  for (let i = 0; i < 10; i++) t.push(["24/08/2026", `22:4${i}:00`, `5989960560${i}`, `La Semana del Inversionista #5`, ""]);
+  t.push(["12/07/2026", "7:40:00", "5491176124112", "", ""]);
+  assert.equal(classificarAba("Leads Grupo", t).tipo, "entradas");
+  const r = converterEntradasGrupo(t);
+  assert.equal(r.linhas.length, 11);
+  assert.equal(r.linhas[0].grupo_nome, "La Semana del Inversionista #5");
+  assert.equal(r.linhas[10].grupo_nome, null);
+});

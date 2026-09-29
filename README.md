@@ -39,6 +39,9 @@ Stack: Next.js 16 + TypeScript + Tailwind, Supabase (Postgres + PostgREST), depl
    | 16 | `supabase/checks/005-pre.sql` | `pronto_para_migrar = true` |
    | 17 | `supabase/migrations/005-demografia-e-grupos.sql` | "Success. No rows returned" |
    | 18 | `supabase/checks/005-post.sql` | `tudo_ok = true` |
+   | 19 | `supabase/checks/006-pre.sql` | `pronto_para_migrar = true` |
+   | 20 | `supabase/migrations/006-estatisticas.sql` | "Success. No rows returned" |
+   | 21 | `supabase/checks/006-post.sql` | `tudo_ok = true` |
 
    Rode só as migrations que ainda não foram aplicadas, sempre na ordem.
 
@@ -203,8 +206,11 @@ Os alertas não duplicam, mesmo se o Cron disparar duas vezes (chave única por 
 
 ## Histórico (planilha) e Análise
 
-**Importar:** aba **Importar** → escolha o lançamento → selecione o CSV da planilha
-"Página de Traders – Leads" (Google Sheets → Arquivo → Fazer download → .csv) → **Importar**.
+**Importar:** aba **Importar** → escolha o lançamento e a página de captura → selecione a planilha
+inteira em **.xlsx** (Google Sheets → Arquivo → Fazer download → Microsoft Excel). O painel lê todas as
+abas e marca sozinho as que são **Leads** e **Entradas no grupo**; abas que parecem cópia ("Copia de…")
+ou sem Fecha/Hora/Telefono ficam desmarcadas. Confira e clique em **Importar**. Também aceita .csv
+(uma aba por vez).
 
 - Colunas usadas: Fecha, Hora, Experiencia, Telefono, Campana (→ utm_campaign), Anuncio (→ utm_content),
   utm_source, utm_medium, utm_term, Landing, Pagina de gracias, Grupo. CHEQUEO e Pais são ignoradas

@@ -2,63 +2,112 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Papa from "papaparse";
-import { converterEntradasGrupo, converterPlanilha, type LinhaEntrada, type LinhaPlanilha } from "@/lib/planilha";
+import { classificarAba, converterEntradasGrupo, converterPlanilha, type LinhaEntrada, type LinhaPlanilha, type TipoAba } from "@/lib/planilha";
+import { lerArquivo } from "@/lib/ler-arquivo";
 
 type Opcao = { id: number; nome: string };
-type Tipo = "leads" | "entradas";
 type Previa = {
   linhas: (LinhaPlanilha | LinhaEntrada)[];
   rejeitadas: { linha: number; motivo: string; valor: string }[];
   colunasFaltando: string[];
-  pareceListaDeGrupo?: boolean;
 };
-type Totais = Record<string, number>;
+type EstadoAba = {
+  nome: string;
+  tabela: string[][];
+  tipo: TipoAba;
+  motivo: string;
+  copia: boolean;
+  incluir: boolean;
+  previa: Previa | null;
+  resultado?: string;
+};
 
 const LOTE = 1000;
 
+function previaDe(tipo: TipoAba, tabela: string[][]): Previa | null {
+  if (tipo === "leads") return converterPlanilha(tabela);
+  if (tipo === "entradas") return converterEntradasGrupo(tabela);
+  return null;
+}
+
+const dataBR = (iso?: string) => iso?.slice(0, 10).split("-").reverse().join("/");
+
 export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
   const router = useRouter();
-  const [tipo, setTipo] = useState<Tipo>("leads");
   const [lancId, setLancId] = useState<number | "">(lancamentos[0]?.id ?? "");
   const [pagina, setPagina] = useState<"" | "trader" | "nunca_operou">("");
-  const [arquivo, setArquivo] = useState<File | null>(null);
-  const [previa, setPrevia] = useState<Previa | null>(null);
-  const [progresso, setProgresso] = useState<number | null>(null);
-  const [totais, setTotais] = useState<Totais | null>(null);
-  const [erro, setErro] = useState<string>("");
+  const [arquivo, setArquivo] = useState<string>("");
+  const [abas, setAbas] = useState<EstadoAba[]>([]);
+  const [lendo, setLendo] = useState(false);
+  const [progresso, setProgresso] = useState<string | null>(null);
+  const [erro, setErro] = useState("");
+  const [concluido, setConcluido] = useState(false);
 
-  function ler(f: File, t: Tipo) {
-    setErro(""); setTotais(null); setPrevia(null); setArquivo(f);
-    Papa.parse<string[]>(f, {
-      skipEmptyLines: false,
-      complete: (r) => setPrevia(t === "leads" ? converterPlanilha(r.data) : converterEntradasGrupo(r.data)),
-      error: (e) => setErro(`Não consegui ler o arquivo: ${e.message}`),
-    });
+  async function ler(f: File) {
+    setErro(""); setAbas([]); setConcluido(false); setArquivo(f.name); setLendo(true);
+    try {
+      const lidas = await lerArquivo(f);
+      setAbas(
+        lidas.map(({ nome, tabela }) => {
+          const c = classificarAba(nome, tabela);
+          return { nome, tabela, ...c, incluir: c.tipo !== "ignorar" && !c.copia, previa: previaDe(c.tipo, tabela) };
+        }),
+      );
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLendo(false);
+    }
   }
 
-  function trocarTipo(t: Tipo) {
-    setTipo(t);
-    if (arquivo) ler(arquivo, t);
+  function mudar(i: number, patch: Partial<EstadoAba>) {
+    setAbas((as) =>
+      as.map((a, j) => {
+        if (j !== i) return a;
+        const n = { ...a, ...patch };
+        if (patch.tipo && patch.tipo !== a.tipo) {
+          n.previa = previaDe(patch.tipo, a.tabela);
+          n.incluir = patch.tipo !== "ignorar";
+        }
+        return n;
+      }),
+    );
   }
+
+  const selecionadas = abas.filter((a) => a.incluir && a.tipo !== "ignorar" && a.previa && a.previa.colunasFaltando.length === 0);
+  const precisaPagina = selecionadas.some((a) => a.tipo === "leads");
+  const podeImportar = selecionadas.length > 0 && lancId !== "" && (!precisaPagina || !!pagina) && progresso === null;
 
   async function importar() {
-    if (!previa || lancId === "" || (tipo === "leads" && !pagina)) return;
-    setErro(""); setTotais(null); setProgresso(0);
-    const t: Totais = {};
+    if (!podeImportar) return;
+    setErro(""); setConcluido(false);
+    // Leads primeiro, depois as entradas (a ordem não muda o resultado, mas fica mais legível)
+    const ordem = [...selecionadas].sort((a, b) => (a.tipo === b.tipo ? 0 : a.tipo === "leads" ? -1 : 1));
     try {
-      for (let i = 0; i < previa.linhas.length; i += LOTE) {
-        const r = await fetch("/api/importar", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ lancamento_id: lancId, tipo, pagina_captura: pagina || null, linhas: previa.linhas.slice(i, i + LOTE) }),
-        });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.erro ?? `HTTP ${r.status}`);
-        for (const [k, v] of Object.entries(j)) if (typeof v === "number") t[k] = (t[k] ?? 0) + v;
-        setProgresso(Math.min(previa.linhas.length, i + LOTE));
+      for (const aba of ordem) {
+        const linhas = aba.previa!.linhas;
+        const t: Record<string, number> = {};
+        for (let i = 0; i < linhas.length; i += LOTE) {
+          setProgresso(`${aba.nome}: ${Math.min(linhas.length, i + LOTE)}/${linhas.length}`);
+          const r = await fetch("/api/importar", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ lancamento_id: lancId, tipo: aba.tipo, pagina_captura: pagina || null, linhas: linhas.slice(i, i + LOTE) }),
+          });
+          const j = await r.json();
+          if (!r.ok) throw new Error(`${aba.nome}: ${j.erro ?? `HTTP ${r.status}`}`);
+          for (const [k, v] of Object.entries(j)) if (typeof v === "number") t[k] = (t[k] ?? 0) + v;
+        }
+        const resultado =
+          aba.tipo === "leads"
+            ? `${t.novas ?? 0} novas, ${t.atualizadas ?? 0} atualizadas${t.repetidas ? `, ${t.repetidas} repetidas` : ""}`
+            : `${t.novas ?? 0} entradas novas (${(t.validas ?? 0) - (t.novas ?? 0)} já existiam)`;
+        setAbas((as) => as.map((a) => (a.nome === aba.nome ? { ...a, resultado } : a)));
       }
-      setTotais(t);
+      // Atualiza as estatísticas do banco (sem isso, as telas podem ficar lentas logo após importar muito)
+      setProgresso("atualizando estatísticas…");
+      await fetch("/api/importar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tipo: "finalizar" }) });
+      setConcluido(true);
       router.refresh();
     } catch (e) {
       setErro(e instanceof Error ? e.message : String(e));
@@ -67,107 +116,103 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
     }
   }
 
-  const datas = previa?.linhas.map((l) => ("criado_em" in l ? l.criado_em : l.entrou_em)).sort() ?? [];
-  const dataBR = (iso?: string) => iso?.slice(0, 10).split("-").reverse().join("/");
-  const noGrupo = tipo === "leads" ? (previa?.linhas as LinhaPlanilha[] | undefined)?.filter((l) => l.grupo).length ?? 0 : 0;
-  const temColunaGrupo = tipo === "leads" && (previa?.linhas as LinhaPlanilha[] | undefined)?.some((l) => l.grupo !== null);
-  const bloqueado = tipo === "leads" && !!previa?.pareceListaDeGrupo;
   const campo = "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950";
   const rotulo = "space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400";
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {([
-          ["leads", "Leads (inscrições da página de captura)"],
-          ["entradas", "Entradas no grupo (lista de quem entrou)"],
-        ] as const).map(([k, r]) => (
-          <button
-            key={k}
-            onClick={() => trocarTipo(k)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${tipo === k ? "border-emerald-600 bg-emerald-600 text-white" : "border-zinc-300 dark:border-zinc-700"}`}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
-
-      <div className={`grid gap-3 ${tipo === "leads" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+      <div className="grid gap-3 sm:grid-cols-3">
         <label className={rotulo}>
           Lançamento de destino
           <select className={`${campo} w-full`} value={lancId} onChange={(e) => setLancId(Number(e.target.value))}>
             {lancamentos.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
           </select>
         </label>
-        {tipo === "leads" && (
-          <label className={rotulo}>
-            Página de captura desta planilha
-            <select className={`${campo} w-full`} value={pagina} onChange={(e) => setPagina(e.target.value as typeof pagina)}>
-              <option value="">Escolha…</option>
-              <option value="trader">Trader (quem já opera)</option>
-              <option value="nunca_operou">Nunca operou</option>
-            </select>
-          </label>
-        )}
         <label className={rotulo}>
-          Arquivo CSV (Google Sheets → Arquivo → Fazer download → .csv, uma aba por vez)
-          <input type="file" accept=".csv,text/csv" className={`${campo} w-full`} onChange={(e) => e.target.files?.[0] && ler(e.target.files[0], tipo)} />
+          Página de captura destes leads
+          <select className={`${campo} w-full`} value={pagina} onChange={(e) => setPagina(e.target.value as typeof pagina)}>
+            <option value="">Escolha…</option>
+            <option value="trader">Trader (quem já opera)</option>
+            <option value="nunca_operou">Nunca operou</option>
+          </select>
+        </label>
+        <label className={rotulo}>
+          Planilha (.xlsx com todas as abas, ou .csv)
+          <input type="file" accept=".xlsx,.csv,text/csv" className={`${campo} w-full`} onChange={(e) => e.target.files?.[0] && ler(e.target.files[0])} />
         </label>
       </div>
 
-      {previa && previa.colunasFaltando.length > 0 && (
-        <p className="text-sm text-rose-600">Colunas obrigatórias não encontradas: {previa.colunasFaltando.join(", ")}.</p>
-      )}
+      {lendo && <p className="text-sm text-zinc-500">Lendo {arquivo}…</p>}
 
-      {previa && previa.colunasFaltando.length === 0 && (
+      {abas.length > 0 && (
         <div className="rounded-lg bg-zinc-50 p-4 text-sm dark:bg-zinc-950">
-          <p className="font-medium">{arquivo?.name}</p>
-          {bloqueado && (
-            <p className="mt-2 text-rose-600">
-              A coluna Grupo tem nomes de grupos, não TRUE/FALSE: este arquivo parece a <b>lista de entradas no grupo</b>. Troque para
-              &quot;Entradas no grupo&quot; acima.
-            </p>
-          )}
-          <ul className="mt-2 space-y-1 text-zinc-600 dark:text-zinc-400">
-            <li><b className="tabular">{previa.linhas.length}</b> linhas prontas para importar</li>
-            <li>Período: {dataBR(datas[0])} a {dataBR(datas.at(-1))}</li>
-            {tipo === "leads" && temColunaGrupo && (
-              <li>Marcadas como &quot;no grupo&quot;: <span className="tabular">{noGrupo}</span> ({previa.linhas.length ? Math.round((100 * noGrupo) / previa.linhas.length) : 0}%)</li>
-            )}
-            {tipo === "leads" && !temColunaGrupo && !bloqueado && (
-              <li className="text-amber-700 dark:text-amber-400">
-                Sem coluna Grupo (TRUE/FALSE): quem entrou no grupo vem da lista de entradas. Importe também a aba &quot;Leads Grupo&quot; em
-                &quot;Entradas no grupo&quot;.
-              </li>
-            )}
-            {tipo === "entradas" && (
-              <li>Grupos: {new Set((previa.linhas as LinhaEntrada[]).map((l) => l.grupo_nome ?? "—")).size} nomes distintos</li>
-            )}
-            {previa.rejeitadas.length > 0 && (
-              <li className="text-amber-700 dark:text-amber-400">
-                {previa.rejeitadas.length} linha(s) ignoradas:{" "}
-                {previa.rejeitadas.slice(0, 8).map((r) => `linha ${r.linha} (${r.motivo}: "${r.valor}")`).join("; ")}
-                {previa.rejeitadas.length > 8 ? "…" : ""}
-              </li>
-            )}
-          </ul>
-          <button
-            onClick={importar}
-            disabled={progresso !== null || previa.linhas.length === 0 || lancId === "" || (tipo === "leads" && !pagina) || bloqueado}
-            className="mt-4 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            {progresso !== null ? `Importando… ${progresso}/${previa.linhas.length}` : "Importar"}
-          </button>
-          {tipo === "leads" && !pagina && <span className="ml-3 text-xs text-amber-700 dark:text-amber-400">Escolha a página de captura antes de importar.</span>}
+          <p className="mb-3 font-medium">{arquivo} · {abas.length} aba(s)</p>
+          <div className="-mx-4 overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left">
+              <thead>
+                <tr className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800">
+                  <th className="px-4 py-2 font-medium">Importar</th>
+                  <th className="px-4 py-2 font-medium">Aba</th>
+                  <th className="px-4 py-2 font-medium">Tipo</th>
+                  <th className="px-4 py-2 font-medium">O que tem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {abas.map((a, i) => {
+                  const datas = a.previa?.linhas.map((l) => ("criado_em" in l ? l.criado_em : l.entrou_em)).sort() ?? [];
+                  const semGrupo = a.tipo === "leads" && a.previa && !(a.previa.linhas as LinhaPlanilha[]).some((l) => l.grupo !== null);
+                  return (
+                    <tr key={a.nome} className={a.incluir ? "" : "opacity-60"}>
+                      <td className="px-4 py-2 align-top">
+                        <input type="checkbox" checked={a.incluir} disabled={a.tipo === "ignorar"} onChange={(e) => mudar(i, { incluir: e.target.checked })} />
+                      </td>
+                      <td className="px-4 py-2 align-top font-medium">
+                        {a.nome}
+                        {a.copia && <span className="ml-2 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-normal text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">parece cópia</span>}
+                      </td>
+                      <td className="px-4 py-2 align-top">
+                        <select className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900" value={a.tipo} onChange={(e) => mudar(i, { tipo: e.target.value as TipoAba })}>
+                          <option value="leads">Leads</option>
+                          <option value="entradas">Entradas no grupo</option>
+                          <option value="ignorar">Ignorar</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-2 align-top text-xs text-zinc-600 dark:text-zinc-400">
+                        {a.tipo === "ignorar" && <span>{a.motivo} · {Math.max(0, a.tabela.length - 1)} linhas</span>}
+                        {a.previa && a.previa.colunasFaltando.length > 0 && (
+                          <span className="text-rose-600">Faltam colunas: {a.previa.colunasFaltando.join(", ")}</span>
+                        )}
+                        {a.previa && a.previa.colunasFaltando.length === 0 && (
+                          <>
+                            <b className="tabular">{a.previa.linhas.length}</b> linhas · {dataBR(datas[0])} a {dataBR(datas.at(-1))}
+                            {a.previa.rejeitadas.length > 0 && (
+                              <span className="text-amber-700 dark:text-amber-400" title={a.previa.rejeitadas.slice(0, 20).map((r) => `linha ${r.linha}: ${r.motivo} (${r.valor})`).join("\n")}>
+                                {" "}· {a.previa.rejeitadas.length} ignoradas
+                              </span>
+                            )}
+                            {semGrupo && <span className="block text-amber-700 dark:text-amber-400">Sem coluna Grupo (TRUE/FALSE): quem entrou vem da aba de entradas.</span>}
+                            {a.resultado && <span className="block font-medium text-emerald-700 dark:text-emerald-400">✓ {a.resultado}</span>}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              onClick={importar}
+              disabled={!podeImportar}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+            >
+              {progresso ? `Importando ${progresso}` : `Importar ${selecionadas.length} aba(s)`}
+            </button>
+            {precisaPagina && !pagina && <span className="text-xs text-amber-700 dark:text-amber-400">Escolha a página de captura dos leads.</span>}
+            {concluido && <span className="text-sm text-emerald-700 dark:text-emerald-400">Importação concluída. Reimportar não duplica.</span>}
+          </div>
         </div>
-      )}
-
-      {totais && (
-        <p className="text-sm text-emerald-700 dark:text-emerald-400">
-          {tipo === "leads"
-            ? <>Pronto: {totais.novas ?? 0} novas, {totais.atualizadas ?? 0} atualizadas{totais.repetidas ? `, ${totais.repetidas} repetidas na planilha` : ""}{totais.invalidas ? `, ${totais.invalidas} inválidas` : ""}. Linhas já importadas antes foram ignoradas.</>
-            : <>Pronto: {totais.novas ?? 0} entradas novas registradas ({(totais.validas ?? 0) - (totais.novas ?? 0)} já existiam). Os leads com essas entradas agora aparecem como &quot;no grupo&quot;.</>}
-        </p>
       )}
       {erro && <p className="text-sm text-rose-600">{erro}</p>}
     </div>

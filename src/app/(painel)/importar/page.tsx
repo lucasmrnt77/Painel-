@@ -13,15 +13,14 @@ export default async function Importar({ searchParams }: PageProps<"/importar">)
       <Cartao titulo="Planilha de leads (histórico)">
         <div className="mb-4 space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
           <p>
-            <b>Leads:</b> uma planilha por página de captura (Trader ou Nunca operou), escolhendo a página. Colunas reconhecidas: Fecha, Hora,
-            Telefono, Experiencia, Edad, Genero, Respuesta_dinero, Campana/Campaign, Anuncio, utm_source, utm_medium, utm_term, Landing,
-            Pagina_captura (variante da página), Pag. de gracias e Grupo (TRUE/FALSE). CHEQUEO, Pais e as demais são ignoradas.
+            Suba a planilha inteira em <b>.xlsx</b> (Google Sheets → Arquivo → Fazer download → Microsoft Excel). O painel lê todas as abas e
+            identifica sozinho o que é <b>Leads</b> (inscrições) e o que é <b>Entradas no grupo</b> (Fecha, Hora, Telefono, Grupo). Abas que
+            parecem cópia ou que não têm Fecha/Hora/Telefono ficam desmarcadas — confira antes de importar. Também aceita .csv (uma aba).
           </p>
           <p>
-            <b>Entradas no grupo:</b> a lista de quem entrou nos grupos (Fecha, Hora, Telefono, Grupo), como a aba &quot;Leads Grupo&quot;.
-            Ela marca os leads como &quot;no grupo&quot; e dá o tempo entre a inscrição e a entrada.
+            Escolha a página de captura (Trader ou Nunca operou) dos leads desta planilha. Reimportar é seguro: nada duplica, só a coluna
+            Grupo e a página são atualizadas.
           </p>
-          <p>Reimportar é seguro: nada duplica.</p>
         </div>
         <Importador lancamentos={opcoes} />
       </Cartao>

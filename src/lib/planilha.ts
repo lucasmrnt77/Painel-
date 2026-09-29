@@ -194,6 +194,11 @@ export function converterEntradasGrupo(tabela: string[][]): ResultadoEntradas {
     if (campo && idx[campo] === undefined) idx[campo] = i;
   });
   const colunasFaltando = (["fecha", "hora", "telefone"] as const).filter((c) => idx[c] === undefined);
+  // Sem cabeçalho "Grupo": procura uma coluna sem título cujo conteúdo seja o nome do grupo
+  if (idx.grupo === undefined) {
+    const col = colunaDeNomesDeGrupo(tabela);
+    if (col !== null) idx.grupo = col;
+  }
   const linhas: LinhaEntrada[] = [];
   const rejeitadas: ResultadoEntradas["rejeitadas"] = [];
   if (colunasFaltando.length) return { linhas, rejeitadas, colunasFaltando: [...colunasFaltando] };
@@ -208,4 +213,64 @@ export function converterEntradasGrupo(tabela: string[][]): ResultadoEntradas {
     linhas.push({ chave: `${fecha}|${hora}|${tel}|${grupo}`, entrou_em: quando, telefone, grupo_nome: grupo || null });
   });
   return { linhas, rejeitadas, colunasFaltando: [] };
+}
+
+// ---------------------------------------------------------------------
+// Planilhas .xlsx com várias abas
+// ---------------------------------------------------------------------
+
+/** Converte o valor de uma célula (.xlsx) no mesmo texto que o Google Sheets exportaria em CSV. */
+export function celulaParaTexto(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (v instanceof Date) {
+    if (Number.isNaN(v.getTime())) return "";
+    const p = (n: number) => String(n).padStart(2, "0");
+    const hora = `${v.getUTCHours()}:${p(v.getUTCMinutes())}:${p(v.getUTCSeconds())}`;
+    // Excel guarda horas "puras" como datas em 30/12/1899
+    if (v.getUTCFullYear() <= 1900) return hora;
+    const data = `${p(v.getUTCDate())}/${p(v.getUTCMonth() + 1)}/${v.getUTCFullYear()}`;
+    return v.getUTCHours() || v.getUTCMinutes() || v.getUTCSeconds() ? `${data} ${hora}` : data;
+  }
+  if (typeof v === "number") return Number.isInteger(v) ? String(v) : String(v);
+  if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
+  return String(v);
+}
+
+/** Coluna sem título em que a maioria dos valores é texto (ex.: "La Semana del Inversionista #5"). */
+export function colunaDeNomesDeGrupo(tabela: string[][]): number | null {
+  const [cab = [], ...dados] = tabela;
+  const amostra = dados.slice(0, 500);
+  for (let i = 0; i < cab.length; i++) {
+    if ((cab[i] ?? "").trim() !== "" && !/^\d+$/.test((cab[i] ?? "").trim())) continue;
+    const valores = amostra.map((r) => (r[i] ?? "").trim()).filter(Boolean);
+    if (valores.length < Math.max(5, amostra.length * 0.2)) continue;
+    const texto = valores.filter((v) => /[A-Za-zÀ-ÿ]/.test(v)).length;
+    if (texto / valores.length > 0.8) return i;
+  }
+  return null;
+}
+
+export type TipoAba = "leads" | "entradas" | "ignorar";
+
+/** Descobre o que é cada aba: leads, lista de entradas no grupo, ou nada. */
+export function classificarAba(nome: string, tabela: string[][]): { tipo: TipoAba; motivo: string; copia: boolean } {
+  const copia = /c[oó]pia|copy|backup/i.test(nome);
+  const cab = (tabela[0] ?? []).map((c) => semAcento(c ?? ""));
+  const tem = (...ks: string[]) => ks.some((k) => cab.includes(k));
+  const linhas = tabela.length - 1;
+  if (!tem("fecha", "data") || !tem("hora") || !tem("telefono", "telefone", "whatsapp")) {
+    return { tipo: "ignorar", motivo: "sem as colunas Fecha, Hora e Telefono", copia };
+  }
+  if (linhas < 1) return { tipo: "ignorar", motivo: "vazia", copia };
+  const camposDeLead = tem("utm_source", "anuncio", "experiencia", "edad", "campana", "campaign", "pagina_captura", "landing");
+  if (camposDeLead) return { tipo: "leads", motivo: "inscrições da página de captura", copia };
+  if (tem("grupo")) {
+    const r = converterPlanilha(tabela);
+    if (r.pareceListaDeGrupo) return { tipo: "entradas", motivo: "lista de quem entrou nos grupos", copia };
+    return { tipo: "leads", motivo: "leads com coluna Grupo (TRUE/FALSE)", copia };
+  }
+  if (colunaDeNomesDeGrupo(tabela) !== null || /grupo|group|entradas|membros/i.test(nome)) {
+    return { tipo: "entradas", motivo: "lista de quem entrou nos grupos", copia };
+  }
+  return { tipo: "ignorar", motivo: "não reconhecida", copia };
 }

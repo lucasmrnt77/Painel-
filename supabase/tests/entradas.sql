@@ -35,3 +35,7 @@ BEGIN
 END $$;
 RESET ROLE;
 \echo 'ENTRADAS OK'
+SET ROLE service_role;
+SELECT atualizar_estatisticas();
+RESET ROLE;
+\echo 'ESTATISTICAS OK'
