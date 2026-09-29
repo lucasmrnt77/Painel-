@@ -66,6 +66,7 @@ export async function POST(req: Request) {
     p_utm: dados.utm,
     p_pagina: dados.pagina ?? req.headers.get("referer"),
     p_payload: bruto,
+    p_extras: { experiencia: dados.experiencia, landing: dados.landing, pagina_obrigado: dados.pagina_obrigado },
   });
 
   if (error) {

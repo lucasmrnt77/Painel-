@@ -7,6 +7,7 @@ import { db } from "./supabase";
 import { iguaisSeguro } from "./seguranca";
 import { gravarSessao, apagarSessao, exigirLogin } from "./sessao";
 import { normalizarTelefone } from "./telefone";
+import { enviarTeste } from "./monitor";
 
 export type EstadoForm = { erro?: string; ok?: string } | undefined;
 
@@ -43,7 +44,23 @@ export async function salvarLancamento(_: EstadoForm, fd: FormData): Promise<Est
   if (!Number.isInteger(minutos) || minutos < 1 || minutos > 1440) return { erro: "Minutos para reenvio entre 1 e 1440" };
   if (link && !/^https:\/\//.test(link)) return { erro: "O link do grupo deve começar com https://" };
 
-  const linha = { slug, nome, link_grupo: link, sendflow_ref: texto(fd, "sendflow_ref"), minutos_reenvio: minutos };
+  const alertaMin = Number(texto(fd, "alerta_minutos_sem_entrada") ?? "20");
+  const resumoMin = Number(texto(fd, "resumo_minutos") ?? "60");
+  if (!Number.isInteger(alertaMin) || alertaMin < 5 || alertaMin > 720) return { erro: "Alerta: entre 5 e 720 minutos sem entrada" };
+  if (![0, 15, 20, 30, 60, 120, 180, 240].includes(resumoMin)) return { erro: "Resumo inválido" };
+  const telefones: string[] = [];
+  for (const item of String(fd.get("alerta_telefones") ?? "").split(/[\n,;]+/)) {
+    if (!item.trim()) continue;
+    const t = normalizarTelefone(item);
+    if (!t || t.length < 11) return { erro: `Telefone de alerta inválido (use DDI): ${item.trim()}` };
+    if (!telefones.includes(t)) telefones.push(t);
+  }
+  if (telefones.length > 10) return { erro: "Máximo de 10 telefones de alerta" };
+
+  const linha = {
+    slug, nome, link_grupo: link, sendflow_ref: texto(fd, "sendflow_ref"), minutos_reenvio: minutos,
+    alerta_minutos_sem_entrada: alertaMin, resumo_minutos: resumoMin, alerta_telefones: telefones,
+  };
   const { error } = id
     ? await db().from("lancamentos").update(linha).eq("id", Number(id))
     : await db().from("lancamentos").insert(linha);
@@ -120,4 +137,30 @@ export async function importarMembros(_: EstadoForm, fd: FormData): Promise<Esta
   revalidatePath("/", "layout");
   const aplicados = (data as { aplicados?: number })?.aplicados ?? numeros.length;
   return { ok: `${aplicados} números importados${rejeitadas ? ` · ${rejeitadas} linhas ignoradas` : ""}` };
+}
+
+export async function alternarMonitor(fd: FormData) {
+  await exigirLogin();
+  const id = Number(fd.get("id"));
+  const ativo = fd.get("ativo") === "1";
+  if (!Number.isInteger(id)) return;
+  const { error } = await db().rpc("monitor_definir", { p_lancamento_id: id, p_ativo: ativo });
+  if (error) throw new Error(error.message);
+  revalidatePath("/", "layout");
+}
+
+export async function testarAlerta(_: EstadoForm, fd: FormData): Promise<EstadoForm> {
+  await exigirLogin();
+  const id = Number(fd.get("id"));
+  if (!Number.isInteger(id)) return { erro: "Lançamento inválido" };
+  try {
+    const r = await enviarTeste(id);
+    revalidatePath("/", "layout");
+    const status = r?.envio;
+    if (status === "enviado") return { ok: "Teste enviado para os telefones cadastrados" };
+    if (status === "sem_envio") return { ok: "Teste registrado no painel (envio por WhatsApp ainda não configurado ou sem telefones)" };
+    return { erro: `Falha no envio (${status}). Veja o detalhe no alerta.` };
+  } catch (e) {
+    return { erro: e instanceof Error ? e.message : String(e) };
+  }
 }

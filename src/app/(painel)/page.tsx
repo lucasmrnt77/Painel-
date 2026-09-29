@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { contexto } from "@/lib/contexto";
-import { serieDiaria } from "@/lib/dados";
+import { serieDiaria, serieHoraria, situacaoMonitor, ultimosAlertas } from "@/lib/dados";
+import { envioConfigurado } from "@/lib/whatsapp";
+import { CartaoMonitor, GraficoHoras } from "@/components/monitor";
+import { AutoAtualizar } from "@/components/auto-atualizar";
 import { dia, numero } from "@/lib/formato";
 import { Cartao, Kpi, montarHref } from "@/components/ui";
 import { CabecalhoPagina, SemLancamento } from "@/components/cabecalho";
@@ -10,14 +13,30 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   if (!atual) {
     return (<><CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={null} /><SemLancamento /></>);
   }
-  const serie = await serieDiaria(atual.lancamento_id);
-  const maximo = Math.max(1, ...serie.map((s) => Math.max(s.inscricoes, s.entradas)));
+  const [serie, horas, situacao, alertas] = await Promise.all([
+    serieDiaria(atual.lancamento_id),
+    serieHoraria(atual.lancamento_id, 24),
+    situacaoMonitor(atual.lancamento_id),
+    ultimosAlertas(atual.lancamento_id),
+  ]);
+  const maximo = Math.max(1, ...serie.map((s) => s.inscricoes));
   const pct = (n: number) => (atual.inscritos ? `${Math.round((100 * n) / atual.inscritos)}% dos inscritos` : undefined);
   const lk = (status: string) => montarHref("/inscricoes", { l: atual.slug, status });
 
   return (
     <>
+      <AutoAtualizar segundos={60} />
       <CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={atual} />
+
+      <CartaoMonitor s={situacao} alertas={alertas} envioConfigurado={envioConfigurado()} />
+
+      <Cartao titulo="Inscrições x entradas por hora (últimas 24h, horário UY)">
+        <div className="mb-2 flex gap-4 text-xs text-zinc-500">
+          <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-zinc-400" />Inscrições</span>
+          <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-emerald-500" />Entradas no grupo</span>
+        </div>
+        <GraficoHoras serie={horas} />
+      </Cartao>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi rotulo="Inscritos (únicos)" valor={numero(atual.inscritos)} detalhe={`${numero(atual.envios_total)} envios do formulário`} />
@@ -31,25 +50,25 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Cartao titulo="Por dia (horário UY)" className="lg:col-span-2">
+        <Cartao titulo="Por dia — últimos 21 dias com movimento (horário UY)" className="lg:col-span-2">
           {serie.length === 0 ? (
             <p className="py-6 text-center text-sm text-zinc-500">Sem movimento ainda.</p>
           ) : (
             <div className="space-y-2">
               <div className="flex gap-4 text-xs text-zinc-500">
                 <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-zinc-400" />Inscrições</span>
-                <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-emerald-500" />Entradas no grupo</span>
-                <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-rose-400" />Saídas</span>
+                <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-emerald-500" />Desses, no grupo</span>
+                <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-rose-400" />Saídas do grupo</span>
               </div>
               {serie.map((s) => (
                 <div key={s.dia} className="grid grid-cols-[3rem_1fr_7rem] items-center gap-3 text-xs">
                   <span className="tabular text-zinc-500">{dia(s.dia)}</span>
                   <div className="space-y-0.5">
                     <div className="h-2 rounded-sm bg-zinc-400" style={{ width: `${(100 * s.inscricoes) / maximo}%` }} />
-                    <div className="h-2 rounded-sm bg-emerald-500" style={{ width: `${(100 * s.entradas) / maximo}%` }} />
+                    <div className="h-2 rounded-sm bg-emerald-500" style={{ width: `${(100 * s.inscritos_no_grupo) / maximo}%` }} />
                     {s.saidas > 0 && <div className="h-2 rounded-sm bg-rose-400" style={{ width: `${(100 * s.saidas) / maximo}%` }} />}
                   </div>
-                  <span className="tabular text-right text-zinc-600 dark:text-zinc-400">{s.inscricoes} · {s.entradas} · {s.saidas}</span>
+                  <span className="tabular text-right text-zinc-600 dark:text-zinc-400">{s.inscricoes} · {s.inscritos_no_grupo} · {s.saidas}</span>
                 </div>
               ))}
             </div>

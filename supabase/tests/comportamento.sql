@@ -19,9 +19,9 @@ SELECT registrar_inscricao('downsell', 'Eva', 'e@x.com', '099 555 444', '{}', NU
 -- Deixa Caio e Dora "antigos" (> 10 min). Inscricoes não aceitam UPDATE,
 -- então reinsere com criado_em no passado via postgres.
 RESET ROLE;
-ALTER TABLE inscricoes DISABLE TRIGGER inscricoes_sem_update;
+ALTER TABLE inscricoes DISABLE TRIGGER USER;
 UPDATE inscricoes SET criado_em = now() - interval '30 minutes' WHERE nome IN ('Caio','Dora','Beto','Ana','Eva');
-ALTER TABLE inscricoes ENABLE TRIGGER inscricoes_sem_update;
+ALTER TABLE inscricoes ENABLE TRIGGER USER;
 SET ROLE service_role;
 
 -- Webhook: Ana entra (JID UY), Beto entra (AR 549), Caio entra e sai (BR sem o 9),

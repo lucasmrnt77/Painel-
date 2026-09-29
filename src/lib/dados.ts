@@ -153,9 +153,86 @@ export async function listarWebhooks(pagina = 1) {
 export async function serieDiaria(lancamentoId: number) {
   const { data, error } = await db()
     .from("v_serie_diaria")
-    .select("dia, inscricoes, entradas, saidas")
+    .select("dia, inscricoes, entradas, saidas, inscritos_no_grupo")
     .eq("lancamento_id", lancamentoId)
-    .order("dia");
+    .order("dia", { ascending: false })
+    .limit(21);
   if (error) falhar("serie", error);
-  return (data ?? []) as { dia: string; inscricoes: number; entradas: number; saidas: number }[];
+  return ((data ?? []) as { dia: string; inscricoes: number; entradas: number; saidas: number; inscritos_no_grupo: number }[]).reverse();
+}
+
+export type Janela = { de: string; ate: string; inscricoes: number; entradas: number; saidas: number; inscritos_no_grupo: number };
+
+export type SituacaoMonitor = {
+  lancamento_id: number;
+  monitor_ativo: boolean;
+  monitor_ligado_em: string | null;
+  alerta_minutos_sem_entrada: number;
+  resumo_minutos: number;
+  alerta_telefones: string[];
+  ultima_entrada_em: string | null;
+  minutos_desde_ultima_entrada: number | null;
+  ultimos_20: Janela;
+  ultimos_60: Janela;
+};
+
+export type Alerta = {
+  id: number;
+  tipo: string;
+  mensagem: string;
+  criado_em: string;
+  envio_status: string;
+};
+
+export async function situacaoMonitor(lancamentoId: number): Promise<SituacaoMonitor> {
+  const { data, error } = await db().rpc("monitor_situacao", { p_lancamento_id: lancamentoId });
+  if (error) falhar("monitor", error);
+  return data as SituacaoMonitor;
+}
+
+export async function ultimosAlertas(lancamentoId: number, limite = 8): Promise<Alerta[]> {
+  const { data, error } = await db()
+    .from("alertas")
+    .select("id, tipo, mensagem, criado_em, envio_status")
+    .eq("lancamento_id", lancamentoId)
+    .order("id", { ascending: false })
+    .limit(limite);
+  if (error) falhar("alertas", error);
+  return (data ?? []) as Alerta[];
+}
+
+export async function serieHoraria(lancamentoId: number, horas = 24) {
+  // v_serie_horaria.hora está no horário do Uruguai (UTC-3, sem horário de verão)
+  const desde = new Date(Date.now() - horas * 3600_000 - 3 * 3600_000).toISOString();
+  const { data, error } = await db()
+    .from("v_serie_horaria")
+    .select("hora, inscricoes, entradas, saidas")
+    .eq("lancamento_id", lancamentoId)
+    .gte("hora", desde.slice(0, 13) + ":00:00")
+    .order("hora");
+  if (error) falhar("serie_horaria", error);
+  // Preenche as horas sem movimento com zero (horário UY = UTC-3)
+  type H = { hora: string; inscricoes: number; entradas: number; saidas: number };
+  const porHora = new Map(((data ?? []) as H[]).map((s) => [s.hora.slice(0, 13), s]));
+  const agoraUY = Date.now() - 3 * 3600_000;
+  return Array.from({ length: horas }, (_, i) => {
+    const k = new Date(agoraUY - (horas - 1 - i) * 3600_000).toISOString().slice(0, 13);
+    return porHora.get(k) ?? { hora: `${k}:00:00`, inscricoes: 0, entradas: 0, saidas: 0 };
+  });
+}
+
+export type ConfigLancamento = {
+  id: number;
+  monitor_ativo: boolean;
+  alerta_minutos_sem_entrada: number;
+  resumo_minutos: number;
+  alerta_telefones: string[];
+};
+
+export async function configsLancamentos(): Promise<Map<number, ConfigLancamento>> {
+  const { data, error } = await db()
+    .from("lancamentos")
+    .select("id, monitor_ativo, alerta_minutos_sem_entrada, resumo_minutos, alerta_telefones");
+  if (error) falhar("configs", error);
+  return new Map(((data ?? []) as ConfigLancamento[]).map((c) => [c.id, c]));
 }

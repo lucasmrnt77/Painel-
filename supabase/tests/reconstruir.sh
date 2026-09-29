@@ -28,3 +28,5 @@ echo "== reaplicar 000 deve falhar pelo guard"
 if $P -f migrations/000-base.sql 2>/dev/null; then echo "ERRO: guard não bloqueou"; exit 1; else echo "guard OK"; fi
 echo "== comportamento"
 $P -f tests/comportamento.sql
+[ -f tests/monitor.sql ] && $P -f tests/monitor.sql
+[ -f tests/historico.sql ] && $P -f tests/historico.sql

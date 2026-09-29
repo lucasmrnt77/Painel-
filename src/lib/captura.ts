@@ -4,6 +4,9 @@ export type DadosCaptura = {
   telefone: string | null;
   lancamento: string | null;
   pagina: string | null;
+  experiencia: string | null;
+  landing: string | null;
+  pagina_obrigado: string | null;
   utm: Record<string, string>;
 };
 
@@ -16,6 +19,10 @@ const ALIAS: Record<string, keyof Omit<DadosCaptura, "utm"> | `utm_${string}`> =
   telefono: "telefone", mobile: "telefone", phone_number: "telefone", numero: "telefone", fone: "telefone",
   lancamento: "lancamento", "lançamento": "lancamento", launch: "lancamento", lanzamiento: "lancamento",
   pagina: "pagina", page: "pagina", url: "pagina", page_url: "pagina", referrer: "pagina", origem: "pagina",
+  experiencia: "experiencia", experience: "experiencia", nivel: "experiencia", nivel_experiencia: "experiencia",
+  landing: "landing", landing_page: "landing",
+  pagina_obrigado: "pagina_obrigado", pagina_de_obrigado: "pagina_obrigado", pagina_gracias: "pagina_obrigado",
+  pagina_de_gracias: "pagina_obrigado", thank_you_page: "pagina_obrigado", obrigado: "pagina_obrigado",
   utm_source: "utm_source", utm_medium: "utm_medium", utm_campaign: "utm_campaign",
   utm_content: "utm_content", utm_term: "utm_term",
 };
@@ -54,7 +61,10 @@ function achatar(obj: unknown, prefixo = "", saida: Record<string, string> = {},
 
 export function extrairCaptura(bruto: unknown, query?: URLSearchParams): DadosCaptura {
   const plano = achatar(bruto);
-  const out: DadosCaptura = { nome: null, email: null, telefone: null, lancamento: null, pagina: null, utm: {} };
+  const out: DadosCaptura = {
+    nome: null, email: null, telefone: null, lancamento: null, pagina: null,
+    experiencia: null, landing: null, pagina_obrigado: null, utm: {},
+  };
   const aplicar = (chave: string, valor: string) => {
     const v = valor.trim();
     if (!v) return;

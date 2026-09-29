@@ -26,6 +26,14 @@ Stack: Next.js 16 + TypeScript + Tailwind, Supabase (Postgres + PostgREST), depl
    | 4 | `supabase/checks/001-pre.sql` | `pronto_para_migrar = true` |
    | 5 | `supabase/migrations/001-views.sql` | "Success. No rows returned" |
    | 6 | `supabase/checks/001-post.sql` | `tudo_ok = true` |
+   | 7 | `supabase/checks/002-pre.sql` | `pronto_para_migrar = true` |
+   | 8 | `supabase/migrations/002-monitor.sql` | "Success. No rows returned" |
+   | 9 | `supabase/checks/002-post.sql` | `tudo_ok = true` |
+   | 10 | `supabase/checks/003-pre.sql` | `pronto_para_migrar = true` |
+   | 11 | `supabase/migrations/003-historico.sql` | "Success. No rows returned" |
+   | 12 | `supabase/checks/003-post.sql` | `tudo_ok = true` |
+
+   Quem já rodou 000 e 001 roda só do passo 7 em diante.
 
    Se algum check não der `true`, pare e me mande o resultado.
 3. Em **Project Settings → API** copie:
@@ -49,6 +57,9 @@ Stack: Next.js 16 + TypeScript + Tailwind, Supabase (Postgres + PostgREST), depl
    | `CAPTURA_TOKEN` | token que a página de captura manda |
    | `SENDFLOW_WEBHOOK_TOKEN` | token que vai na URL do webhook do Sendflow |
    | `CAPTURA_ORIGENS` | só se a página chamar a API direto do navegador: domínio(s) da página, separados por vírgula |
+   | `CRON_SECRET` | código aleatório; a Vercel usa para chamar o monitor a cada 2 min |
+   | `WHATSAPP_WEBHOOK_URL` | (opcional) URL que dispara o WhatsApp dos alertas — ver "Monitor de tráfego" |
+   | `WHATSAPP_WEBHOOK_TOKEN` | (opcional) enviado como `Authorization: Bearer ...` nessa URL |
 
    Para gerar tokens/segredos: `openssl rand -hex 32` (ou `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
    Use um valor diferente para cada um.
@@ -155,6 +166,62 @@ Para apagar inscrições de teste (SQL Editor):
 ```sql
 DELETE FROM inscricoes WHERE email = 'teste@x.com';
 ```
+
+## Monitor de tráfego
+
+Na **Visão geral**, botão **Ligar monitor** (ligue quando o tráfego começar, desligue quando pausar).
+Com o monitor ligado, o Cron da Vercel (`vercel.json`, a cada 2 min — precisa do plano Pro) roda
+`/api/cron/monitor` e:
+
+- **Sem entradas:** se passar N minutos (padrão 20) sem ninguém entrar no grupo, cria um alerta.
+  Se o silêncio continuar, alerta de novo a cada N minutos. A mensagem diz se houve inscrições no
+  período (problema na página de obrigado / link) ou não (tráfego parado).
+- **Entradas retomadas:** avisa quando alguém entra depois de um alerta.
+- **Resumo periódico** (padrão de hora em hora): inscrições, entradas, saídas e % dos inscritos do
+  período que já estão no grupo.
+
+Configuração por lançamento (aba Lançamentos → Editar): minutos sem entrada, intervalo do resumo e
+os WhatsApp que recebem (com DDI). Os alertas aparecem sempre no painel; o **envio por WhatsApp**
+acontece quando `WHATSAPP_WEBHOOK_URL` estiver configurada. O painel faz um POST por telefone:
+
+```json
+{ "telefone": "5511999999999", "mensagem": "⚠️ *Lançamento*\nSem entradas no grupo há *20 min*...", "tipo": "sem_entradas", "origem": "painel-sendflow" }
+```
+
+Enquanto a ferramenta de envio não é definida, dá para apontar essa URL para um cenário do
+Make/n8n que repassa ao WhatsApp. Quando a ferramenta for escolhida, é só adicionar o driver em
+`src/lib/whatsapp.ts`. O botão **Enviar alerta de teste** confere a configuração.
+
+Os alertas não duplicam, mesmo se o Cron disparar duas vezes (chave única por alerta).
+
+## Histórico (planilha) e Análise
+
+**Importar:** aba **Importar** → escolha o lançamento → selecione o CSV da planilha
+"Página de Traders – Leads" (Google Sheets → Arquivo → Fazer download → .csv) → **Importar**.
+
+- Colunas usadas: Fecha, Hora, Experiencia, Telefono, Campana (→ utm_campaign), Anuncio (→ utm_content),
+  utm_source, utm_medium, utm_term, Landing, Pagina de gracias, Grupo. CHEQUEO e Pais são ignoradas
+  (o país é calculado pelo DDI).
+- Data/hora interpretadas no horário do Uruguai.
+- Telefones com lixo são limpos (`598...,`, `598...#96`, `54+549...`). Linhas sem telefone válido são
+  listadas e ignoradas.
+- Reimportar a planilha atualizada é seguro: não duplica, só atualiza a coluna Grupo.
+- Para os leads da planilha, "no grupo" vem da coluna Grupo; se o Sendflow tiver dados da pessoa,
+  eles prevalecem.
+
+**Análise:** taxa de entrada no grupo quebrada por anúncio, conjunto, campanha, posicionamento,
+canal, país, experiência, landing, página de obrigado, dia, hora do dia, dia da semana ou
+lançamento, com filtros. As UTMs do Meta são quebradas assim:
+
+| UTM | Formato | Vira |
+|---|---|---|
+| `utm_source` | `{conjunto}\|{anúncio}` | Conjunto, Anúncio |
+| `utm_medium` | `{posicionamento}\|{campanha}` | Posicionamento, Campanha (Meta) |
+| `utm_term` | `{anúncio}\|{id do anúncio}` | id do anúncio |
+| `utm_content` | código curto (ex.: `105v15`) | Anúncio (agrupamento principal) |
+
+Para os próximos lançamentos, a página de captura deve mandar os mesmos campos: além de nome,
+e-mail, telefone e UTMs, os campos ocultos `experiencia`, `landing` e `pagina_obrigado`.
 
 ## Reenvio automático (próxima etapa)
 

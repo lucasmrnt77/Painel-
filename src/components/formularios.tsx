@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { entrar, importarMembros, salvarLancamento, type EstadoForm } from "@/lib/acoes";
+import { entrar, importarMembros, salvarLancamento, testarAlerta, type EstadoForm } from "@/lib/acoes";
 
 const campo = "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950";
 const botao = "rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300";
@@ -24,7 +24,10 @@ export function FormLogin() {
   );
 }
 
-type Lanc = { lancamento_id: number; slug: string; nome: string; link_grupo: string | null; sendflow_ref: string | null; minutos_reenvio: number };
+type Lanc = {
+  lancamento_id: number; slug: string; nome: string; link_grupo: string | null; sendflow_ref: string | null; minutos_reenvio: number;
+  alerta_minutos_sem_entrada?: number; resumo_minutos?: number; alerta_telefones?: string[];
+};
 
 export function FormLancamento({ lancamento }: { lancamento?: Lanc }) {
   const [estado, acao, pendente] = useActionState(salvarLancamento, undefined);
@@ -51,6 +54,25 @@ export function FormLancamento({ lancamento }: { lancamento?: Lanc }) {
         Minutos até considerar &quot;fora do grupo&quot;
         <input name="minutos_reenvio" type="number" min={1} max={1440} defaultValue={lancamento?.minutos_reenvio ?? 10} className={campo} />
       </label>
+      <div className="sm:col-span-2 mt-2 border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-500 dark:border-zinc-800">Monitor de tráfego</div>
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        Alertar após quantos minutos sem ninguém entrar
+        <input name="alerta_minutos_sem_entrada" type="number" min={5} max={720} defaultValue={lancamento?.alerta_minutos_sem_entrada ?? 20} className={campo} />
+      </label>
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        Resumo periódico
+        <select name="resumo_minutos" defaultValue={String(lancamento?.resumo_minutos ?? 60)} className={campo}>
+          <option value="0">Desligado</option>
+          <option value="30">A cada 30 min</option>
+          <option value="60">De hora em hora</option>
+          <option value="120">A cada 2 horas</option>
+          <option value="240">A cada 4 horas</option>
+        </select>
+      </label>
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 sm:col-span-2">
+        WhatsApp que recebem os alertas (com DDI, um por linha)
+        <textarea name="alerta_telefones" rows={3} defaultValue={(lancamento?.alerta_telefones ?? []).join("\n")} placeholder={"5511999999999\n59899123456"} className={`${campo} font-mono`} />
+      </label>
       <div className="flex items-end gap-3">
         <button disabled={pendente} className={botao}>{pendente ? "Salvando…" : lancamento ? "Salvar alterações" : "Criar lançamento"}</button>
         <Mensagem estado={estado} />
@@ -73,6 +95,19 @@ export function FormImportar({ lancamentoId }: { lancamentoId: number }) {
         <button disabled={pendente} className={botao}>{pendente ? "Importando…" : "Importar números"}</button>
         <Mensagem estado={estado} />
       </div>
+    </form>
+  );
+}
+
+export function FormTesteAlerta({ lancamentoId }: { lancamentoId: number }) {
+  const [estado, acao, pendente] = useActionState(testarAlerta, undefined);
+  return (
+    <form action={acao} className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="id" value={lancamentoId} />
+      <button disabled={pendente} className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800">
+        {pendente ? "Enviando…" : "Enviar alerta de teste"}
+      </button>
+      <Mensagem estado={estado} />
     </form>
   );
 }

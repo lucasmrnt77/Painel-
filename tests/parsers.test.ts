@@ -113,3 +113,23 @@ test("captura: formato {id, value}", () => {
   assert.equal(d.telefone, "099000111");
   assert.equal(nomeDoCampo("form_fields.phone"), "phone");
 });
+
+test("captura: experiência, landing e página de obrigado", () => {
+  const d = extrairCaptura({ nome: "A", telefone: "59899123456", "fields[experiencia][value]": "nunca", landing: "Trader-Uruguay", pagina_gracias: "/gracias-video-general" });
+  assert.equal(d.experiencia, "nunca");
+  assert.equal(d.landing, "Trader-Uruguay");
+  assert.equal(d.pagina_obrigado, "/gracias-video-general");
+});
+
+test("mensagens do monitor", async () => {
+  const { mensagemAlerta } = await import("../src/lib/mensagens");
+  const j = { de: "2026-10-01T13:00:00Z", ate: "2026-10-01T13:21:00Z", inscricoes: 0, entradas: 0, saidas: 0, inscritos_no_grupo: 0 };
+  const m1 = mensagemAlerta("sem_entradas", "ET Out", { minutos_sem_entrada: 21, ultima_entrada_em: "2026-10-01T13:00:00Z", janela: j });
+  assert.match(m1, /21 min/);
+  assert.match(m1, /10:00/);
+  assert.match(m1, /tráfego parece parado/);
+  const m2 = mensagemAlerta("sem_entradas", "ET Out", { minutos_sem_entrada: 21, ultima_entrada_em: null, janela: { ...j, inscricoes: 5 } });
+  assert.match(m2, /página de obrigado/);
+  const m3 = mensagemAlerta("resumo", "ET Out", { janela: { ...j, inscricoes: 50, entradas: 40, inscritos_no_grupo: 41 } });
+  assert.match(m3, /82%/);
+});

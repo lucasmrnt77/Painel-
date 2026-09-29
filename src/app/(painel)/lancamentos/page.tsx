@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { contexto } from "@/lib/contexto";
+import { configsLancamentos } from "@/lib/dados";
 import { ativarLancamento, desativarLancamento } from "@/lib/acoes";
 import { dataHora, numero } from "@/lib/formato";
 import { Cartao } from "@/components/ui";
@@ -12,6 +13,7 @@ function Codigo({ children }: { children: string }) {
 
 export default async function Lancamentos({ searchParams }: PageProps<"/lancamentos">) {
   const { resumos, atual } = await contexto(await searchParams);
+  const configs = await configsLancamentos();
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "SEU-DOMINIO.vercel.app";
   const proto = h.get("x-forwarded-proto") ?? "https";
@@ -46,10 +48,11 @@ export default async function Lancamentos({ searchParams }: PageProps<"/lancamen
         >
           <p className="mb-3 text-xs text-zinc-500">
             Criado em {dataHora(r.criado_em)} · {numero(r.inscritos)} inscritos · {numero(r.membros_no_grupo)} no grupo
+            {configs.get(r.lancamento_id)?.monitor_ativo && <span className="ml-2 font-medium text-emerald-700 dark:text-emerald-400">· monitor ligado</span>}
           </p>
           <details>
             <summary className="cursor-pointer text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">Editar</summary>
-            <div className="mt-3"><FormLancamento lancamento={r} /></div>
+            <div className="mt-3"><FormLancamento lancamento={{ ...r, ...configs.get(r.lancamento_id) }} /></div>
           </details>
         </Cartao>
       ))}
