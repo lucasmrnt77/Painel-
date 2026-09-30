@@ -3,7 +3,28 @@ import { env } from "@/lib/env";
 import { db } from "@/lib/supabase";
 import { tokenValido } from "@/lib/seguranca";
 import { lerCorpo, CorpoGrandeDemais } from "@/lib/corpo";
-import { extrairEventosSendflow, tipoDaQuery } from "@/lib/sendflow";
+import { extrairEventosSendflow, tipoDaQuery, type EventoNormalizado } from "@/lib/sendflow";
+
+/**
+ * Grupos que NÃO contam como entrada de lead: a campanha dos alertas da equipe
+ * (SENDFLOW_ALERTAS_CAMPANHA_ID) e o que estiver em SENDFLOW_IGNORAR (ids de
+ * campanha, ids de grupo ou nomes de grupo, separados por vírgula).
+ * O evento continua registrado (tipo "desconhecido"), mas não mexe em membros
+ * nem nos alertas do monitor.
+ */
+function marcarGruposIgnorados(eventos: EventoNormalizado[]): EventoNormalizado[] {
+  const ignorar = new Set(
+    [process.env.SENDFLOW_ALERTAS_CAMPANHA_ID ?? "", ...(process.env.SENDFLOW_IGNORAR ?? "").split(",")]
+      .map((v) => v.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  if (ignorar.size === 0) return eventos;
+  return eventos.map((e) =>
+    [e.sendflow_ref, e.grupo_id, e.grupo_nome].some((v) => v && ignorar.has(v.trim().toLowerCase()))
+      ? { ...e, tipo: "desconhecido", tipo_original: `ignorado (grupo da equipe): ${e.tipo_original ?? e.tipo}` }
+      : e,
+  );
+}
 
 /**
  * POST /api/webhooks/sendflow?token=SENDFLOW_WEBHOOK_TOKEN[&tipo=entrou|saiu]
@@ -24,7 +45,7 @@ export async function POST(req: Request) {
   }
 
   const url = new URL(req.url);
-  const eventos = extrairEventosSendflow(payload, tipoDaQuery(url.searchParams.get("tipo")));
+  const eventos = marcarGruposIgnorados(extrairEventosSendflow(payload, tipoDaQuery(url.searchParams.get("tipo"))));
 
   const { data, error } = await db().rpc("sendflow_registrar_webhook", {
     p_payload: payload && typeof payload === "object" ? payload : { _valor: payload },

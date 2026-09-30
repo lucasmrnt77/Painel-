@@ -205,6 +205,11 @@ Os alertas aparecem sempre no painel. O **envio por WhatsApp** usa, em ordem de 
 3. **Webhook genérico** (`WHATSAPP_WEBHOOK_URL`): um POST por telefone com
    `{ telefone, mensagem, tipo, origem }` (Make/n8n).
 
+Os números dos alertas vêm sempre do **grupo dos leads** do lançamento (definido pela
+"Referência no Sendflow" do lançamento). Entradas e saídas na campanha de alertas são ignoradas
+(ficam registradas em Eventos como "ignorado (grupo da equipe)"); outros grupos a ignorar vão em
+`SENDFLOW_IGNORAR`.
+
 O botão **Enviar alerta de teste** confere a configuração; o status do envio aparece ao lado de
 cada alerta (passe o mouse para ver a mensagem).
 

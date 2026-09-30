@@ -133,3 +133,17 @@ test("mensagens do monitor", async () => {
   const m3 = mensagemAlerta("resumo", "ET Out", { janela: { ...j, inscricoes: 50, entradas: 40, inscritos_no_grupo: 41 } });
   assert.match(m3, /82%/);
 });
+
+test("página v0 (registrar-usuario): Trader-Uruguay vira trader e o original vai para landing", () => {
+  const d = extrairCaptura({
+    telefono: "59899123456", tipo: "trading", accion: "crear",
+    utm_source: "fb", utm_medium: null, utm_campaign: "camp", utm_content: "ad1", utm_term: null,
+    experiencia: "menos-3-meses", pagina_captura: "Trader-Uruguay", pagina_gracias: "/gracias-video-trading",
+  });
+  assert.equal(d.telefone, "59899123456");
+  assert.equal(d.pagina_captura, "trader");
+  assert.equal(d.landing, "Trader-Uruguay");
+  assert.equal(d.experiencia, "menos-3-meses");
+  assert.equal(d.pagina_obrigado, "/gracias-video-trading");
+  assert.deepEqual(d.utm, { utm_source: "fb", utm_campaign: "camp", utm_content: "ad1" });
+});

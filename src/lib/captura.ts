@@ -97,5 +97,21 @@ export function extrairCaptura(bruto: unknown, query?: URLSearchParams): DadosCa
     if (k === "token" || k === "redirect") return;
     aplicar(k, v);
   });
+  if (out.pagina_captura) {
+    const original = out.pagina_captura;
+    out.pagina_captura = normalizarPaginaCaptura(original);
+    if (out.pagina_captura !== original) out.landing ??= original;
+  }
   return out;
+}
+
+/**
+ * A página v0 manda "Trader-Uruguay", "Trader-Argentina"... O banco só aceita
+ * "trader" | "nunca_operou"; o valor original fica em `landing`.
+ */
+export function normalizarPaginaCaptura(v: string): string {
+  const t = v.trim().toLowerCase();
+  if (/^(trader|trading|ja[_ -]?opera)/.test(t)) return "trader";
+  if (/^(nunca|general|geral|iniciante)/.test(t)) return "nunca_operou";
+  return v;
 }
