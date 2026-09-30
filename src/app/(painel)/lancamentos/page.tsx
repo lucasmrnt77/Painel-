@@ -51,9 +51,11 @@ export default async function Lancamentos({ searchParams }: PageProps<"/lancamen
   const base = `${proto}://${host}`;
   const modo = modoEnvio();
   const temToken = !!process.env.SENDFLOW_API_TOKEN?.trim();
-  const [contas, campanhas] = temToken
-    ? await Promise.all([listarSendflow("accounts"), listarSendflow("releases")])
-    : [null, null];
+  // A API do Sendflow tem limite de requisições: só consulta quando pedido, uma chamada por vez.
+  const sp = await searchParams;
+  const verSendflow = temToken && sp.sendflow === "1";
+  const contas = verSendflow ? await listarSendflow("accounts") : null;
+  const campanhas = verSendflow ? await listarSendflow("releases") : null;
 
   return (
     <>
@@ -104,6 +106,11 @@ export default async function Lancamentos({ searchParams }: PageProps<"/lancamen
               refazer o deploy, esta seção lista as contas e campanhas com os ids para preencher{" "}
               <code>SENDFLOW_ACCOUNT_ID</code> e <code>SENDFLOW_ALERTAS_CAMPANHA_ID</code>.
             </p>
+          )}
+          {temToken && !verSendflow && (
+            <a href="/lancamentos?sendflow=1" className="inline-block rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
+              Carregar contas e campanhas do Sendflow
+            </a>
           )}
           {contas && campanhas && (
             <>

@@ -160,6 +160,7 @@ export async function listarSendflow(recurso: "accounts" | "releases"): Promise<
       cache: "no-store",
     });
     const texto = await r.text();
+    if (/rate-limit/i.test(texto)) return { itens: [], erro: "O Sendflow limitou as consultas por um momento. Espere 1 minuto e clique de novo." };
     if (!r.ok) return { itens: [], erro: `HTTP ${r.status}: ${texto.slice(0, 200)}` };
     const lista = extrairLista(JSON.parse(texto));
     return {
