@@ -68,7 +68,10 @@ Stack: Next.js 16 + TypeScript + Tailwind, Supabase (Postgres + PostgREST), depl
    | `SENDFLOW_WEBHOOK_TOKEN` | token que vai na URL do webhook do Sendflow |
    | `CAPTURA_ORIGENS` | só se a página chamar a API direto do navegador: domínio(s) da página, separados por vírgula |
    | `CRON_SECRET` | código aleatório; a Vercel usa para chamar o monitor a cada 2 min |
-   | `WHATSAPP_WEBHOOK_URL` | (opcional) URL que dispara o WhatsApp dos alertas — ver "Monitor de tráfego" |
+   | `SENDFLOW_API_TOKEN` | (opcional) token da API do Sendflow, para enviar os alertas — ver "Monitor de tráfego" |
+   | `SENDFLOW_ACCOUNT_ID` | (opcional) id da conta/número do Sendflow que envia |
+   | `SENDFLOW_ALERTAS_CAMPANHA_ID` | (opcional) id da campanha cujo(s) grupo(s) recebem os alertas |
+   | `WHATSAPP_WEBHOOK_URL` | (opcional) alternativa: URL (Make/n8n) que dispara o WhatsApp dos alertas |
    | `WHATSAPP_WEBHOOK_TOKEN` | (opcional) enviado como `Authorization: Bearer ...` nessa URL |
 
    Para gerar tokens/segredos: `openssl rand -hex 32` (ou `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
@@ -190,17 +193,20 @@ Com o monitor ligado, o Cron da Vercel (`vercel.json`, a cada 2 min — precisa 
 - **Resumo periódico** (padrão de hora em hora): inscrições, entradas, saídas e % dos inscritos do
   período que já estão no grupo.
 
-Configuração por lançamento (aba Lançamentos → Editar): minutos sem entrada, intervalo do resumo e
-os WhatsApp que recebem (com DDI). Os alertas aparecem sempre no painel; o **envio por WhatsApp**
-acontece quando `WHATSAPP_WEBHOOK_URL` estiver configurada. O painel faz um POST por telefone:
+Configuração por lançamento (aba Lançamentos → Editar): minutos sem entrada e intervalo do resumo.
+Os alertas aparecem sempre no painel. O **envio por WhatsApp** usa, em ordem de prioridade:
 
-```json
-{ "telefone": "5511999999999", "mensagem": "⚠️ *Lançamento*\nSem entradas no grupo há *20 min*...", "tipo": "sem_entradas", "origem": "painel-sendflow" }
-```
+1. **Sendflow → grupo da equipe** (`SENDFLOW_API_TOKEN` + `SENDFLOW_ACCOUNT_ID` +
+   `SENDFLOW_ALERTAS_CAMPANHA_ID`). O painel chama `POST /sendapi/actions/send-text-message`
+   e o Sendflow manda a mensagem em **todos os grupos da campanha indicada**. Use uma campanha
+   que tenha só o grupo da equipe (ou o grupo de teste) — nunca a campanha dos leads.
+2. **Sendflow → mensagem direta** (sem `SENDFLOW_ALERTAS_CAMPANHA_ID`): um envio por telefone
+   cadastrado no lançamento (`POST /sendapi/send-text-message/{accountId}`).
+3. **Webhook genérico** (`WHATSAPP_WEBHOOK_URL`): um POST por telefone com
+   `{ telefone, mensagem, tipo, origem }` (Make/n8n).
 
-Enquanto a ferramenta de envio não é definida, dá para apontar essa URL para um cenário do
-Make/n8n que repassa ao WhatsApp. Quando a ferramenta for escolhida, é só adicionar o driver em
-`src/lib/whatsapp.ts`. O botão **Enviar alerta de teste** confere a configuração.
+O botão **Enviar alerta de teste** confere a configuração; o status do envio aparece ao lado de
+cada alerta (passe o mouse para ver a mensagem).
 
 Os alertas não duplicam, mesmo se o Cron disparar duas vezes (chave única por alerta).
 

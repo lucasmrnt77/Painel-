@@ -2,7 +2,7 @@ import Link from "next/link";
 import { contexto } from "@/lib/contexto";
 import { resumoPaginas, serieDiaria, serieHoraria, situacaoMonitor, ultimosAlertas } from "@/lib/dados";
 import { CartaoPaginas } from "@/components/paginas";
-import { envioConfigurado } from "@/lib/whatsapp";
+import { modoEnvio } from "@/lib/whatsapp";
 import { CartaoMonitor, GraficoHoras } from "@/components/monitor";
 import { AutoAtualizar } from "@/components/auto-atualizar";
 import { dia, numero } from "@/lib/formato";
@@ -30,7 +30,7 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
       <AutoAtualizar segundos={60} />
       <CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={atual} />
 
-      <CartaoMonitor s={situacao} alertas={alertas} envioConfigurado={envioConfigurado()} />
+      <CartaoMonitor s={situacao} alertas={alertas} modo={modoEnvio()} />
 
       <Cartao titulo="Inscrições x entradas por hora (últimas 24h, horário UY)">
         <div className="mb-2 flex gap-4 text-xs text-zinc-500">
