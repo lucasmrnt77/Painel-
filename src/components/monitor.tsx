@@ -2,6 +2,7 @@ import type { Alerta, SituacaoMonitor } from "@/lib/dados";
 import { alternarMonitor } from "@/lib/acoes";
 import { dataHora } from "@/lib/formato";
 import { FormTesteAlerta } from "./formularios";
+import type { ModoEnvio } from "@/lib/whatsapp";
 
 const ROTULO_ALERTA: Record<string, string> = {
   sem_entradas: "Sem entradas",
@@ -19,7 +20,8 @@ const ROTULO_ENVIO: Record<string, string> = {
   enviado: "enviado", parcial: "envio parcial", falhou: "falhou", sem_envio: "só no painel", pendente: "enviando",
 };
 
-export function CartaoMonitor({ s, alertas, envioConfigurado }: { s: SituacaoMonitor; alertas: Alerta[]; envioConfigurado: boolean }) {
+export function CartaoMonitor({ s, alertas, modo }: { s: SituacaoMonitor; alertas: Alerta[]; modo: ModoEnvio }) {
+  const porTelefone = modo === "sendflow_direto" || modo === "webhook";
   const min = s.minutos_desde_ultima_entrada;
   const limiar = s.alerta_minutos_sem_entrada;
   const cor =
@@ -73,8 +75,10 @@ export function CartaoMonitor({ s, alertas, envioConfigurado }: { s: SituacaoMon
         <div className="min-w-0">
           <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
             <span>Alertas recentes</span>
-            {!envioConfigurado && <span className="text-amber-700 dark:text-amber-400">WhatsApp ainda não configurado</span>}
-            {envioConfigurado && s.alerta_telefones.length === 0 && <span className="text-amber-700 dark:text-amber-400">sem telefones cadastrados</span>}
+            {modo === "nenhum" && <span className="text-amber-700 dark:text-amber-400">WhatsApp ainda não configurado</span>}
+            {modo === "sendflow_grupo" && <span className="text-emerald-700 dark:text-emerald-400">envio: grupo da equipe via Sendflow</span>}
+            {porTelefone && s.alerta_telefones.length === 0 && <span className="text-amber-700 dark:text-amber-400">sem telefones cadastrados</span>}
+            {porTelefone && s.alerta_telefones.length > 0 && <span>envio: {s.alerta_telefones.length} telefone(s){modo === "sendflow_direto" ? " via Sendflow" : ""}</span>}
           </div>
           {alertas.length === 0 ? (
             <p className="text-sm text-zinc-500">Nenhum alerta ainda.</p>
