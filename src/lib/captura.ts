@@ -30,8 +30,10 @@ const ALIAS: Record<string, keyof Omit<DadosCaptura, "utm"> | `utm_${string}`> =
   pagina_captura: "pagina_captura", pagina_de_captura: "pagina_captura", captura: "pagina_captura",
   persona: "pagina_captura", publico: "pagina_captura",
   edad: "faixa_etaria", idade: "faixa_etaria", faixa_etaria: "faixa_etaria", age: "faixa_etaria",
+  age_range: "faixa_etaria", rango_edad: "faixa_etaria",
   genero: "genero", "gênero": "genero", sexo: "genero", gender: "genero",
   respuesta_dinero: "resposta_dinheiro", resposta_dinheiro: "resposta_dinheiro", dinero: "resposta_dinheiro", dinheiro: "resposta_dinheiro",
+  capital_amount: "resposta_dinheiro", respuesta: "resposta_dinheiro",
   utm_source: "utm_source", utm_medium: "utm_medium", utm_campaign: "utm_campaign",
   utm_content: "utm_content", utm_term: "utm_term",
 };

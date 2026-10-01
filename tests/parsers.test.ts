@@ -156,3 +156,10 @@ test("página geral: Gen-Uruguay vira nunca_operou e o original vai para landing
   assert.equal(extrairCaptura({ telefono: "1", pagina_captura: "Gen-Otro" }).pagina_captura, "nunca_operou");
   assert.equal(extrairCaptura({ telefono: "1", pagina_captura: "Trader-Chile" }).pagina_captura, "trader");
 });
+
+test("perfil da página de obrigado: age_range, gender, respuesta", () => {
+  const d = extrairCaptura({ telefono: "59899123456", age_range: "25_34", gender: "mujer", video_id: "Video1", respuesta: "No hoy, pero podría organizarme para conseguirlo" });
+  assert.equal(d.faixa_etaria, "25_34");
+  assert.equal(d.genero, "mujer");
+  assert.equal(d.resposta_dinheiro, "No hoy, pero podría organizarme para conseguirlo");
+});

@@ -33,3 +33,4 @@ $P -f tests/comportamento.sql
 [ -f tests/paginas.sql ] && $P -f tests/paginas.sql
 [ -f tests/entradas.sql ] && $P -f tests/entradas.sql
 [ -f tests/registros.sql ] && $P -f tests/registros.sql
+[ -f tests/perfil.sql ] && $P -f tests/perfil.sql
