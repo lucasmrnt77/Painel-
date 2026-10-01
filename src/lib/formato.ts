@@ -44,3 +44,40 @@ export const COR_STATUS: Record<string, string> = {
   saiu: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300",
   telefone_invalido: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
 };
+
+// ---------------------------------------------------------------------
+// Perfil do lead (página de captura + respostas da página de obrigado).
+// Espelham normalizar_faixa_etaria / normalizar_genero do banco.
+// ---------------------------------------------------------------------
+export function paginaBonita(v: string | null | undefined): string {
+  if (v === "trader") return "Trader";
+  if (v === "nunca_operou") return "Nunca operou";
+  return "—";
+}
+
+export function faixaBonita(v: string | null | undefined): string {
+  const t = (v ?? "").trim().toLowerCase();
+  if (!t) return "—";
+  if (t.startsWith("menor") || t.endsWith("-25") || t.startsWith("18")) return "até 24";
+  if (t.startsWith("mayor") || t.startsWith("+65") || t.startsWith("65")) return "65+";
+  for (const f of ["25", "35", "45", "55"]) if (t.startsWith(f)) return `${f}–${Number(f) + 9}`;
+  return v!.trim();
+}
+
+export function generoBonito(v: string | null | undefined): string {
+  const t = (v ?? "").trim().toLowerCase();
+  if (!t) return "—";
+  if (["hombre", "homem", "masculino", "male", "m"].includes(t)) return "Homem";
+  if (["mujer", "mulher", "femenino", "feminino", "female", "f"].includes(t)) return "Mulher";
+  return "Outro";
+}
+
+/** "Sí, podría hacerlo sin problema" → "Pode investir" etc. Texto desconhecido volta como está. */
+export function investimentoBonito(v: string | null | undefined): string {
+  const t = (v ?? "").trim().toLowerCase();
+  if (!t) return "—";
+  if (t.startsWith("sí") || t.startsWith("si,") || t.startsWith("si ") || t === "si_puedo") return "Pode investir";
+  if (t.includes("organizar") || t === "no_pero_podria") return "Pode se organizar";
+  if (t.includes("imposible") || t === "no_imposible") return "Não pode";
+  return v!.trim();
+}

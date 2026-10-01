@@ -163,3 +163,16 @@ test("perfil da página de obrigado: age_range, gender, respuesta", () => {
   assert.equal(d.genero, "mujer");
   assert.equal(d.resposta_dinheiro, "No hoy, pero podría organizarme para conseguirlo");
 });
+
+test("formatação do perfil na aba Inscrições", async () => {
+  const f = await import("../src/lib/formato");
+  assert.equal(f.faixaBonita("menor_25"), "até 24");
+  assert.equal(f.faixaBonita("35_44"), "35–44");
+  assert.equal(f.faixaBonita("mayor_65"), "65+");
+  assert.equal(f.faixaBonita(null), "—");
+  assert.equal(f.generoBonito("mujer"), "Mulher");
+  assert.equal(f.investimentoBonito("Sí, podría hacerlo sin problema"), "Pode investir");
+  assert.equal(f.investimentoBonito("No hoy, pero podría organizarme para conseguirlo"), "Pode se organizar");
+  assert.equal(f.investimentoBonito("No, hoy sería imposible"), "Não pode");
+  assert.equal(f.paginaBonita("nunca_operou"), "Nunca operou");
+});

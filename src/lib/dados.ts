@@ -39,6 +39,11 @@ export type Lead = {
   grupos: string | null;
   status: string;
   minutos_ate_entrar: number | null;
+  pagina_captura: string | null;
+  experiencia: string | null;
+  faixa_etaria: string | null;
+  genero: string | null;
+  resposta_dinheiro: string | null;
 };
 
 export type Membro = {

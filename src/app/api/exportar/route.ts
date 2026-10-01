@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   for (let de = 0; ; de += passo) {
     let q = db()
       .from("v_leads")
-      .select("nome, email, telefone, status, inscrito_em, entrou_em, saiu_em, n_envios, utm_source, utm_medium, utm_campaign")
+      .select("nome, email, telefone, pagina_captura, experiencia, faixa_etaria, genero, resposta_dinheiro, status, inscrito_em, entrou_em, saiu_em, n_envios, utm_source, utm_medium, utm_campaign, utm_content")
       .eq("lancamento_slug", slug)
       .order("inscrito_em")
       .range(de, de + passo - 1);
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
     if (!data || data.length < passo) break;
   }
 
-  const colunas = ["nome", "email", "telefone", "status", "inscrito_em", "entrou_em", "saiu_em", "n_envios", "utm_source", "utm_medium", "utm_campaign"];
+  const colunas = ["nome", "email", "telefone", "pagina_captura", "experiencia", "faixa_etaria", "genero", "resposta_dinheiro", "status", "inscrito_em", "entrou_em", "saiu_em", "n_envios", "utm_source", "utm_medium", "utm_campaign", "utm_content"];
   const corpo = [colunas.join(","), ...linhas.map((l) => colunas.map((c) => csv(l[c])).join(","))].join("\n");
   const nome = `inscricoes-${slug}${status ? `-${status}` : ""}.csv`;
   return new Response("﻿" + corpo, {

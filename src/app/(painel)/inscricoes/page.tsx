@@ -1,6 +1,6 @@
 import { contexto, param } from "@/lib/contexto";
 import { listarLeads, POR_PAGINA } from "@/lib/dados";
-import { dataHora, linkWhatsapp, telefoneBonito } from "@/lib/formato";
+import { dataHora, faixaBonita, generoBonito, investimentoBonito, linkWhatsapp, paginaBonita, telefoneBonito } from "@/lib/formato";
 import { Busca, Cartao, Chips, Paginacao, Selo, Tabela, montarHref, td } from "@/components/ui";
 import { CabecalhoPagina, SemLancamento } from "@/components/cabecalho";
 
@@ -16,6 +16,9 @@ export default async function Inscricoes({ searchParams }: PageProps<"/inscricoe
   const q = param(sp, "q");
   const { linhas, total, pagina } = await listarLeads(atual.lancamento_id, { status, q, pagina: Number(param(sp, "p") ?? 1) });
   const href = (extra: Record<string, string | number | undefined>) => montarHref("/inscricoes", { l: atual.slug, status, q, ...extra });
+
+  // Nome/e-mail só aparecem se alguma linha tiver (as páginas atuais só pedem WhatsApp)
+  const comContato = linhas.some((l) => l.nome || l.email);
 
   const contagem: Record<string, number> = {
     fora_do_grupo: atual.fora_do_grupo, aguardando: atual.aguardando, no_grupo: atual.no_grupo,
@@ -47,17 +50,29 @@ export default async function Inscricoes({ searchParams }: PageProps<"/inscricoe
           />
           <Busca acao="/inscricoes" valor={q} ocultos={{ l: atual.slug, status }} placeholder="Nome, e-mail ou telefone" />
         </div>
-        <Tabela cabecalho={["Inscrito em", "Nome", "E-mail", "WhatsApp", "Status", "Entrou em", "Min. até entrar", "Envios", "Origem"]} vazio={linhas.length === 0}>
+        <Tabela
+          cabecalho={[
+            "Inscrito em",
+            ...(comContato ? ["Nome", "E-mail"] : []),
+            "WhatsApp", "Página", "Idade", "Gênero", "Investimento",
+            "Status", "Entrou em", "Min. até entrar", "Envios", "Origem",
+          ]}
+          vazio={linhas.length === 0}
+        >
           {linhas.map((l) => (
             <tr key={l.inscricao_id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
               <td className={`${td} tabular whitespace-nowrap text-zinc-500`}>{dataHora(l.inscrito_em)}</td>
-              <td className={td}>{l.nome ?? "—"}</td>
-              <td className={`${td} text-zinc-600 dark:text-zinc-400`}>{l.email ?? "—"}</td>
+              {comContato && <td className={td}>{l.nome ?? "—"}</td>}
+              {comContato && <td className={`${td} text-zinc-600 dark:text-zinc-400`}>{l.email ?? "—"}</td>}
               <td className={`${td} tabular whitespace-nowrap`}>
                 {linkWhatsapp(l.telefone)
                   ? <a className="hover:underline" href={linkWhatsapp(l.telefone)!} target="_blank" rel="noreferrer">{telefoneBonito(l.telefone, false)}</a>
                   : telefoneBonito(l.telefone, false)}
               </td>
+              <td className={`${td} whitespace-nowrap`} title={l.experiencia ? `Experiência: ${l.experiencia}` : undefined}>{paginaBonita(l.pagina_captura)}</td>
+              <td className={`${td} whitespace-nowrap text-zinc-600 dark:text-zinc-400`}>{faixaBonita(l.faixa_etaria)}</td>
+              <td className={`${td} whitespace-nowrap text-zinc-600 dark:text-zinc-400`}>{generoBonito(l.genero)}</td>
+              <td className={`${td} whitespace-nowrap text-zinc-600 dark:text-zinc-400`} title={l.resposta_dinheiro ?? undefined}>{investimentoBonito(l.resposta_dinheiro)}</td>
               <td className={td}><Selo status={l.status} /></td>
               <td className={`${td} tabular whitespace-nowrap text-zinc-500`}>{l.saiu_em && l.status === "saiu" ? `saiu ${dataHora(l.saiu_em)}` : dataHora(l.entrou_em)}</td>
               <td className={`${td} tabular text-zinc-500`}>{l.minutos_ate_entrar ?? "—"}</td>
