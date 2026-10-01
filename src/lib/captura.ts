@@ -106,12 +106,12 @@ export function extrairCaptura(bruto: unknown, query?: URLSearchParams): DadosCa
 }
 
 /**
- * A página v0 manda "Trader-Uruguay", "Trader-Argentina"... O banco só aceita
+ * A página Trader manda "Trader-Uruguay"...; a geral, "Gen-Uruguay", "Gen-Argentina", "Gen-Otro". O banco só aceita
  * "trader" | "nunca_operou"; o valor original fica em `landing`.
  */
 export function normalizarPaginaCaptura(v: string): string {
   const t = v.trim().toLowerCase();
   if (/^(trader|trading|ja[_ -]?opera)/.test(t)) return "trader";
-  if (/^(nunca|general|geral|iniciante)/.test(t)) return "nunca_operou";
+  if (/^(nunca|gen|geral|iniciante)/.test(t)) return "nunca_operou"; // "Gen-Uruguay" = página geral
   return v;
 }

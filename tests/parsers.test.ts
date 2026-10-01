@@ -147,3 +147,12 @@ test("página v0 (registrar-usuario): Trader-Uruguay vira trader e o original va
   assert.equal(d.pagina_obrigado, "/gracias-video-trading");
   assert.deepEqual(d.utm, { utm_source: "fb", utm_campaign: "camp", utm_content: "ad1" });
 });
+
+test("página geral: Gen-Uruguay vira nunca_operou e o original vai para landing", () => {
+  const d = extrairCaptura({ telefono: "59899123456", pagina_captura: "Gen-Uruguay", pagina_gracias: "/gracias-video2", utm_campaign: null });
+  assert.equal(d.pagina_captura, "nunca_operou");
+  assert.equal(d.landing, "Gen-Uruguay");
+  assert.equal(d.pagina_obrigado, "/gracias-video2");
+  assert.equal(extrairCaptura({ telefono: "1", pagina_captura: "Gen-Otro" }).pagina_captura, "nunca_operou");
+  assert.equal(extrairCaptura({ telefono: "1", pagina_captura: "Trader-Chile" }).pagina_captura, "trader");
+});
