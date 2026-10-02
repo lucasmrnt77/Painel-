@@ -34,6 +34,17 @@ export function Abas() {
           </Link>
         );
       })}
+      {/* Outro projeto (via rewrite em next.config.ts): <a> simples, não <Link> */}
+      <a
+        href="/trafego"
+        className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
+          caminho.startsWith("/trafego")
+            ? "border-emerald-600 text-zinc-900 dark:text-zinc-50"
+            : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+        }`}
+      >
+        Tráfego
+      </a>
     </nav>
   );
 }
