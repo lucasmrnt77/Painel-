@@ -34,3 +34,4 @@ $P -f tests/comportamento.sql
 [ -f tests/entradas.sql ] && $P -f tests/entradas.sql
 [ -f tests/registros.sql ] && $P -f tests/registros.sql
 [ -f tests/perfil.sql ] && $P -f tests/perfil.sql
+[ -f tests/eventos-meta.sql ] && $P -f tests/eventos-meta.sql
