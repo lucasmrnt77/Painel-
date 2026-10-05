@@ -176,3 +176,10 @@ test("formatação do perfil na aba Inscrições", async () => {
   assert.equal(f.investimentoBonito("No, hoy sería imposible"), "Não pode");
   assert.equal(f.paginaBonita("nunca_operou"), "Nunca operou");
 });
+
+test("página geral com nome e e-mail (campos em espanhol)", () => {
+  const d = extrairCaptura({ telefono: "59899123456", nombre: "Juan Pérez", email: "Juan@Ejemplo.com", pagina_captura: "Gen-Uruguay" });
+  assert.equal(d.nome, "Juan Pérez");
+  assert.equal(d.email, "Juan@Ejemplo.com");
+  assert.equal(extrairCaptura({ telefono: "1", correo: "a@b.co" }).email, "a@b.co");
+});

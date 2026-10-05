@@ -17,7 +17,7 @@ export type DadosCaptura = {
 const IGNORAR = new Set(["value", "raw_value", "rawvalue", "fields", "form_fields", "formfields", "data", "dados", "form", "0"]);
 
 const ALIAS: Record<string, keyof Omit<DadosCaptura, "utm"> | `utm_${string}`> = {
-  nome: "nome", name: "nome", fullname: "nome", full_name: "nome", first_name: "nome", firstname: "nome", nome_completo: "nome",
+  nome: "nome", nombre: "nome", nombre_completo: "nome", name: "nome", fullname: "nome", full_name: "nome", first_name: "nome", firstname: "nome", nome_completo: "nome",
   email: "email", "e-mail": "email", e_mail: "email", mail: "email", correo: "email",
   telefone: "telefone", phone: "telefone", whatsapp: "telefone", celular: "telefone", tel: "telefone",
   telefono: "telefone", mobile: "telefone", phone_number: "telefone", numero: "telefone", fone: "telefone",
