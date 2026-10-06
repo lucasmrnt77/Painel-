@@ -101,7 +101,7 @@ export function FormImportar({ funil, temCampanha }: { funil: string; temCampanh
 
 const ACOES: Record<string, { rotulo: string; confirmar?: string }> = {
   verificar: { rotulo: "Verificar" },
-  redefinir: { rotulo: "Link novo (Sendflow)", confirmar: "Pedir ao Sendflow para redefinir o link deste grupo? O link atual deixa de funcionar." },
+  redefinir: { rotulo: "Atualizar link (Sendflow)", confirmar: "Pedir ao Sendflow para ler o link atual deste grupo no WhatsApp?" },
   pausar: { rotulo: "Pausar" },
   reativar: { rotulo: "Reativar" },
   zerar: { rotulo: "Zerar cliques", confirmar: "Zerar o contador de cliques? Se o grupo estiver cheio, ele volta para a fila." },

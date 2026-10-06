@@ -14,13 +14,13 @@ const STATUS: Record<string, { rotulo: string; cor: string }> = {
   ativo: { rotulo: "Na fila", cor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" },
   cheio: { rotulo: "Cheio", cor: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300" },
   invalido: { rotulo: "Convite inválido", cor: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300" },
-  redefinindo: { rotulo: "Aguardando link novo", cor: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300" },
+  redefinindo: { rotulo: "Aguardando Sendflow", cor: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300" },
   pausado: { rotulo: "Pausado", cor: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-300" },
 };
 const VERIF: Record<string, string> = { valido: "✅ válido", invalido: "🚫 inválido", inconclusivo: "❔ inconclusivo" };
 const EVENTO: Record<string, string> = {
   cheio: "📦 Grupo cheio", invalido: "🚫 Convite inválido", link_novo: "🔗 Link novo", sem_grupos: "🆘 Sem grupos",
-  redefinicao_pedida: "🔄 Link novo pedido ao Sendflow", redefinicao_falhou: "⚠️ Sendflow recusou", redefinicao_sem_retorno: "⚠️ Sendflow sem retorno",
+  redefinicao_pedida: "🔄 Atualização pedida ao Sendflow", link_mantido: "✔️ Link continua o mesmo", redefinicao_falhou: "⚠️ Sendflow recusou", redefinicao_sem_retorno: "⚠️ Sendflow sem retorno",
 };
 
 const hora = (iso: string | null) =>

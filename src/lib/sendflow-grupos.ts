@@ -3,7 +3,9 @@ import "server-only"
 /**
  * Grupos de uma campanha (release) do Sendflow e redefinição do link de convite.
  *   GET  {base}/sendapi/releases/{releaseId}/groups            → grupos com o código de convite atual
- *   POST {base}/sendapi/actions/update-group-invite-code        → pede link novo (ação assíncrona, 201)
+ *   POST {base}/sendapi/actions/update-group-invite-code        → "Atualizar links dos grupos" (ação assíncrona, 201):
+ *        o Sendflow lê o convite ATUAL de cada grupo no WhatsApp. Se o link foi redefinido, traz o novo;
+ *        se não foi, o código continua o mesmo.
  *        { releaseId, accountsFrom: "release", to: { type: "groups", ids: [...] } }
  * Limites conhecidos: consulta de grupos ~1 a cada 10 min por campanha;
  * no máximo 4 redefinições a cada 15 min por chave (controlado em redirecionador.ts).
@@ -31,13 +33,24 @@ export async function listarGruposCampanha(releaseId: string): Promise<{ grupos:
   }
 }
 
+/**
+ * Por padrão o Sendflow escolhe a conta da campanha. Com SENDFLOW_GRUPOS_ACCOUNT_ID,
+ * força uma conta específica (a que é admin dos grupos).
+ */
+export function corpoAtualizarConvite(releaseId: string, groupIds: string[]) {
+  const conta = env("SENDFLOW_GRUPOS_ACCOUNT_ID")
+  return conta
+    ? { releaseId, accountsFrom: "accounts", accounts: [conta], to: { type: "groups", ids: groupIds } }
+    : { releaseId, accountsFrom: "release", to: { type: "groups", ids: groupIds } }
+}
+
 export async function pedirNovoConvite(releaseId: string, groupIds: string[]): Promise<{ ok: boolean; http?: number; resposta?: string }> {
   if (!env("SENDFLOW_API_TOKEN")) return { ok: false, resposta: "SENDFLOW_API_TOKEN não configurado" }
   try {
     const r = await fetch(`${base()}/sendapi/actions/update-group-invite-code`, {
       method: "POST",
       headers: { ...auth(), "content-type": "application/json" },
-      body: JSON.stringify({ releaseId, accountsFrom: "release", to: { type: "groups", ids: groupIds } }),
+      body: JSON.stringify(corpoAtualizarConvite(releaseId, groupIds)),
       signal: AbortSignal.timeout(20000),
     })
     const t = await r.text()

@@ -110,6 +110,18 @@ async function buscarLinksNovos() {
           continue
         }
       }
+      // Mesmo código no Sendflow e o convite antigo ainda vale → nada a trocar: o grupo volta para a fila
+      if (atual?.codigo === g.codigo && minutosDesde(g.redefinicao_pedida_em) >= 3) {
+        const v = await verificarConvite(g.codigo)
+        if (v.resultado === "valido") {
+          await db().from("redir_grupos").update({
+            status: g.status === "redefinindo" ? "ativo" : g.status, redefinicao_pedida_em: null, motivo: null,
+            verificacao: "valido", verificado_em: new Date().toISOString(), atualizado_em: new Date().toISOString(),
+          }).eq("id", g.id)
+          await evento(slug, g.id, "link_mantido", { codigo: g.codigo })
+          continue
+        }
+      }
       if (minutosDesde(g.redefinicao_pedida_em) > ESPERA_LINK_NOVO_MIN && g.motivo !== "sem retorno do Sendflow") {
         await db().from("redir_grupos").update({ motivo: "sem retorno do Sendflow" }).eq("id", g.id)
         await evento(slug, g.id, "redefinicao_sem_retorno", { minutos: Math.round(minutosDesde(g.redefinicao_pedida_em)) }, true)
