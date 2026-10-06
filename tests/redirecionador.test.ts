@@ -53,7 +53,7 @@ test("lê os grupos do Sendflow em formatos diferentes", () => {
   const a = lerGruposSendflow([[{ id: "g1", name: "Trader #1", inviteCode: "AbCdEfGhIjKlMnOp", participants: 230 }], [{ id: "g2", name: "Trader #2", inviteCode: "https://chat.whatsapp.com/QrStUvWxYz123456" }]]);
   assert.deepEqual(a.map((g) => [g.id, g.codigo, g.participantes]), [["g1", "AbCdEfGhIjKlMnOp", 230], ["g2", "QrStUvWxYz123456", null]]);
   const b = lerGruposSendflow({ groups: [{ _id: "x", subject: "Geral", inviteLink: "chat.whatsapp.com/ZZZZZZZZZZZZZZZZ", participants: [1, 2, 3] }] });
-  assert.deepEqual(b[0], { id: "x", nome: "Geral", codigo: "ZZZZZZZZZZZZZZZZ", participantes: 3 });
+  assert.deepEqual(b[0], { id: "x", gid: null, nome: "Geral", codigo: "ZZZZZZZZZZZZZZZZ", participantes: 3 });
 });
 
 test("mensagens dos alertas", () => {
@@ -62,4 +62,10 @@ test("mensagens dos alertas", () => {
   assert.match(m!, /Trader #2/);
   assert.match(mensagemRedirecionador("sem_grupos", "Geral", { reserva: null })!, /sem link reserva/);
   assert.equal(mensagemRedirecionador("redefinicao_pedida", "Geral", {}), null);
+});
+
+test("gid do WhatsApp sem @g.us", () => {
+  const g = lerGruposSendflow([{ id: "Mi2ssmaPI1gXAAVmsa4H", gid: "120363401234567890@g.us", name: "T #2", inviteCode: "DJYqH6HMpzBLBzsWbhdAZo" }]);
+  assert.equal(g[0].id, "Mi2ssmaPI1gXAAVmsa4H");
+  assert.equal(g[0].gid, "120363401234567890");
 });

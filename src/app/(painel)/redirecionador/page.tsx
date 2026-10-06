@@ -20,7 +20,7 @@ const STATUS: Record<string, { rotulo: string; cor: string }> = {
 const VERIF: Record<string, string> = { valido: "✅ válido", invalido: "🚫 inválido", inconclusivo: "❔ inconclusivo" };
 const EVENTO: Record<string, string> = {
   cheio: "📦 Grupo cheio", invalido: "🚫 Convite inválido", link_novo: "🔗 Link novo", sem_grupos: "🆘 Sem grupos",
-  redefinicao_pedida: "🔄 Atualização pedida ao Sendflow", link_mantido: "✔️ Link continua o mesmo", redefinicao_falhou: "⚠️ Sendflow recusou", redefinicao_sem_retorno: "⚠️ Sendflow sem retorno",
+  redefinicao_pedida: "🔄 Atualização pedida ao Sendflow", link_mantido: "✔️ Link continua o mesmo", importacao: "📥 Importação do Sendflow", redefinicao_falhou: "⚠️ Sendflow recusou", redefinicao_sem_retorno: "⚠️ Sendflow sem retorno",
 };
 
 const hora = (iso: string | null) =>
@@ -131,7 +131,7 @@ export default async function Redirecionador() {
               <td className={`${td} whitespace-nowrap`}>{EVENTO[e.tipo] ?? e.tipo}</td>
               <td className={td}>{nomeGrupo(e.grupo_id)}</td>
               <td className={`${td} max-w-[320px] truncate text-xs text-zinc-500`} title={JSON.stringify(e.detalhe)}>
-                {e.tipo === "cheio" ? `${e.detalhe.cliques} cliques` : e.tipo === "link_novo" ? `origem: ${e.detalhe.origem}` : e.tipo === "invalido" ? String(e.detalhe.detalhe ?? "") : e.tipo === "redefinicao_pedida" ? `${e.detalhe.manual ? "pedido manual" : "automático"} · Sendflow respondeu ${e.detalhe.http ?? "?"}: ${String(e.detalhe.resposta ?? "").slice(0, 160)}` : e.tipo === "sem_grupos" ? (e.detalhe.reserva ? "indo para o link reserva" : "sem link reserva") : JSON.stringify(e.detalhe)}
+                {e.tipo === "cheio" ? `${e.detalhe.cliques} cliques` : e.tipo === "link_novo" ? `origem: ${e.detalhe.origem}` : e.tipo === "invalido" ? String(e.detalhe.detalhe ?? "") : e.tipo === "redefinicao_pedida" ? `${e.detalhe.manual ? "pedido manual" : "automático"} · Sendflow respondeu ${e.detalhe.http ?? "?"}: ${String(e.detalhe.resposta ?? "").slice(0, 160)}` : e.tipo === "importacao" ? `${e.detalhe.grupos} grupos · ${e.detalhe.novos} novos · ${e.detalhe.atualizados} atualizados${e.detalhe.sem_gid ? ` · ${e.detalhe.sem_gid} sem gid (campos: ${(e.detalhe.campos as string[] ?? []).join(", ")})` : ""}` : e.tipo === "sem_grupos" ? (e.detalhe.reserva ? "indo para o link reserva" : "sem link reserva") : JSON.stringify(e.detalhe)}
               </td>
             </tr>
           ))}

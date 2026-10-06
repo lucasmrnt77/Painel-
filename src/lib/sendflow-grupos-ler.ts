@@ -1,6 +1,9 @@
 import { extrairCodigo } from "./convite"
 
-export type GrupoSendflow = { id: string; nome: string; codigo: string | null; participantes: number | null }
+export type GrupoSendflow = { id: string; gid: string | null; nome: string; codigo: string | null; participantes: number | null }
+
+/** "120363...@g.us" → "120363..." */
+export const gidLimpo = (v: string) => v.trim().replace(/@g\.us$/i, "") || null
 
 function texto(o: Record<string, unknown>, chaves: string[]): string {
   for (const k of chaves) {
@@ -25,7 +28,8 @@ export function lerGruposSendflow(dados: unknown): GrupoSendflow[] {
     .map((o) => {
       const p = o.participants ?? o.participantsCount ?? o.size ?? o.membersCount
       return {
-        id: texto(o, ["id", "_id", "groupId", "jid", "wid"]),
+        id: texto(o, ["id", "_id", "releaseGroupId"]) || texto(o, ["groupId", "gid", "jid"]),
+        gid: gidLimpo(texto(o, ["gid", "groupJid", "jid", "wid", "groupId", "whatsappId", "remoteJid"])),
         nome: texto(o, ["name", "subject", "title", "nome"]),
         codigo: extrairCodigo(texto(o, ["inviteCode", "invite_code", "inviteLink", "invite", "link", "url"])),
         participantes: Array.isArray(p) ? p.length : typeof p === "number" ? p : null,
@@ -34,3 +38,10 @@ export function lerGruposSendflow(dados: unknown): GrupoSendflow[] {
     .filter((g) => g.id)
 }
 
+
+/** Nomes dos campos que o Sendflow devolveu (para diagnóstico no histórico). */
+export function camposExemplo(dados: unknown): string[] {
+  const lista = Array.isArray(dados) ? (dados as unknown[]).flat() : []
+  const o = lista.find((x) => x && typeof x === "object") as Record<string, unknown> | undefined
+  return o ? Object.keys(o).slice(0, 40) : []
+}

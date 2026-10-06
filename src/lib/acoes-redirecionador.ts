@@ -96,15 +96,17 @@ export async function importarDoSendflow(_: EstadoForm, fd: FormData): Promise<E
         await db().rpc("redir_trocar_codigo", { p_grupo_id: porId.id, p_codigo: g.codigo, p_origem: "importacao" });
         atualizados++;
       }
-      await db().from("redir_grupos").update({ nome: g.nome || null }).eq("id", porId.id);
+      await db().from("redir_grupos").update({ nome: g.nome || null, sendflow_gid: g.gid }).eq("id", porId.id);
     } else if (porCodigo) {
-      await db().from("redir_grupos").update({ sendflow_group_id: g.id, nome: g.nome || null }).eq("id", porCodigo.id);
+      await db().from("redir_grupos").update({ sendflow_group_id: g.id, sendflow_gid: g.gid, nome: g.nome || null }).eq("id", porCodigo.id);
       atualizados++;
     } else {
-      const { error } = await db().from("redir_grupos").insert({ funil, ordem: ordem++, nome: g.nome || null, codigo: g.codigo, sendflow_group_id: g.id });
+      const { error } = await db().from("redir_grupos").insert({ funil, ordem: ordem++, nome: g.nome || null, codigo: g.codigo, sendflow_group_id: g.id, sendflow_gid: g.gid });
       if (!error) novos++;
     }
   }
+  const semGid = r.grupos.filter((g) => !g.gid).length;
+  await db().from("redir_eventos").insert({ funil, tipo: "importacao", detalhe: { grupos: r.grupos.length, novos, atualizados, sem_gid: semGid, campos: r.campos ?? [] } });
   revalidatePath(CAMINHO);
   return { ok: `Sendflow: ${r.grupos.length} grupo(s) na campanha · ${novos} novo(s) · ${atualizados} atualizado(s)` + (semLink ? ` · ${semLink} sem link` : "") };
 }

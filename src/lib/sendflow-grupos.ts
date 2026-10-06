@@ -15,10 +15,10 @@ const env = (k: string) => process.env[k]?.trim() || ""
 const base = () => (env("SENDFLOW_API_URL") || "https://southamerica-east1-whatsapp-ultimate.cloudfunctions.net").replace(/\/$/, "")
 const auth = () => ({ authorization: `Bearer ${env("SENDFLOW_API_TOKEN")}` })
 
-import { lerGruposSendflow, type GrupoSendflow } from "./sendflow-grupos-ler"
+import { camposExemplo, lerGruposSendflow, type GrupoSendflow } from "./sendflow-grupos-ler"
 export type { GrupoSendflow }
 
-export async function listarGruposCampanha(releaseId: string): Promise<{ grupos: GrupoSendflow[]; erro?: string; limitado?: boolean }> {
+export async function listarGruposCampanha(releaseId: string): Promise<{ grupos: GrupoSendflow[]; campos?: string[]; erro?: string; limitado?: boolean }> {
   if (!env("SENDFLOW_API_TOKEN")) return { grupos: [], erro: "SENDFLOW_API_TOKEN não configurado" }
   try {
     const r = await fetch(`${base()}/sendapi/releases/${encodeURIComponent(releaseId)}/groups`, {
@@ -27,7 +27,8 @@ export async function listarGruposCampanha(releaseId: string): Promise<{ grupos:
     const t = await r.text()
     if (r.status === 403 || /rate-limit/i.test(t)) return { grupos: [], erro: "O Sendflow limita essa consulta a 1 a cada 10 min por campanha. Tente de novo depois.", limitado: true }
     if (!r.ok) return { grupos: [], erro: `Sendflow HTTP ${r.status}: ${t.slice(0, 200)}` }
-    return { grupos: lerGruposSendflow(JSON.parse(t)) }
+    const dados = JSON.parse(t)
+    return { grupos: lerGruposSendflow(dados), campos: camposExemplo(dados) }
   } catch (e) {
     return { grupos: [], erro: e instanceof Error ? e.message : String(e) }
   }
@@ -37,20 +38,22 @@ export async function listarGruposCampanha(releaseId: string): Promise<{ grupos:
  * Por padrão o Sendflow escolhe a conta da campanha. Com SENDFLOW_GRUPOS_ACCOUNT_ID,
  * força uma conta específica (a que é admin dos grupos).
  */
-export function corpoAtualizarConvite(releaseId: string, groupIds: string[]) {
+export function corpoAtualizarConvite(releaseId: string, gids: string[]) {
   const conta = env("SENDFLOW_GRUPOS_ACCOUNT_ID")
+  // Mesmo padrão das outras ações de grupo do Sendflow: chooseSpecificGroups + groupIds (gid sem @g.us)
+  const alvo = { chooseSpecificGroups: true, groupIds: gids, to: { type: "groups", ids: gids } }
   return conta
-    ? { releaseId, accountsFrom: "accounts", accounts: [conta], to: { type: "groups", ids: groupIds } }
-    : { releaseId, accountsFrom: "release", to: { type: "groups", ids: groupIds } }
+    ? { releaseId, accountsFrom: "accounts", accounts: [conta], accountIds: [conta], ...alvo }
+    : { releaseId, accountsFrom: "release", ...alvo }
 }
 
-export async function pedirNovoConvite(releaseId: string, groupIds: string[]): Promise<{ ok: boolean; http?: number; resposta?: string }> {
+export async function pedirNovoConvite(releaseId: string, gids: string[]): Promise<{ ok: boolean; http?: number; resposta?: string }> {
   if (!env("SENDFLOW_API_TOKEN")) return { ok: false, resposta: "SENDFLOW_API_TOKEN não configurado" }
   try {
     const r = await fetch(`${base()}/sendapi/actions/update-group-invite-code`, {
       method: "POST",
       headers: { ...auth(), "content-type": "application/json" },
-      body: JSON.stringify(corpoAtualizarConvite(releaseId, groupIds)),
+      body: JSON.stringify(corpoAtualizarConvite(releaseId, gids)),
       signal: AbortSignal.timeout(20000),
     })
     const t = await r.text()

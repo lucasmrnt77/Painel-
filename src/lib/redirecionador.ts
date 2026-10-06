@@ -10,7 +10,7 @@ export type Funil = {
   sendflow_release_id: string | null; auto_redefinir: boolean; sendflow_consultado_em: string | null
 }
 export type Grupo = {
-  id: number; funil: string; ordem: number; nome: string | null; codigo: string; sendflow_group_id: string | null
+  id: number; funil: string; ordem: number; nome: string | null; codigo: string; sendflow_group_id: string | null; sendflow_gid: string | null
   status: "ativo" | "cheio" | "invalido" | "redefinindo" | "pausado"; cliques: number; cliques_desde_verificacao: number
   verificacao: "valido" | "invalido" | "inconclusivo" | null; verificado_em: string | null; titulo_whatsapp: string | null
   redefinicao_pedida_em: string | null; motivo: string | null
@@ -64,10 +64,11 @@ export async function solicitarRedefinicao(grupoId: number, manual = false): Pro
   const f = await lerFunil(grupo.funil)
   if (!f?.sendflow_release_id) return { ok: false, mensagem: "Informe a campanha do Sendflow deste funil" }
   if (!grupo.sendflow_group_id) return { ok: false, mensagem: "Este grupo não tem o ID do Sendflow (importe os grupos da campanha)" }
+  if (!grupo.sendflow_gid) return { ok: false, mensagem: "Falta o identificador do grupo no WhatsApp: clique em Importar grupos do Sendflow de novo" }
   if ((await redefinicoesRecentes()) >= LIMITE_REDEFINICOES) {
     return { ok: false, mensagem: "Limite do Sendflow: 4 redefinições a cada 15 min. O sistema tenta de novo sozinho." }
   }
-  const r = await pedirNovoConvite(f.sendflow_release_id, [grupo.sendflow_group_id])
+  const r = await pedirNovoConvite(f.sendflow_release_id, [grupo.sendflow_gid])
   if (!r.ok) {
     await evento(grupo.funil, grupo.id, "redefinicao_falhou", { http: r.http, resposta: r.resposta, manual }, true)
     return { ok: false, mensagem: `O Sendflow recusou (${r.http ?? "rede"}): ${r.resposta ?? ""}` }
