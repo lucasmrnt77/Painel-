@@ -76,7 +76,7 @@ export async function solicitarRedefinicao(grupoId: number, manual = false): Pro
     status: grupo.status === "pausado" || grupo.status === "cheio" ? grupo.status : "redefinindo",
     redefinicao_pedida_em: new Date().toISOString(), atualizado_em: new Date().toISOString(),
   }).eq("id", grupo.id)
-  await evento(grupo.funil, grupo.id, "redefinicao_pedida", { manual, codigo_antigo: grupo.codigo })
+  await evento(grupo.funil, grupo.id, "redefinicao_pedida", { manual, codigo_antigo: grupo.codigo, http: r.http, resposta: r.resposta })
   return { ok: true, mensagem: "Pedido enviado ao Sendflow. O link novo entra sozinho em alguns minutos." }
 }
 

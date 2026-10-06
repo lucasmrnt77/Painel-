@@ -131,7 +131,7 @@ export default async function Redirecionador() {
               <td className={`${td} whitespace-nowrap`}>{EVENTO[e.tipo] ?? e.tipo}</td>
               <td className={td}>{nomeGrupo(e.grupo_id)}</td>
               <td className={`${td} max-w-[320px] truncate text-xs text-zinc-500`} title={JSON.stringify(e.detalhe)}>
-                {e.tipo === "cheio" ? `${e.detalhe.cliques} cliques` : e.tipo === "link_novo" ? `origem: ${e.detalhe.origem}` : e.tipo === "invalido" ? String(e.detalhe.detalhe ?? "") : e.tipo === "redefinicao_pedida" ? (e.detalhe.manual ? "pedido manual" : "automático") : e.tipo === "sem_grupos" ? (e.detalhe.reserva ? "indo para o link reserva" : "sem link reserva") : JSON.stringify(e.detalhe)}
+                {e.tipo === "cheio" ? `${e.detalhe.cliques} cliques` : e.tipo === "link_novo" ? `origem: ${e.detalhe.origem}` : e.tipo === "invalido" ? String(e.detalhe.detalhe ?? "") : e.tipo === "redefinicao_pedida" ? `${e.detalhe.manual ? "pedido manual" : "automático"} · Sendflow respondeu ${e.detalhe.http ?? "?"}: ${String(e.detalhe.resposta ?? "").slice(0, 160)}` : e.tipo === "sem_grupos" ? (e.detalhe.reserva ? "indo para o link reserva" : "sem link reserva") : JSON.stringify(e.detalhe)}
               </td>
             </tr>
           ))}
