@@ -40,3 +40,30 @@ export function mensagemAlerta(tipo: string, lancamento: string, dados: Record<s
   }
   return `${lancamento}: ${tipo}`;
 }
+
+/** Alertas do redirecionador de grupos (puro — testável). */
+export function mensagemRedirecionador(tipo: string, funil: string, d: Record<string, unknown>): string | null {
+  const proximo = d.proximo ? `Agora os cliques vão para *${d.proximo}*.` : "⚠️ Não há outro grupo disponível na fila!"
+  const fila = typeof d.restantes === "number" ? `Grupos ativos na fila: ${d.restantes}.` : ""
+  if (tipo === "cheio") {
+    return [`📦 *Redirecionador ${funil}*`, `O grupo *${d.grupo}* chegou a ${d.cliques} cliques e foi considerado cheio.`, proximo, fila].filter(Boolean).join("\n")
+  }
+  if (tipo === "invalido") {
+    return [`🚫 *Redirecionador ${funil}*`, `O convite do grupo *${d.grupo}* deixou de funcionar (link redefinido ou revogado).`, proximo,
+      "Se o grupo tiver o ID do Sendflow, já pedimos um link novo.", fila].filter(Boolean).join("\n")
+  }
+  if (tipo === "link_novo") {
+    return [`🔗 *Redirecionador ${funil}*`, `O grupo *${d.grupo}* recebeu link novo${d.origem === "sendflow" ? " do Sendflow" : ""} e voltou para a fila.`].join("\n")
+  }
+  if (tipo === "sem_grupos") {
+    return [`🆘 *Redirecionador ${funil}*`, "Nenhum grupo disponível! Os cliques estão indo para " + (d.reserva ? `o link reserva (${d.reserva}).` : "lugar nenhum (sem link reserva)."),
+      "Adicione ou reative grupos no painel."].join("\n")
+  }
+  if (tipo === "redefinicao_sem_retorno") {
+    return `⚠️ *Redirecionador ${funil}*\nPedimos link novo do grupo *${d.grupo}* ao Sendflow há ${d.minutos} min e ainda não chegou. Confira no Sendflow ou cole o link novo no painel.`
+  }
+  if (tipo === "redefinicao_falhou") {
+    return `⚠️ *Redirecionador ${funil}*\nO Sendflow recusou o pedido de link novo do grupo *${d.grupo}* (${d.http ?? "erro de rede"}). Redefina pelo Sendflow e cole o link no painel.`
+  }
+  return null
+}
