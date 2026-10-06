@@ -1,3 +1,4 @@
+import { corrigirArgentina } from "./telefone";
 export type DadosCaptura = {
   nome: string | null;
   email: string | null;
@@ -99,6 +100,7 @@ export function extrairCaptura(bruto: unknown, query?: URLSearchParams): DadosCa
     if (k === "token" || k === "redirect") return;
     aplicar(k, v);
   });
+  out.telefone = corrigirArgentina(out.telefone);
   if (out.pagina_captura) {
     const original = out.pagina_captura;
     out.pagina_captura = normalizarPaginaCaptura(original);
