@@ -47,6 +47,12 @@ export function Abas() {
       >
         Tráfego
       </a>
+      <a
+        href="/admin"
+        className="whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+      >
+        Pagamentos
+      </a>
     </nav>
   );
 }
