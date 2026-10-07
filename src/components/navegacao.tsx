@@ -7,6 +7,7 @@ const ABAS = [
   { href: "/", rotulo: "Visão geral" },
   { href: "/inscricoes", rotulo: "Inscrições" },
   { href: "/membros", rotulo: "Membros do grupo" },
+  { href: "/grupo", rotulo: "Grupo gratuito" },
   { href: "/analise", rotulo: "Análise" },
   { href: "/eventos", rotulo: "Eventos Sendflow" },
   { href: "/importar", rotulo: "Importar" },
