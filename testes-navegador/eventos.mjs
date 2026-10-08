@@ -6,14 +6,30 @@
  *   • o pixel disparou o MESMO evento com o MESMO event_id (a Meta deduplica);
  *   • nenhum outro disparo do pixel com o mesmo nome sem event_id (contaria em dobro).
  *
- * Nada vai para as campanhas: o envio do pixel para a Meta é interceptado e descartado
- * aqui no navegador, e o servidor recebe tudo como teste. Planilha e banco das páginas
+ * Nada vai para as campanhas: o fbevents.js da Meta é trocado por um registrador e o
+ * envio do pixel é descartado aqui no navegador, e o servidor recebe tudo como teste. Planilha e banco das páginas
  * também são bloqueados.
  *
  * Variáveis: PAINEL_URL, TESTES_TOKEN, GRUPO_URL, GENERAL_URL, DISPARO (agendado|manual),
- *            CHROMIUM_PATH e FBEVENTS_FALSO (opcionais, só para testar este próprio teste fora do GitHub).
+ *            CHROMIUM_PATH (opcional, para rodar fora do GitHub).
  */
 import { chromium } from "playwright";
+
+/** Substitui o fbevents.js: cada track/trackCustom vira uma requisição a facebook.com/tr que o teste intercepta. */
+const FBEVENTS_REGISTRADOR = `(function () {
+  var f = window.fbq; if (!f) return; var px = null;
+  f.callMethod = function () {
+    var a = [].slice.call(arguments);
+    if (a[0] === "init") { px = a[1]; return; }
+    if (a[0] === "track" || a[0] === "trackCustom") {
+      var o = a[3] || {};
+      var q = "id=" + px + "&ev=" + encodeURIComponent(a[1]) + (o.eventID ? "&eid=" + encodeURIComponent(o.eventID) : "");
+      new Image().src = "https://www.facebook.com/tr/?" + q;
+    }
+  };
+  var fila = f.queue || []; f.queue = [];
+  fila.forEach(function (a) { f.callMethod.apply(f, a); });
+})();`;
 
 const env = (k, padrao = "") => (process.env[k] || padrao).trim().replace(/\/+$/, "");
 const PAINEL_URL = env("PAINEL_URL", "https://painel.traderdelite.net");
@@ -48,12 +64,12 @@ async function novoContexto(browser) {
     if (/\/tr/.test(route.request().url())) pixel.push(lerPixel(route.request()));
     await route.fulfill({ status: 200, contentType: "image/gif", body: "" });
   });
-  // Só para testar este script localmente: troca o fbevents.js por um que imita os disparos
-  if (process.env.FBEVENTS_FALSO) {
-    const { readFileSync } = await import("node:fs");
-    const falso = readFileSync(process.env.FBEVENTS_FALSO, "utf8");
-    await ctx.route(/connect\.facebook\.net\/.*fbevents\.js/, (route) => route.fulfill({ contentType: "application/javascript", body: falso }));
-  }
+  // O fbevents.js da Meta é trocado por um que só registra as chamadas do fbq: assim conferimos
+  // exatamente o que a página manda o pixel enviar (nome + event_id) e nada chega na Meta.
+  await ctx.route(/connect\.facebook\.net\//, (route) =>
+    route.request().url().includes("fbevents")
+      ? route.fulfill({ contentType: "application/javascript", body: FBEVENTS_REGISTRADOR })
+      : route.fulfill({ contentType: "application/javascript", body: "" }));
   // Planilhas, banco das páginas e WhatsApp: bloqueados no teste
   await ctx.route(/script\.google\.com|\/api\/leads\/|\/api\/save|chat\.whatsapp\.com|wa\.me|api\.whatsapp\.com/, (route) => route.abort());
   return { ctx, pixel };

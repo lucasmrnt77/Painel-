@@ -1,6 +1,6 @@
 # Teste diário no navegador dos eventos da Meta (pixel × servidor com o mesmo event_id).
 # O resultado aparece no painel → Alertas, e falhas avisam no WhatsApp.
-# Precisa do segredo TESTES_TOKEN (Settings → Secrets and variables → Actions).
+# O segredo TESTES_TOKEN fica no ambiente "TESTES_TOKEN" (Settings → Environments).
 name: Testes dos eventos Meta
 
 on:
@@ -12,6 +12,7 @@ jobs:
   navegador:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: TESTES_TOKEN
     defaults:
       run:
         working-directory: testes-navegador
