@@ -1,8 +1,43 @@
 @import "tailwindcss";
 
+/*
+ * Painel sempre escuro, com a paleta das páginas de captura:
+ * fundo preto, superfícies grafite (#141414 / #2a2a2a) e o verde da marca (#00D084).
+ * Os componentes usam as classes zinc/emerald do Tailwind; aqui elas são
+ * remapeadas para essa paleta, então tudo muda junto.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-zinc-50: #fafafa;
+  --color-zinc-100: #f1f1f1;
+  --color-zinc-200: #e2e2e2;
+  --color-zinc-300: #c9c9c9;
+  --color-zinc-400: #a1a1a1;
+  --color-zinc-500: #7c7c7c;
+  --color-zinc-600: #555555;
+  --color-zinc-700: #3a3a3a;
+  --color-zinc-800: #262626;
+  --color-zinc-900: #141414;
+  --color-zinc-950: #0e0e0e;
+
+  --color-emerald-50: #e6fbf2;
+  --color-emerald-100: #c2f5df;
+  --color-emerald-200: #8eecc6;
+  --color-emerald-300: #4fe0a8;
+  --color-emerald-400: #1fd892;
+  --color-emerald-500: #00d084;
+  --color-emerald-600: #00b574;
+  --color-emerald-700: #009060;
+  --color-emerald-800: #006e4a;
+  --color-emerald-900: #004d34;
+  --color-emerald-950: #002e1f;
+}
+
 :root {
-  --background: #f7f7f8;
-  --foreground: #18181b;
+  --background: #0a0a0a;
+  --foreground: #f4f4f4;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -12,13 +47,6 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0c0c0e;
-    --foreground: #ececef;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -26,3 +54,11 @@ body {
 }
 
 .tabular { font-variant-numeric: tabular-nums; }
+
+/* Barras de rolagem discretas */
+* { scrollbar-width: thin; scrollbar-color: #2a2a2a transparent; }
+
+/* Brilho verde sutil no topo da área de conteúdo */
+.brilho-marca {
+  background-image: radial-gradient(60rem 18rem at 20% -8rem, rgba(0, 208, 132, 0.07), transparent 70%);
+}

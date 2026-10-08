@@ -66,12 +66,12 @@ export function Chips({ itens, ativo }: { itens: { valor: string; rotulo: string
   );
 }
 
-export function Busca({ acao, valor, ocultos, placeholder }: { acao: string; valor?: string; ocultos: Record<string, string | undefined>; placeholder: string }) {
+export function Busca({ acao, valor, ocultos, placeholder, nome = "q" }: { acao: string; valor?: string; ocultos: Record<string, string | undefined>; placeholder: string; nome?: string }) {
   return (
     <form action={acao} className="flex gap-2">
       {Object.entries(ocultos).map(([k, v]) => (v ? <input key={k} type="hidden" name={k} value={v} /> : null))}
       <input
-        name="q"
+        name={nome}
         defaultValue={valor}
         placeholder={placeholder}
         className="w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 sm:w-64 dark:border-zinc-700 dark:bg-zinc-950"

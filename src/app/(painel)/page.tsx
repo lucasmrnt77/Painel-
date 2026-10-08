@@ -8,18 +8,23 @@ import { AutoAtualizar } from "@/components/auto-atualizar";
 import { dia, numero } from "@/lib/formato";
 import { Cartao, Kpi, montarHref } from "@/components/ui";
 import { CabecalhoPagina, SemLancamento } from "@/components/cabecalho";
+import { resumoFunis, resumoGrupoGratuito, resumoLinks } from "@/lib/captacao";
+import { Captacao } from "@/components/captacao";
 
 export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   const { resumos, atual } = await contexto(await searchParams);
   if (!atual) {
     return (<><CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={null} /><SemLancamento /></>);
   }
-  const [serie, horas, situacao, alertas, paginas] = await Promise.all([
+  const [serie, horas, situacao, alertas, paginas, funis, grupoGratuito, links] = await Promise.all([
     serieDiaria(atual.lancamento_id),
     serieHoraria(atual.lancamento_id, 24),
     situacaoMonitor(atual.lancamento_id),
     ultimosAlertas(atual.lancamento_id),
     resumoPaginas(atual.lancamento_id),
+    resumoFunis(),
+    resumoGrupoGratuito(),
+    resumoLinks(),
   ]);
   const maximo = Math.max(1, ...serie.map((s) => s.inscricoes));
   const pct = (n: number) => (atual.inscritos ? `${Math.round((100 * n) / atual.inscritos)}% dos inscritos` : undefined);
@@ -29,6 +34,13 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
     <>
       <AutoAtualizar segundos={60} />
       <CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={atual} />
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Kpi rotulo="Inscritos (únicos)" valor={numero(atual.inscritos)} detalhe={`${numero(atual.envios_total)} envios do formulário`} />
+        <Kpi rotulo="Inscritos no grupo" valor={numero(atual.no_grupo)} detalhe={atual.pct_inscritos_no_grupo != null ? `${atual.pct_inscritos_no_grupo}% dos inscritos` : undefined} destaque="verde" />
+        <Kpi rotulo={`Fora do grupo (> ${atual.minutos_reenvio} min)`} valor={numero(atual.fora_do_grupo)} detalhe={pct(atual.fora_do_grupo) ?? "candidatos a reenvio"} destaque="ambar" />
+        <Kpi rotulo="Mediana até entrar" valor={atual.mediana_minutos_ate_entrar != null ? `${Math.round(atual.mediana_minutos_ate_entrar)} min` : "—"} detalhe="da inscrição à entrada" />
+      </section>
 
       <CartaoMonitor s={situacao} alertas={alertas} modo={modoEnvio()} />
 
@@ -40,16 +52,14 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
         <GraficoHoras serie={horas} />
       </Cartao>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi rotulo="Inscritos (únicos)" valor={numero(atual.inscritos)} detalhe={`${numero(atual.envios_total)} envios do formulário`} />
-        <Kpi rotulo="Inscritos no grupo" valor={numero(atual.no_grupo)} detalhe={atual.pct_inscritos_no_grupo != null ? `${atual.pct_inscritos_no_grupo}% dos inscritos` : undefined} destaque="verde" />
-        <Kpi rotulo={`Fora do grupo (> ${atual.minutos_reenvio} min)`} valor={numero(atual.fora_do_grupo)} detalhe={pct(atual.fora_do_grupo) ?? "candidatos a reenvio"} destaque="ambar" />
-        <Kpi rotulo="Saíram do grupo" valor={numero(atual.saiu)} detalhe={pct(atual.saiu)} destaque="vermelho" />
+      <Captacao funis={funis} grupo={grupoGratuito} links={links} />
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi rotulo={`Aguardando (< ${atual.minutos_reenvio} min)`} valor={numero(atual.aguardando)} />
+        <Kpi rotulo="Saíram do grupo" valor={numero(atual.saiu)} detalhe={pct(atual.saiu)} destaque="vermelho" />
         <Kpi rotulo="Membros no grupo (total)" valor={numero(atual.membros_no_grupo)} detalhe="segundo o Sendflow" />
         <Kpi rotulo="No grupo sem inscrição" valor={numero(atual.membros_sem_inscricao)} detalhe="entraram sem passar pela captura" />
-        <Kpi rotulo="Mediana até entrar" valor={atual.mediana_minutos_ate_entrar != null ? `${Math.round(atual.mediana_minutos_ate_entrar)} min` : "—"} detalhe="da inscrição à entrada" />
-      </div>
+      </section>
 
       <CartaoPaginas linhas={paginas} slug={atual.slug} />
 
@@ -84,7 +94,7 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
             <li><Link className="text-emerald-700 hover:underline dark:text-emerald-400" href={lk("fora_do_grupo")}>Ver quem está fora do grupo →</Link></li>
             <li><a className="text-emerald-700 hover:underline dark:text-emerald-400" href={`/api/exportar?l=${atual.slug}&status=fora_do_grupo`}>Baixar CSV de quem está fora do grupo</a></li>
             <li><Link className="text-emerald-700 hover:underline dark:text-emerald-400" href={lk("saiu")}>Ver quem saiu →</Link></li>
-            <li><Link className="text-emerald-700 hover:underline dark:text-emerald-400" href={montarHref("/membros", { l: atual.slug, filtro: "sem_inscricao" })}>Membros sem inscrição →</Link></li>
+            <li><Link className="text-emerald-700 hover:underline dark:text-emerald-400" href={montarHref("/inscricoes", { l: atual.slug, filtro: "sem_inscricao" }) + "#membros"}>Membros sem inscrição →</Link></li>
           </ul>
           <div className="mt-4 border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
             <p>Link do grupo: {atual.link_grupo ? <a className="break-all text-zinc-700 underline dark:text-zinc-300" href={atual.link_grupo} target="_blank" rel="noreferrer">{atual.link_grupo}</a> : "não cadastrado"}</p>
