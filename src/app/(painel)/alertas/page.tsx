@@ -12,8 +12,11 @@ import { CartaoEnvioAlertas } from "@/components/envio-alertas";
 import { AutoAtualizar } from "@/components/auto-atualizar";
 import { Cartao, Tabela, td } from "@/components/ui";
 import { CabecalhoPagina } from "@/components/cabecalho";
+import { TestesEventos } from "@/components/testes";
+import { historicoTestes, type Execucao } from "@/lib/testes-eventos";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 120; // botão "Rodar testes agora"
 
 type Historico = { quando: string; origem: string; tipo: string; texto: string; envio: string | null };
 
@@ -28,6 +31,8 @@ const ROTULO_TIPO: Record<string, { rotulo: string; cor: string }> = {
   link_novo: { rotulo: "Link novo", cor: "text-emerald-600 dark:text-emerald-400" },
   redefinicao_sem_retorno: { rotulo: "Sendflow sem retorno", cor: "text-amber-600 dark:text-amber-400" },
   redefinicao_falhou: { rotulo: "Sendflow recusou", cor: "text-amber-600 dark:text-amber-400" },
+  testes_falharam: { rotulo: "Eventos Meta com erro", cor: "text-rose-600 dark:text-rose-400" },
+  testes_voltaram: { rotulo: "Eventos Meta ok de novo", cor: "text-emerald-600 dark:text-emerald-400" },
 };
 const ENVIO: Record<string, string> = { enviado: "enviado", parcial: "envio parcial", falhou: "falhou", sem_envio: "só no painel", pendente: "enviando" };
 
@@ -44,10 +49,22 @@ async function inscricoesGrupo(): Promise<{ ultimos20: number; ultimos60: number
   }
 }
 
+/** Testes automáticos dos eventos; null se a migração 014 ainda não foi aplicada. */
+async function testes(): Promise<{ servidor: Execucao | null; navegador: Execucao | null; historico: Execucao[] } | null> {
+  try {
+    const h = await historicoTestes(30);
+    return { servidor: h.find((e) => e.origem === "servidor") ?? null, navegador: h.find((e) => e.origem === "navegador") ?? null, historico: h.slice(0, 14) };
+  } catch {
+    return null;
+  }
+}
+
 async function historico(nomes: Map<number, string>): Promise<Historico[]> {
-  const [mon, redir] = await Promise.all([
+  const [mon, redir, tst] = await Promise.all([
     db().from("alertas").select("lancamento_id, tipo, mensagem, criado_em, envio_status").order("id", { ascending: false }).limit(40),
     db().from("redir_eventos").select("funil, tipo, detalhe, criado_em, alertado_em").eq("alertar", true).order("criado_em", { ascending: false }).limit(20),
+    // Testes dos eventos que geraram aviso (falha, ou volta ao normal); sem a migração 014 vem erro e é ignorado
+    db().from("testes_execucoes").select("origem, ok, falhas, total, criado_em, detalhes, envio_status").not("envio_status", "is", null).order("criado_em", { ascending: false }).limit(20),
   ]);
   const itens: Historico[] = [];
   for (const a of (mon.data ?? []) as { lancamento_id: number; tipo: string; mensagem: string; criado_em: string; envio_status: string }[]) {
@@ -56,6 +73,14 @@ async function historico(nomes: Map<number, string>): Promise<Historico[]> {
   for (const e of (redir.data ?? []) as { funil: string; tipo: string; detalhe: Record<string, unknown>; criado_em: string; alertado_em: string | null }[]) {
     const grupo = typeof e.detalhe?.grupo === "string" ? e.detalhe.grupo : "";
     itens.push({ quando: e.criado_em, origem: `Redirecionador ${e.funil}`, tipo: e.tipo, texto: grupo, envio: e.alertado_em ? "enviado" : "pendente" });
+  }
+  for (const t of (tst.data ?? []) as { origem: string; ok: boolean; falhas: number; total: number; criado_em: string; detalhes: { teste: string; motivo: string }[]; envio_status: string }[]) {
+    const primeira = t.detalhes?.[0];
+    itens.push({
+      quando: t.criado_em, origem: `Testes · ${t.origem}`, tipo: t.ok ? "testes_voltaram" : "testes_falharam",
+      texto: t.ok ? `${t.total} verificações ok` : `${t.falhas}/${t.total} falharam${primeira ? ` · ${primeira.teste}: ${primeira.motivo}` : ""}`,
+      envio: t.envio_status,
+    });
   }
   return itens.sort((a, b) => b.quando.localeCompare(a.quando)).slice(0, 40);
 }
@@ -96,7 +121,7 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
   ]);
   const nomes = new Map<number, string>(resumos.map((r) => [r.lancamento_id, r.nome]));
   if (grupo) nomes.set(grupo.id, grupo.nome);
-  const hist = await historico(nomes);
+  const [hist, tst] = await Promise.all([historico(nomes), testes()]);
 
   return (
     <>
@@ -110,6 +135,15 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
       <section className="grid gap-3 md:grid-cols-2">
         <Estado s={sLanc} nome={atual ? `Lançamento · ${atual.nome}` : "Lançamento"} />
         <Estado s={sGrupo} nome="Grupo gratuito" />
+      </section>
+
+      <section id="testes" className="scroll-mt-6 space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Testes diários dos eventos Meta</h2>
+        <Cartao>
+          {tst ? <TestesEventos {...tst} /> : (
+            <p className="text-sm text-zinc-400">Aplique a migração <code>014-testes-automaticos.sql</code> no Supabase do painel para ver os testes.</p>
+          )}
+        </Cartao>
       </section>
 
       {atual && sLanc && (

@@ -84,7 +84,7 @@ function Marca() {
   );
 }
 
-function ListaMenu({ aoNavegar }: { aoNavegar?: () => void }) {
+function ListaMenu({ aoNavegar, avisos = {} }: { aoNavegar?: () => void; avisos?: Record<string, number> }) {
   const caminho = usePathname();
   const l = useSearchParams().get("l");
   return (
@@ -104,6 +104,11 @@ function ListaMenu({ aoNavegar }: { aoNavegar?: () => void }) {
                 <>
                   <Icone nome={it.icone} className={`h-4 w-4 shrink-0 ${ativa ? "text-emerald-400" : "text-zinc-500 group-hover:text-zinc-300"}`} />
                   <span className="truncate">{it.rotulo}</span>
+                  {!!avisos[it.href] && (
+                    <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1.5 text-[11px] font-semibold text-white" aria-label={`${avisos[it.href]} problema(s)`}>
+                      {avisos[it.href]}
+                    </span>
+                  )}
                   {it.externo && <span className="ml-auto text-[10px] text-zinc-600 group-hover:text-zinc-400">↗</span>}
                 </>
               );
@@ -128,7 +133,7 @@ function ListaMenu({ aoNavegar }: { aoNavegar?: () => void }) {
 }
 
 /** Menu lateral fixo no computador; no celular, barra no topo com o menu em gaveta. */
-export function MenuLateral({ sair }: { sair: React.ReactNode }) {
+export function MenuLateral({ sair, avisos }: { sair: React.ReactNode; avisos?: Record<string, number> }) {
   const [aberto, setAberto] = useState(false);
   return (
     <>
@@ -136,7 +141,7 @@ export function MenuLateral({ sair }: { sair: React.ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-zinc-800 bg-zinc-950 lg:flex">
         <div className="px-5 pb-4 pt-5"><Marca /></div>
         <div className="flex-1 overflow-y-auto px-3 pb-4">
-          <ListaMenu />
+          <ListaMenu avisos={avisos} />
         </div>
         <div className="border-t border-zinc-800 px-5 py-3">{sair}</div>
       </aside>
@@ -144,8 +149,9 @@ export function MenuLateral({ sair }: { sair: React.ReactNode }) {
       {/* Celular */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur lg:hidden">
         <Marca />
-        <button type="button" onClick={() => setAberto(true)} aria-label="Abrir menu" className="rounded-lg p-2 text-zinc-300 hover:bg-zinc-800">
+        <button type="button" onClick={() => setAberto(true)} aria-label="Abrir menu" className="relative rounded-lg p-2 text-zinc-300 hover:bg-zinc-800">
           <Icone nome="menu" className="h-5 w-5" />
+          {Object.values(avisos ?? {}).some(Boolean) && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-rose-500" />}
         </button>
       </header>
       {aberto && (
@@ -159,7 +165,7 @@ export function MenuLateral({ sair }: { sair: React.ReactNode }) {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 pb-4">
-              <ListaMenu aoNavegar={() => setAberto(false)} />
+              <ListaMenu aoNavegar={() => setAberto(false)} avisos={avisos} />
             </div>
             <div className="border-t border-zinc-800 px-5 py-3">{sair}</div>
           </aside>

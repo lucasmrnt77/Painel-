@@ -287,6 +287,39 @@ Ainda não implementado — aguardando a definição da ferramenta de envio. A b
 `v_leads` com `status = 'fora_do_grupo'` é exatamente a lista de quem deve receber o link.
 Enquanto isso, a Visão geral tem o botão **Baixar CSV de quem está fora do grupo**.
 
+## Testes diários dos eventos Meta
+
+Todo dia o painel confere se os eventos da Meta continuam certos e mostra o resultado em
+**Alertas → Testes diários dos eventos Meta**. Se algo falhar aparece uma faixa vermelha no topo de
+todas as páginas, um número no menu "Alertas", uma linha no histórico de alertas e um aviso no
+WhatsApp (o mesmo envio dos alertas). Quando volta a funcionar, chega um aviso de "voltou".
+Tudo vai como **teste**: a Meta recebe em "Eventos de teste" e nada entra nas campanhas.
+
+**Servidor** (Cron da Vercel, 07:17 de Brasília, e botão "Rodar testes do servidor agora"):
+- as 148 variações das regras (Lead Qualificado da General, Trader, Lead General/Trader,
+  inválidos) contra o serviço de tracking, e o mesmo event_id 2× (tem que virar 1 evento);
+- cada evento gravado em `eventos_meta`, enviado e aceito pela Meta (`events_received = 1`);
+- a página do grupo enviando o "Lead" pela API de Conversões (modo teste da captura-grupo);
+- o serviço de tracking configurado (pixel, token e registro).
+
+**Navegador** (GitHub Actions, `.github/workflows/testes-eventos.yml`, 07:37 de Brasília):
+abre a página do grupo e a página de obrigado da General num Chromium de verdade, preenche como
+um lead e confere que o pixel dispara o MESMO evento com o MESMO event_id do servidor (a
+deduplicação). O disparo do pixel é interceptado no navegador e não chega na Meta.
+
+Variáveis:
+
+| Onde | Variável | Valor |
+|---|---|---|
+| Painel (Vercel) | `TESTES_TOKEN` | um segredo longo qualquer (o mesmo nos 3 lugares) |
+| captura-grupo (Vercel) | `TESTES_TOKEN` | o mesmo valor |
+| captura-grupo (Vercel) | `META_TEST_EVENT_CODE` | código de "Eventos de teste" do pixel do grupo (Production) — só é usado em requisições de teste |
+| tracking-eventos (Vercel) | `META_TEST_EVENT_CODE` | código de "Eventos de teste" do pixel da General |
+| GitHub do painel → Settings → Secrets → Actions | `TESTES_TOKEN` | o mesmo valor |
+
+Opcionais no painel: `TRACKING_EVENTOS_URL`, `TESTES_ORIGEM`, `CAPTURA_GRUPO_URL`. No GitHub
+(Variables): `PAINEL_URL`, `GRUPO_URL`, `GENERAL_URL`. Banco: migração `014-testes-automaticos.sql`.
+
 ## Desenvolvimento
 
 ```bash

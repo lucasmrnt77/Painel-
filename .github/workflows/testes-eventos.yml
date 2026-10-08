@@ -1,0 +1,31 @@
+# Teste diário no navegador dos eventos da Meta (pixel × servidor com o mesmo event_id).
+# O resultado aparece no painel → Alertas, e falhas avisam no WhatsApp.
+# Precisa do segredo TESTES_TOKEN (Settings → Secrets and variables → Actions).
+name: Testes dos eventos Meta
+
+on:
+  schedule:
+    - cron: "37 10 * * *" # todo dia, 07:37 no horário de Brasília
+  workflow_dispatch: {}
+
+jobs:
+  navegador:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: testes-navegador
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run testar
+        env:
+          TESTES_TOKEN: ${{ secrets.TESTES_TOKEN }}
+          PAINEL_URL: ${{ vars.PAINEL_URL || 'https://painel.traderdelite.net' }}
+          GRUPO_URL: ${{ vars.GRUPO_URL || 'https://captura-grupo.vercel.app' }}
+          GENERAL_URL: ${{ vars.GENERAL_URL || 'https://general-semana-inversionista-painel.vercel.app/gracias-video4' }}
+          DISPARO: ${{ github.event_name == 'workflow_dispatch' && 'manual' || 'agendado' }}

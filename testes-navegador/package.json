@@ -1,0 +1,8 @@
+{
+  "name": "testes-navegador",
+  "private": true,
+  "type": "module",
+  "description": "Teste diário no navegador: pixel e servidor com o mesmo event_id (rodado pelo GitHub Actions)",
+  "scripts": { "testar": "node eventos.mjs" },
+  "dependencies": { "playwright": "1.56.1" }
+}

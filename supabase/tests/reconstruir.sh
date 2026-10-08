@@ -38,3 +38,4 @@ $P -f tests/comportamento.sql
 [ -f tests/redirecionador.sql ] && $P -f tests/redirecionador.sql
 [ -f tests/links.sql ] && $P -f tests/links.sql
 [ -f tests/alertas-grupo.sql ] && $P -f tests/alertas-grupo.sql
+[ -f tests/testes-automaticos.sql ] && $P -f tests/testes-automaticos.sql
