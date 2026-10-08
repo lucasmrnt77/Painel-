@@ -7,6 +7,17 @@ const hora = (iso: string | null | undefined) =>
   iso ? new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, hour: "2-digit", minute: "2-digit" }).format(new Date(iso)) : "—";
 const pct = (a: number, b: number) => (b > 0 ? `${Math.round((100 * a) / b)}%` : "—");
 
+/** 45 → "45 min" · 180 → "3 h" · 200 → "3 h 20 min" · 3000 → "2 dias 2 h" */
+export function duracao(minutos: number): string {
+  const m = Math.max(0, Math.floor(minutos));
+  if (m < 60) return `${m} min`;
+  const dias = Math.floor(m / 1440);
+  const h = Math.floor((m % 1440) / 60);
+  const resto = m % 60;
+  if (dias > 0) return `${dias} dia${dias > 1 ? "s" : ""}${h ? ` ${h} h` : ""}`;
+  return `${h} h${resto ? ` ${resto} min` : ""}`;
+}
+
 export function mensagemAlerta(tipo: string, lancamento: string, dados: Record<string, unknown>): string {
   if (tipo === "sem_entradas") {
     const j = dados.janela as Janela;
@@ -18,13 +29,13 @@ export function mensagemAlerta(tipo: string, lancamento: string, dados: Record<s
         : `${j.inscricoes} inscrição(ões) nesse período, mas ninguém entrou: confira a página de obrigado e o link do grupo.`;
     return [
       `⚠️ *${lancamento}*`,
-      `Sem entradas no grupo há *${min} min*.`,
+      `Sem entradas no grupo há *${duracao(min)}*.`,
       ultima ? `Última entrada: ${hora(ultima)}.` : "Nenhuma entrada desde que o monitor foi ligado.",
       diagnostico,
     ].join("\n");
   }
   if (tipo === "entradas_retomadas") {
-    return `✅ *${lancamento}*\nEntradas retomadas às ${hora(dados.retomada_em as string)} depois de ${dados.minutos_sem_entrada} min sem entradas.`;
+    return `✅ *${lancamento}*\nEntradas retomadas às ${hora(dados.retomada_em as string)} depois de ${duracao(Number(dados.minutos_sem_entrada))} sem entradas.`;
   }
   if (tipo === "resumo") {
     const j = dados.janela as Janela;
@@ -32,8 +43,8 @@ export function mensagemAlerta(tipo: string, lancamento: string, dados: Record<s
       `📊 *${lancamento}* — ${hora(j.de)} às ${hora(j.ate)}`,
       `Inscrições: ${j.inscricoes}`,
       `Entradas no grupo: ${j.entradas}` + (j.saidas ? ` · Saídas: ${j.saidas}` : ""),
-      `Dos inscritos no período, ${pct(j.inscritos_no_grupo, j.inscricoes)} já estão no grupo.`,
-    ].join("\n");
+      dados.inscricoes_externas ? "" : `Dos inscritos no período, ${pct(j.inscritos_no_grupo, j.inscricoes)} já estão no grupo.`,
+    ].filter(Boolean).join("\n");
   }
   if (tipo === "teste") {
     return `🔔 *${lancamento}*\nMensagem de teste do monitor do painel Sendflow.`;

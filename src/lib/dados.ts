@@ -94,6 +94,22 @@ export async function listarResumos(): Promise<Resumo[]> {
   return (data ?? []) as Resumo[];
 }
 
+export type GrupoGratuito = {
+  id: number; nome: string; sendflow_ref: string | null; monitor_ativo: boolean;
+  alerta_minutos_sem_entrada: number; resumo_minutos: number; alerta_telefones: string[];
+};
+
+/** O "lançamento" especial do grupo gratuito (migração 013). null se ainda não existir. */
+export async function grupoGratuito(): Promise<GrupoGratuito | null> {
+  const { data, error } = await db()
+    .from("lancamentos")
+    .select("id, nome, sendflow_ref, monitor_ativo, alerta_minutos_sem_entrada, resumo_minutos, alerta_telefones")
+    .eq("tipo", "grupo_gratuito")
+    .maybeSingle();
+  if (error) return null; // antes da 013 a coluna tipo não existe
+  return (data as GrupoGratuito | null) ?? null;
+}
+
 export function escolherLancamento(resumos: Resumo[], slug?: string): Resumo | null {
   return resumos.find((r) => r.slug === slug) ?? resumos.find((r) => r.ativo) ?? resumos[0] ?? null;
 }

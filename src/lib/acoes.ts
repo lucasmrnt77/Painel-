@@ -31,6 +31,48 @@ function texto(fd: FormData, k: string): string | null {
   return v === "" ? null : v;
 }
 
+const RESUMOS = [0, 15, 20, 30, 60, 120, 180, 240, 360, 720, 1440];
+
+function validarAlerta(alertaMin: number, resumoMin: number): string | null {
+  if (!Number.isInteger(alertaMin) || alertaMin < 5 || alertaMin > 2880) return "Alerta: entre 5 minutos e 48 horas sem entrada";
+  if (!RESUMOS.includes(resumoMin)) return "Resumo inválido";
+  return null;
+}
+
+function lerTelefones(fd: FormData): { telefones: string[] } | { erro: string } {
+  const telefones: string[] = [];
+  for (const item of String(fd.get("alerta_telefones") ?? "").split(/[\n,;]+/)) {
+    if (!item.trim()) continue;
+    const t = normalizarTelefone(item);
+    if (!t || t.length < 11) return { erro: `Telefone de alerta inválido (use DDI): ${item.trim()}` };
+    if (!telefones.includes(t)) telefones.push(t);
+  }
+  if (telefones.length > 10) return { erro: "Máximo de 10 telefones de alerta" };
+  return { telefones };
+}
+
+/** Configuração dos alertas de um monitor (lançamento ou grupo gratuito), na aba Alertas. */
+export async function salvarAlertas(_: EstadoForm, fd: FormData): Promise<EstadoForm> {
+  await exigirLogin();
+  const id = Number(fd.get("id"));
+  if (!Number.isInteger(id)) return { erro: "Monitor inválido" };
+  const alertaMin = Number(texto(fd, "alerta_minutos_sem_entrada") ?? "20");
+  const resumoMin = Number(texto(fd, "resumo_minutos") ?? "0");
+  const erroAlerta = validarAlerta(alertaMin, resumoMin);
+  if (erroAlerta) return { erro: erroAlerta };
+  const tel = lerTelefones(fd);
+  if ("erro" in tel) return { erro: tel.erro };
+  const linha: Record<string, unknown> = { alerta_minutos_sem_entrada: alertaMin, resumo_minutos: resumoMin, alerta_telefones: tel.telefones };
+  if (fd.has("sendflow_ref")) linha.sendflow_ref = texto(fd, "sendflow_ref");
+  const { error } = await db().from("lancamentos").update(linha).eq("id", id);
+  if (error) {
+    if (error.code === "23505") return { erro: "Essa referência do Sendflow já está em outro lançamento" };
+    return { erro: error.message };
+  }
+  revalidatePath("/", "layout");
+  return { ok: "Alertas salvos" };
+}
+
 export async function salvarLancamento(_: EstadoForm, fd: FormData): Promise<EstadoForm> {
   await exigirLogin();
   const id = texto(fd, "id");
@@ -46,16 +88,11 @@ export async function salvarLancamento(_: EstadoForm, fd: FormData): Promise<Est
 
   const alertaMin = Number(texto(fd, "alerta_minutos_sem_entrada") ?? "20");
   const resumoMin = Number(texto(fd, "resumo_minutos") ?? "60");
-  if (!Number.isInteger(alertaMin) || alertaMin < 5 || alertaMin > 720) return { erro: "Alerta: entre 5 e 720 minutos sem entrada" };
-  if (![0, 15, 20, 30, 60, 120, 180, 240].includes(resumoMin)) return { erro: "Resumo inválido" };
-  const telefones: string[] = [];
-  for (const item of String(fd.get("alerta_telefones") ?? "").split(/[\n,;]+/)) {
-    if (!item.trim()) continue;
-    const t = normalizarTelefone(item);
-    if (!t || t.length < 11) return { erro: `Telefone de alerta inválido (use DDI): ${item.trim()}` };
-    if (!telefones.includes(t)) telefones.push(t);
-  }
-  if (telefones.length > 10) return { erro: "Máximo de 10 telefones de alerta" };
+  const erroAlerta = validarAlerta(alertaMin, resumoMin);
+  if (erroAlerta) return { erro: erroAlerta };
+  const tel = lerTelefones(fd);
+  if ("erro" in tel) return { erro: tel.erro };
+  const telefones = tel.telefones;
 
   const linha = {
     slug, nome, link_grupo: link, sendflow_ref: texto(fd, "sendflow_ref"), minutos_reenvio: minutos,
@@ -76,6 +113,8 @@ export async function ativarLancamento(fd: FormData) {
   await exigirLogin();
   const id = Number(fd.get("id"));
   if (!Number.isInteger(id)) return;
+  const { data: alvo } = await db().from("lancamentos").select("tipo").eq("id", id).maybeSingle();
+  if ((alvo as { tipo?: string } | null)?.tipo === "grupo_gratuito") return; // o grupo gratuito nunca é o lançamento ativo
   // Desativa o atual e ativa o novo (índice único garante no máximo um).
   const r1 = await db().from("lancamentos").update({ ativo: false }).eq("ativo", true);
   if (r1.error) throw new Error(r1.error.message);

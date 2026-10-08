@@ -3,6 +3,7 @@ import { alternarMonitor } from "@/lib/acoes";
 import { dataHora } from "@/lib/formato";
 import { FormTesteAlerta } from "./formularios";
 import type { ModoEnvio } from "@/lib/whatsapp";
+import { duracao } from "@/lib/mensagens";
 
 const ROTULO_ALERTA: Record<string, string> = {
   sem_entradas: "Sem entradas",
@@ -20,7 +21,15 @@ const ROTULO_ENVIO: Record<string, string> = {
   enviado: "enviado", parcial: "envio parcial", falhou: "falhou", sem_envio: "só no painel", pendente: "enviando",
 };
 
-export function CartaoMonitor({ s, alertas, modo }: { s: SituacaoMonitor; alertas: Alerta[]; modo: ModoEnvio }) {
+/**
+ * Monitor de um grupo: liga/desliga, tempo desde a última entrada, entradas recentes e alertas.
+ * `inscricoes` substitui as contagens de inscrição (grupo gratuito: vêm do banco da página do grupo).
+ */
+export function CartaoMonitor({ s, alertas, modo, titulo = "Monitor de tráfego", inscricoes }: {
+  s: SituacaoMonitor; alertas: Alerta[]; modo: ModoEnvio; titulo?: string; inscricoes?: { ultimos20: number; ultimos60: number } | null;
+}) {
+  const insc20 = inscricoes ? inscricoes.ultimos20 : s.ultimos_20.inscricoes;
+  const insc60 = inscricoes ? inscricoes.ultimos60 : s.ultimos_60.inscricoes;
   const porTelefone = modo === "sendflow_direto" || modo === "webhook";
   const min = s.minutos_desde_ultima_entrada;
   const limiar = s.alerta_minutos_sem_entrada;
@@ -35,10 +44,10 @@ export function CartaoMonitor({ s, alertas, modo }: { s: SituacaoMonitor; alerta
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <div className="flex items-center gap-2">
           <span className={`inline-block h-2.5 w-2.5 rounded-full ${s.monitor_ativo ? "animate-pulse bg-emerald-500" : "bg-zinc-400"}`} />
-          <h2 className="text-sm font-semibold">Monitor de tráfego</h2>
+          <h2 className="text-sm font-semibold">{titulo}</h2>
           <span className="text-xs text-zinc-500">
             {s.monitor_ativo
-              ? `ligado desde ${dataHora(s.monitor_ligado_em)} · alerta após ${limiar} min sem entradas`
+              ? `ligado desde ${dataHora(s.monitor_ligado_em)} · alerta após ${duracao(limiar)} sem entradas`
               : "desligado — ligue quando o tráfego começar"}
           </span>
         </div>
@@ -59,18 +68,18 @@ export function CartaoMonitor({ s, alertas, modo }: { s: SituacaoMonitor; alerta
       <div className="grid gap-4 p-4 md:grid-cols-[1fr_1fr_1fr_2fr]">
         <div>
           <div className="text-xs text-zinc-500">Última entrada no grupo</div>
-          <div className={`tabular mt-1 text-2xl font-semibold ${cor}`}>{min == null ? "—" : `há ${min} min`}</div>
+          <div className={`tabular mt-1 text-2xl font-semibold ${cor}`}>{min == null ? "—" : `há ${duracao(min)}`}</div>
           <div className="text-xs text-zinc-500">{s.ultima_entrada_em ? dataHora(s.ultima_entrada_em) : "nenhuma ainda"}</div>
         </div>
         <div>
           <div className="text-xs text-zinc-500">Últimos 20 min</div>
           <div className="tabular mt-1 text-2xl font-semibold">{s.ultimos_20.entradas}</div>
-          <div className="text-xs text-zinc-500">entradas · {s.ultimos_20.inscricoes} inscrições</div>
+          <div className="text-xs text-zinc-500">entradas · {insc20} inscrições</div>
         </div>
         <div>
           <div className="text-xs text-zinc-500">Última hora</div>
           <div className="tabular mt-1 text-2xl font-semibold">{s.ultimos_60.entradas}</div>
-          <div className="text-xs text-zinc-500">entradas · {s.ultimos_60.inscricoes} inscrições</div>
+          <div className="text-xs text-zinc-500">entradas · {insc60} inscrições</div>
         </div>
         <div className="min-w-0">
           <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
@@ -88,7 +97,7 @@ export function CartaoMonitor({ s, alertas, modo }: { s: SituacaoMonitor; alerta
                 <li key={a.id} className="flex gap-2" title={a.mensagem}>
                   <span className="tabular shrink-0 text-zinc-500">{dataHora(a.criado_em)}</span>
                   <span className={`shrink-0 font-medium ${COR_ALERTA[a.tipo] ?? ""}`}>{ROTULO_ALERTA[a.tipo] ?? a.tipo}</span>
-                  <span className="truncate text-zinc-600 dark:text-zinc-400">{a.mensagem.split("\n").slice(1).join(" · ")}</span>
+                  <span className="truncate text-zinc-600 dark:text-zinc-400">{a.mensagem.split("\n").slice(1).join(" · ").replace(/\*/g, "")}</span>
                   <span className="ml-auto shrink-0 text-zinc-400">{ROTULO_ENVIO[a.envio_status] ?? a.envio_status}</span>
                 </li>
               ))}

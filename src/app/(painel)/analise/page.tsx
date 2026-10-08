@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { exigirLogin } from "@/lib/sessao";
-import { param } from "@/lib/contexto";
-import { escolherLancamento, listarResumos } from "@/lib/dados";
+import { contexto, param } from "@/lib/contexto";
+import { escolherLancamento } from "@/lib/dados";
 import { DIMENSOES, FILTROS, carregarAnalise, type Filtros } from "@/lib/analise";
 import { numero } from "@/lib/formato";
 import { Cartao, Kpi, montarHref, td } from "@/components/ui";
@@ -16,7 +16,7 @@ const ROTULO_FILTRO: Record<string, string> = {
 export default async function Analise({ searchParams }: PageProps<"/analise">) {
   await exigirLogin();
   const sp = await searchParams;
-  const resumos = await listarResumos();
+  const { resumos } = await contexto(sp);
   if (resumos.length === 0) return <SemLancamento />;
 
   const lParam = param(sp, "l");

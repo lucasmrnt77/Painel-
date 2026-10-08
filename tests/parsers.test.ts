@@ -183,3 +183,17 @@ test("página geral com nome e e-mail (campos em espanhol)", () => {
   assert.equal(d.email, "Juan@Ejemplo.com");
   assert.equal(extrairCaptura({ telefono: "1", correo: "a@b.co" }).email, "a@b.co");
 });
+
+test("alertas: duração legível e resumo do grupo gratuito", async () => {
+  const { duracao, mensagemAlerta } = await import("../src/lib/mensagens");
+  assert.equal(duracao(45), "45 min");
+  assert.equal(duracao(180), "3 h");
+  assert.equal(duracao(200), "3 h 20 min");
+  assert.equal(duracao(3000), "2 dias 2 h");
+  const j = { de: "2026-10-08T10:00:00Z", ate: "2026-10-08T13:00:00Z", inscricoes: 0, entradas: 0, saidas: 0, inscritos_no_grupo: 0 };
+  const m = mensagemAlerta("sem_entradas", "Grupo gratuito", { minutos_sem_entrada: 185, ultima_entrada_em: null, janela: j });
+  assert.match(m, /3 h 5 min/);
+  const r = mensagemAlerta("resumo", "Grupo gratuito", { janela: { ...j, inscricoes: 12, entradas: 9 }, inscricoes_externas: true });
+  assert.match(r, /Inscrições: 12/);
+  assert.doesNotMatch(r, /Dos inscritos/);
+});

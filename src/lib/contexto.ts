@@ -1,6 +1,6 @@
 import "server-only";
 import { exigirLogin } from "./sessao";
-import { escolherLancamento, listarResumos } from "./dados";
+import { escolherLancamento, grupoGratuito, listarResumos } from "./dados";
 
 export type Busca = Record<string, string | string[] | undefined>;
 
@@ -12,7 +12,9 @@ export function param(sp: Busca, k: string): string | undefined {
 /** Autentica e resolve o lançamento selecionado (?l=slug, senão o ativo). */
 export async function contexto(sp: Busca) {
   await exigirLogin();
-  const resumos = await listarResumos();
+  // O grupo gratuito tem página própria (Alertas / Grupo gratuito): fica fora do seletor de lançamentos
+  const [todos, grupo] = await Promise.all([listarResumos(), grupoGratuito()]);
+  const resumos = grupo ? todos.filter((r) => r.lancamento_id !== grupo.id) : todos;
   const atual = escolherLancamento(resumos, param(sp, "l"));
   return { resumos, atual };
 }

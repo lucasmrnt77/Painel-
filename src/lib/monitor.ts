@@ -3,10 +3,31 @@ import { randomUUID } from "node:crypto";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
 import { mensagemAlerta } from "./mensagens";
+import { grupoConfigurado, rpcGrupo } from "./grupo";
 
-type Lanc = { id: number; nome: string; alerta_telefones: string[] };
+type Lanc = { id: number; nome: string; alerta_telefones: string[]; tipo?: string };
 
-async function criarEEnviar(l: Lanc, tipo: string, chave: string, dados: Record<string, unknown>) {
+/**
+ * O grupo gratuito recebe as inscrições em outro banco (página captura-grupo).
+ * Para o alerta dizer se o tráfego parou, troca a contagem de inscrições da
+ * janela pela de lá. Se não der para consultar, mantém como veio.
+ */
+async function comInscricoesDoGrupo(l: Lanc, dados: Record<string, unknown>) {
+  const j = dados.janela as { de?: string; ate?: string } | undefined;
+  if (l.tipo !== "grupo_gratuito" || !j?.de || !j?.ate || !grupoConfigurado()) return dados;
+  try {
+    const r = await rpcGrupo<{ total: number }>("painel_resumo", {
+      p_desde: j.de, p_ate: j.ate, p_pais: null, p_source: null, p_campaign: null, p_content: null,
+    });
+    return { ...dados, janela: { ...j, inscricoes: r.total }, inscricoes_externas: true };
+  } catch (e) {
+    console.error("[monitor] inscrições do grupo gratuito", e);
+    return dados;
+  }
+}
+
+async function criarEEnviar(l: Lanc, tipo: string, chave: string, dadosOriginais: Record<string, unknown>) {
+  const dados = await comInscricoesDoGrupo(l, dadosOriginais);
   const mensagem = mensagemAlerta(tipo, l.nome, dados);
   const { data: id, error } = await db().rpc("monitor_registrar_alerta", {
     p_lancamento_id: l.id, p_tipo: tipo, p_chave: chave, p_mensagem: mensagem, p_dados: dados,
@@ -27,7 +48,7 @@ async function criarEEnviar(l: Lanc, tipo: string, chave: string, dados: Record<
 export async function executarMonitor() {
   const { data, error } = await db()
     .from("lancamentos")
-    .select("id, nome, alerta_telefones")
+    .select("id, nome, alerta_telefones, tipo")
     .eq("monitor_ativo", true);
   if (error) throw new Error(`[monitor] lançamentos: ${error.message}`);
 
@@ -44,7 +65,7 @@ export async function executarMonitor() {
 }
 
 export async function enviarTeste(lancamentoId: number) {
-  const { data, error } = await db().from("lancamentos").select("id, nome, alerta_telefones").eq("id", lancamentoId).single();
+  const { data, error } = await db().from("lancamentos").select("id, nome, alerta_telefones, tipo").eq("id", lancamentoId).single();
   if (error || !data) throw new Error("lançamento não encontrado");
   return criarEEnviar(data as Lanc, "teste", `teste:${randomUUID()}`, {});
 }

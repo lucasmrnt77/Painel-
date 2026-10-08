@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { contexto } from "@/lib/contexto";
-import { resumoPaginas, serieDiaria, serieHoraria, situacaoMonitor, ultimosAlertas } from "@/lib/dados";
+import { grupoGratuito, resumoPaginas, serieDiaria, serieHoraria, situacaoMonitor, type SituacaoMonitor } from "@/lib/dados";
 import { CartaoPaginas } from "@/components/paginas";
-import { modoEnvio } from "@/lib/whatsapp";
-import { CartaoMonitor, GraficoHoras } from "@/components/monitor";
+import { GraficoHoras } from "@/components/monitor";
+import { duracao } from "@/lib/mensagens";
 import { AutoAtualizar } from "@/components/auto-atualizar";
 import { dia, numero } from "@/lib/formato";
 import { Cartao, Kpi, montarHref } from "@/components/ui";
@@ -16,11 +16,12 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   if (!atual) {
     return (<><CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={null} /><SemLancamento /></>);
   }
-  const [serie, horas, situacao, alertas, paginas, funis, grupoGratuito, links] = await Promise.all([
+  const grupoMon = await grupoGratuito();
+  const [serie, horas, situacao, situacaoGrupo, paginas, funis, grupoGratuitoResumo, links] = await Promise.all([
     serieDiaria(atual.lancamento_id),
     serieHoraria(atual.lancamento_id, 24),
     situacaoMonitor(atual.lancamento_id),
-    ultimosAlertas(atual.lancamento_id),
+    grupoMon ? situacaoMonitor(grupoMon.id) : Promise.resolve(null),
     resumoPaginas(atual.lancamento_id),
     resumoFunis(),
     resumoGrupoGratuito(),
@@ -42,7 +43,10 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
         <Kpi rotulo="Mediana até entrar" valor={atual.mediana_minutos_ate_entrar != null ? `${Math.round(atual.mediana_minutos_ate_entrar)} min` : "—"} detalhe="da inscrição à entrada" />
       </section>
 
-      <CartaoMonitor s={situacao} alertas={alertas} modo={modoEnvio()} />
+      <section className="grid gap-3 md:grid-cols-2">
+        <StatusMonitor nome={`Monitor do lançamento`} s={situacao} />
+        <StatusMonitor nome="Monitor do grupo gratuito" s={situacaoGrupo} />
+      </section>
 
       <Cartao titulo="Inscrições x entradas por hora (últimas 24h, horário UY)">
         <div className="mb-2 flex gap-4 text-xs text-zinc-500">
@@ -52,7 +56,7 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
         <GraficoHoras serie={horas} />
       </Cartao>
 
-      <Captacao funis={funis} grupo={grupoGratuito} links={links} />
+      <Captacao funis={funis} grupo={grupoGratuitoResumo} links={links} />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi rotulo={`Aguardando (< ${atual.minutos_reenvio} min)`} valor={numero(atual.aguardando)} />
@@ -104,5 +108,27 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
         </Cartao>
       </div>
     </>
+  );
+}
+
+/** Linha compacta do monitor na Visão geral; o detalhe e a configuração ficam em Alertas. */
+function StatusMonitor({ nome, s }: { nome: string; s: SituacaoMonitor | null }) {
+  const min = s?.minutos_desde_ultima_entrada ?? null;
+  const alerta = !!s?.monitor_ativo && min != null && min >= s.alerta_minutos_sem_entrada;
+  const cor = !s?.monitor_ativo ? "bg-zinc-600" : alerta ? "bg-rose-500" : "animate-pulse bg-emerald-500";
+  return (
+    <Link href="/alertas" className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition hover:border-zinc-600 ${alerta ? "border-rose-500/40 bg-rose-500/5" : "border-zinc-800 bg-zinc-900"}`}>
+      <div className="flex items-center gap-3">
+        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${cor}`} />
+        <div>
+          <div className="text-sm font-medium">{nome}</div>
+          <div className="text-xs text-zinc-500">
+            {!s ? "ainda não configurado" : !s.monitor_ativo ? "desligado" : alerta ? `sem entradas há ${duracao(min!)}` : `ligado · alerta após ${duracao(s.alerta_minutos_sem_entrada)}`}
+            {s?.ultima_entrada_em ? ` · última entrada ${min != null ? `há ${duracao(min)}` : ""}` : ""}
+          </div>
+        </div>
+      </div>
+      <span className="text-xs text-emerald-400">Alertas →</span>
+    </Link>
   );
 }
