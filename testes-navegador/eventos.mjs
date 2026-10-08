@@ -89,7 +89,7 @@ async function testarGrupo(browser) {
       const corpo = JSON.parse(route.request().postData() || "{}");
       enviado = corpo;
       await route.continue({
-        postData: JSON.stringify({ ...corpo, teste: true }),
+        postData: JSON.stringify({ ...corpo, teste: true, website: "teste-automatico" }), // versão antiga da página: finge sucesso e não grava
         headers: { ...route.request().headers(), "x-teste-token": TESTES_TOKEN },
       });
     });

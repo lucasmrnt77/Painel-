@@ -118,6 +118,7 @@ async function testarGrupo(run: string): Promise<{ etapas: Etapa[]; falhas: Falh
   const eventId = `${run}-grupo`;
   const r = await postar(`${grupoUrl()}/api/inscribir`, {
     email: "qa@teste.com", telefono: "099009001", pais: "UY", event_id: eventId, teste: true,
+    website: "teste-automatico", // campo-armadilha: se a página estiver numa versão antiga, ela finge sucesso e NÃO grava
     url: "https://captura-grupo.vercel.app/?teste=automatico",
   }, { "x-teste-token": token });
   const corpo = r.corpo as { ok?: boolean; erro?: string; teste?: { event_id?: string; meta?: { ok?: boolean; motivo?: string; resposta?: { events_received?: number } } } } | null;
