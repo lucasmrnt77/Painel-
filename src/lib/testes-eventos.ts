@@ -2,6 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
+import { testesVaiProWhatsapp } from "./politica-alertas";
 import {
   casosEventos, conferirRegistros, conferirResposta, mensagemTestes, MAX_DETALHES, TELEFONES_TESTE,
   type Etapa, type Execucao, type Falha, type RegistroEvento, type RespostaServico,
@@ -192,12 +193,16 @@ export async function registrarExecucao(exec: Execucao): Promise<Execucao> {
   if (error) throw new Error(`não consegui gravar o resultado dos testes: ${error.message}`);
   const salvo = { ...exec, id: data.id as number, criado_em: data.criado_em as string };
 
-  // Avisa quando falha; e uma vez quando volta a funcionar
+  // Só avisa no WhatsApp quando falha. Quando volta a funcionar, a volta aparece só no painel.
   const voltou = exec.ok && anterior && !anterior.ok;
-  if (!exec.ok || voltou) {
-    const envio = await enviarWhatsapp(await telefonesAlerta(), mensagemTestes(salvo, !!voltou), "teste_eventos");
+  if (testesVaiProWhatsapp(exec.ok)) {
+    const envio = await enviarWhatsapp(await telefonesAlerta(), mensagemTestes(salvo, false), "teste_eventos");
     await db().from("testes_execucoes").update({ envio_status: envio.status }).eq("id", salvo.id);
     salvo.envio_status = envio.status;
+  } else if (voltou) {
+    // Marca a volta no histórico de alertas do painel, sem mandar mensagem
+    await db().from("testes_execucoes").update({ envio_status: "sem_envio" }).eq("id", salvo.id);
+    salvo.envio_status = "sem_envio";
   }
   return salvo;
 }

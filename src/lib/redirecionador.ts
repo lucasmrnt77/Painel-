@@ -3,6 +3,7 @@ import { db } from "./supabase"
 import { verificarConvite } from "./convite"
 import { listarGruposCampanha, pedirNovoConvite } from "./sendflow-grupos"
 import { enviarWhatsapp, envioConfigurado } from "./whatsapp"
+import { redirecionadorVaiProWhatsapp } from "./politica-alertas"
 import { mensagemRedirecionador } from "./mensagens"
 
 export type Funil = {
@@ -188,7 +189,8 @@ export async function despacharAlertas() {
       restantes: lg.filter((x) => x.funil === e.funil && x.status === "ativo").length,
       reserva: f?.link_reserva ?? null,
     })
-    if (texto) { await enviarWhatsapp([], texto, `redir_${e.tipo}`); enviados++ }
+    // Só o que precisa de ajuste vai para o WhatsApp (ex.: sem grupo na fila); o resto fica no painel
+    if (texto && redirecionadorVaiProWhatsapp(e.tipo, !!proximo)) { await enviarWhatsapp([], texto, `redir_${e.tipo}`); enviados++ }
   }
   return enviados
 }

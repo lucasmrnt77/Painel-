@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
 import { mensagemAlerta } from "./mensagens";
+import { monitorVaiProWhatsapp } from "./politica-alertas";
 import { grupoConfigurado, rpcGrupo } from "./grupo";
 
 type Lanc = { id: number; nome: string; alerta_telefones: string[]; tipo?: string };
@@ -35,7 +36,10 @@ async function criarEEnviar(l: Lanc, tipo: string, chave: string, dadosOriginais
   if (error) throw new Error(`[monitor] registrar: ${error.message}`);
   if (id == null) return null; // já existia — outro disparo do cron cuidou dele
 
-  const envio = await enviarWhatsapp(l.alerta_telefones ?? [], mensagem, tipo);
+  // Só erros vão para o WhatsApp; resumos e "entradas retomadas" ficam só no painel
+  const envio = monitorVaiProWhatsapp(tipo)
+    ? await enviarWhatsapp(l.alerta_telefones ?? [], mensagem, tipo)
+    : { status: "sem_envio" as const, detalhe: { motivo: "só no painel (não é erro)" } };
   const r = await db()
     .from("alertas")
     .update({ envio_status: envio.status, envio_detalhe: envio.detalhe, enviado_em: new Date().toISOString() })

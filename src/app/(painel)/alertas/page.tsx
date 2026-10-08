@@ -128,8 +128,9 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
       <AutoAtualizar segundos={60} />
       <CabecalhoPagina titulo="Alertas" resumos={resumos} atual={atual} />
       <p className="-mt-2 text-sm text-zinc-500">
-        Avisos no WhatsApp quando ninguém entra no grupo por um tempo, resumos periódicos e os avisos do redirecionador. O monitor
-        confere a cada 2 minutos.
+        O grupo de alertas no WhatsApp só recebe problemas que precisam de ajuste: ninguém entrou no grupo dentro do prazo
+        (padrão 24 h), redirecionador sem grupo disponível ou falha ao pedir link novo, e testes dos eventos com erro.
+        Resumos, entradas retomadas e avisos de que voltou a funcionar ficam só aqui no painel. O monitor confere a cada 2 minutos.
       </p>
 
       <section className="grid gap-3 md:grid-cols-2">

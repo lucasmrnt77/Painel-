@@ -76,8 +76,8 @@ export function TestesEventos({ servidor, navegador, historico }: { servidor: Ex
         </div>
       )}
       <p className="text-xs text-zinc-500">
-        Tudo vai como <b>teste</b>: a Meta recebe em &quot;Eventos de teste&quot; e nada entra nas campanhas. Se algo falhar, o aviso chega no WhatsApp
-        (mesmo envio dos alertas) e de novo quando voltar a funcionar.
+        Tudo vai como <b>teste</b>: a Meta recebe em &quot;Eventos de teste&quot; e nada entra nas campanhas. Só se algo falhar vai aviso no WhatsApp
+        (mesmo envio dos alertas); quando passa, fica só aqui no painel.
       </p>
     </div>
   );

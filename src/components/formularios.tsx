@@ -57,11 +57,11 @@ export function FormLancamento({ lancamento }: { lancamento?: Lanc }) {
       <div className="sm:col-span-2 mt-2 border-t border-zinc-200 pt-3 text-xs font-semibold text-zinc-500 dark:border-zinc-800">Monitor de tráfego</div>
       <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
         Alertar após quantos minutos sem ninguém entrar
-        <input name="alerta_minutos_sem_entrada" type="number" min={5} max={2880} defaultValue={lancamento?.alerta_minutos_sem_entrada ?? 20} className={campo} />
+        <input name="alerta_minutos_sem_entrada" type="number" min={5} max={2880} defaultValue={lancamento?.alerta_minutos_sem_entrada ?? 1440} className={campo} />
       </label>
       <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-        Resumo periódico
-        <select name="resumo_minutos" defaultValue={String(lancamento?.resumo_minutos ?? 60)} className={campo}>
+        Resumo periódico (só no painel, não vai pro WhatsApp)
+        <select name="resumo_minutos" defaultValue={String(lancamento?.resumo_minutos ?? 0)} className={campo}>
           <option value="0">Desligado</option>
           <option value="30">A cada 30 min</option>
           <option value="60">De hora em hora</option>
@@ -137,7 +137,7 @@ export function FormAlertas({ id, alertaMinutos, resumoMinutos, telefones, refer
         </select>
       </label>
       <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-        Resumo periódico de entradas
+        Resumo periódico de entradas (só no painel, não vai pro WhatsApp)
         <select name="resumo_minutos" defaultValue={String(resumoMinutos)} className={campo}>
           {RESUMOS.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
         </select>
