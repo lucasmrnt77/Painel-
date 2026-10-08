@@ -12,6 +12,7 @@ const ABAS = [
   { href: "/eventos", rotulo: "Eventos Sendflow" },
   { href: "/importar", rotulo: "Importar" },
   { href: "/redirecionador", rotulo: "Redirecionador" },
+  { href: "/links", rotulo: "Links" },
   { href: "/lancamentos", rotulo: "Lançamentos" },
 ];
 
