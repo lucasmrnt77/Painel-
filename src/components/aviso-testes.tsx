@@ -12,7 +12,7 @@ export function AvisoTestes({ problemas }: { problemas: ProblemaTeste[] }) {
           {problemas.map((p) => <li key={p.origem} className="break-words">{p.texto}</li>)}
         </ul>
       </div>
-      <Link href="/alertas#testes" className="shrink-0 rounded-lg border border-rose-400/40 px-3 py-1.5 text-xs font-medium text-rose-200 hover:bg-rose-500/20">
+      <Link href={problemas.every((p) => p.origem === "meta") ? "/meta" : "/alertas#testes"} className="shrink-0 rounded-lg border border-rose-400/40 px-3 py-1.5 text-xs font-medium text-rose-200 hover:bg-rose-500/20">
         Ver detalhes
       </Link>
     </div>

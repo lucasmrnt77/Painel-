@@ -320,6 +320,17 @@ Variáveis:
 Opcionais no painel: `TRACKING_EVENTOS_URL`, `TESTES_ORIGEM`, `CAPTURA_GRUPO_URL`. No GitHub
 (Variables): `PAINEL_URL`, `GRUPO_URL`, `GENERAL_URL`. Banco: migração `014-testes-automaticos.sql`.
 
+## Saúde na Meta (dados da própria Meta)
+
+Aba **Saúde na Meta**: o painel pede ao serviço de tracking (`GET /api/meta-saude`, protegido
+pelo `TESTES_TOKEN`) os números que a Meta calcula com o tráfego real do pixel — Dataset Quality API
+(event_id no navegador e no servidor = deduplicação, cobertura da API de Conversões, qualidade
+de correspondência, frequência de envio; média dos últimos 7 dias) e o volume de cada evento nas
+últimas 24 h. O token da Meta fica só no serviço de tracking (é o mesmo do envio).
+Atualiza todo dia às 07:47 (Cron) e pelo botão "Atualizar agora". Vai para o WhatsApp só se um
+evento de lead tiver menos de 80% com event_id (a Meta pode contar em dobro) ou se a consulta falhar.
+Variáveis: `TESTES_TOKEN` também no projeto tracking-eventos. Banco: migração `016-meta-saude.sql`.
+
 ## Desenvolvimento
 
 ```bash

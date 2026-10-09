@@ -128,6 +128,7 @@ async function testarGrupo(run: string): Promise<{ etapas: Etapa[]; falhas: Falh
   else if (r.http !== 200 || !corpo?.ok) motivo = `HTTP ${r.http} ${corpo?.erro ?? ""}`.trim();
   else if (!corpo.teste) motivo = "a página não tem o modo teste (publicar a versão nova da captura-grupo)";
   else if (corpo.teste.event_id !== eventId) motivo = "event_id devolvido diferente do enviado";
+  else if (corpo.teste.meta?.motivo === "sem_codigo_teste") motivo = "META_TEST_EVENT_CODE não está em Production na captura-grupo (o teste não enviou nada à Meta)";
   else if (!corpo.teste.meta?.ok) motivo = `Meta não aceitou (${corpo.teste.meta?.motivo ?? "erro"})`;
   else if (Number(corpo.teste.meta.resposta?.events_received) !== 1) motivo = "Meta não confirmou o recebimento";
   return { etapas: [{ nome, total: 1, falhas: motivo ? 1 : 0 }], falhas: motivo ? [{ teste: nome, motivo }] : [] };
@@ -223,7 +224,7 @@ export async function historicoTestes(limite = 14): Promise<Execucao[]> {
   return (data ?? []) as Execucao[];
 }
 
-export type ProblemaTeste = { origem: Execucao["origem"]; texto: string; quando?: string };
+export type ProblemaTeste = { origem: Execucao["origem"] | "meta"; texto: string; quando?: string };
 
 /**
  * Problemas para sinalizar em todo o painel: última execução com falha, ou
@@ -245,6 +246,12 @@ export async function problemasTestes(): Promise<ProblemaTeste[]> {
       } else if (e.criado_em && Date.now() - new Date(e.criado_em).getTime() > 26 * 3_600_000) {
         problemas.push({ origem, quando: e.criado_em, texto: `os testes do ${nome} não rodam há mais de 1 dia` });
       }
+    }
+    // Saúde na Meta (dados da própria Meta): última consulta com problema
+    const { data: m } = await db().from("meta_saude").select("ok, problemas, criado_em").order("criado_em", { ascending: false }).limit(1).maybeSingle();
+    if (m && !m.ok) {
+      const ps = (m.problemas as string[]) ?? [];
+      problemas.push({ origem: "meta", quando: m.criado_em as string, texto: `Meta: ${ps[0] ?? "problema na consulta"}${ps.length > 1 ? ` (+${ps.length - 1})` : ""}` });
     }
     return problemas;
   } catch {

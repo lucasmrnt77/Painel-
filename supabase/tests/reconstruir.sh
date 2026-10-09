@@ -39,3 +39,4 @@ $P -f tests/comportamento.sql
 [ -f tests/links.sql ] && $P -f tests/links.sql
 [ -f tests/alertas-grupo.sql ] && $P -f tests/alertas-grupo.sql
 [ -f tests/testes-automaticos.sql ] && $P -f tests/testes-automaticos.sql
+[ -f tests/meta-saude.sql ] && $P -f tests/meta-saude.sql

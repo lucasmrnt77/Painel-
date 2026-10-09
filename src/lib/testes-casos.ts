@@ -145,7 +145,10 @@ export function conferirRegistros(esperados: { eventId: string; evento: string }
     const r = rs[0];
     if (r.event_name !== e.evento) falhas.push(`${e.eventId}: registrado como "${r.event_name}" (esperado "${e.evento}")`);
     if (!r.teste) falhas.push(`${e.eventId}: não foi marcado como teste`);
-    if (r.status !== "enviado") falhas.push(`${e.evento} ${e.eventId}: status "${r.status}"`);
+    if (r.status !== "enviado") {
+      const erro = (r.meta_resposta as { erro?: unknown } | null)?.erro;
+      falhas.push(`${e.evento} ${e.eventId}: status "${r.status}"${typeof erro === "string" ? ` (${erro})` : ""}`);
+    }
     else if (Number((r.meta_resposta as { events_received?: unknown } | null)?.events_received) !== 1) falhas.push(`${e.evento} ${e.eventId}: Meta não confirmou o recebimento`);
   }
   const ids = new Set(esperados.map((e) => e.eventId));

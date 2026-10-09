@@ -12,6 +12,7 @@ const MENU: Grupo[] = [
     itens: [
       { href: "/", rotulo: "Visão geral", icone: "inicio" },
       { href: "/alertas", rotulo: "Alertas", icone: "sino" },
+      { href: "/meta", rotulo: "Saúde na Meta", icone: "pulso" },
     ],
   },
   {
@@ -57,6 +58,7 @@ const ICONES = {
   calendario: <><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
   tendencia: <><path d="m3 17 6-6 4 4 8-8" /><path d="M15 7h6v6" /></>,
   cartao: <><rect x="2.5" y="5" width="19" height="14" rx="2" /><path d="M2.5 10h19M6.5 15h4" /></>,
+  pulso: <path d="M3 12h4l2.5-6 4 12 2.5-6H21" />,
   sino: <><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9" /><path d="M10 20a2 2 0 0 0 4 0" /></>,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   fechar: <path d="M6 6l12 12M18 6 6 18" />,

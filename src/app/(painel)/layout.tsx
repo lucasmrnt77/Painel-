@@ -18,7 +18,7 @@ export default async function LayoutPainel({ children }: LayoutProps<"/">) {
   return (
     <div className="min-h-screen">
       <Suspense>
-        <MenuLateral sair={botaoSair} avisos={{ "/alertas": problemas.length }} />
+        <MenuLateral sair={botaoSair} avisos={{ "/alertas": problemas.filter((p) => p.origem !== "meta").length, "/meta": problemas.filter((p) => p.origem === "meta").length }} />
       </Suspense>
       <div className="brilho-marca min-h-screen lg:pl-64">
         <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
