@@ -56,7 +56,7 @@ BEGIN
   ASSERT (SELECT count(*) FROM redir_eventos WHERE tipo = 'cheio') = 1, 'evento cheio';
   ASSERT (SELECT count(*) FROM redir_eventos WHERE tipo = 'invalido') = 1, 'evento inválido';
   ASSERT (SELECT count(*) FROM redir_eventos WHERE tipo = 'link_novo') = 1, 'evento link novo';
-  ASSERT jsonb_array_length(redir_resumo()) = 2, 'resumo com 2 funis';
+  ASSERT jsonb_array_length(redir_resumo()) = (SELECT count(*) FROM redir_funis), 'resumo com um item por funil';
   RAISE NOTICE 'redirecionador: todos os testes passaram';
 END $$;
 ROLLBACK;

@@ -13,6 +13,8 @@ export async function salvarLink(_: EstadoForm, fd: FormData): Promise<EstadoFor
   const id = Number(fd.get("id"));
   const slug = String(fd.get("slug") ?? "").trim().replace(/^\/+/, "");
   if (!SLUG_VALIDO.test(slug)) return { erro: 'O final do link só pode ter letras, números, "-", "_" e "." (até 80).' };
+  const { data: funil } = await db().from("redir_funis").select("slug").eq("slug", slug.toLowerCase()).maybeSingle();
+  if (funil) return { erro: `"${slug}" já é o link do funil do redirecionador (${dominioLinks()}/${funil.slug}). Escolha outro final.` };
   const destinos = lerDestinos(String(fd.get("destinos") ?? "[]"));
   if (!destinos || destinos.length === 0) return { erro: "Informe pelo menos um destino." };
 

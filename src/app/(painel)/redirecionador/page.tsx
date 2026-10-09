@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { dominioLinks } from "@/lib/links";
 import { db } from "@/lib/supabase";
 import { Cartao, Kpi, Tabela, td } from "@/components/ui";
 import { AutoAtualizar } from "@/components/auto-atualizar";
@@ -34,8 +34,6 @@ export default async function Redirecionador() {
   if (error) {
     return <Cartao titulo="Redirecionador de grupos"><p className="text-sm text-rose-600">Aplique a migração 010-redirecionador.sql no Supabase. ({error.message})</p></Cartao>;
   }
-  const h = await headers();
-  const base = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const funis = (resumo ?? []) as Resumo[];
   const eventos = (evs ?? []) as Evento[];
   const nomeGrupo = (id: number | null) => {
@@ -57,7 +55,7 @@ export default async function Redirecionador() {
         const capacidade = naFila.reduce((s, g) => s + Math.max(0, f.limite_cliques - g.cliques), 0);
         return (
           <section key={f.slug} className="space-y-3">
-            <Cartao titulo={`Funil ${f.nome}`} acao={<CopiarLink url={`${base}/g/${f.slug}`} />}>
+            <Cartao titulo={`Funil ${f.nome}`} acao={<CopiarLink url={`https://${dominioLinks()}/${f.slug}`} />}>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                 <Kpi rotulo="Grupo da vez" valor={daVez ? daVez.nome || daVez.titulo_whatsapp || `#${daVez.id}` : "Nenhum"} destaque={daVez ? undefined : "vermelho"}
                   detalhe={daVez ? `${daVez.cliques} de ${f.limite_cliques} cliques` : f.link_reserva ? "indo para o link reserva" : "sem link reserva"} />

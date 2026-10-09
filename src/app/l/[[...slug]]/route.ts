@@ -1,13 +1,17 @@
 import { db } from "@/lib/supabase";
 import { ehRobo } from "@/lib/convite";
 import { montarDestino, paginaLinkNaoEncontrado } from "@/lib/links";
+import { atenderFunil } from "@/lib/redir-clique";
 
 /**
  * Links curtos: link.traderdelite.net/<slug> chega aqui como /l/<slug>
  * (rewrite por domínio em next.config.ts). Também dá para testar pelo
  * domínio do painel: /l/<slug>.
+ * Se não existir link curto com esse nome mas existir um funil do redirecionador
+ * (ex.: link.traderdelite.net/grupo), o clique vai para o grupo da vez do funil.
  */
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 const SEM_CACHE = { "cache-control": "no-store, max-age=0", "x-robots-tag": "noindex" };
 
@@ -34,7 +38,13 @@ async function atender(req: Request, partes: string[] | undefined, contar: boole
     return new Response("Erro temporário. Tente de novo em instantes.", { status: 503, headers: SEM_CACHE });
   }
   const r = data as { ok: boolean; url?: string; repassar_parametros?: boolean };
-  if (!r.ok || !r.url) return naoEncontrado();
+  if (!r.ok || !r.url) {
+    if (!slug.includes("/")) {
+      const funil = await atenderFunil(req, slug, contar);
+      if (funil) return funil;
+    }
+    return naoEncontrado();
+  }
 
   const destino = montarDestino(r.url, new URL(req.url).searchParams, r.repassar_parametros !== false);
   return new Response(null, { status: 302, headers: { ...SEM_CACHE, location: destino } });

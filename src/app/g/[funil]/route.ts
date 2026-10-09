@@ -1,55 +1,21 @@
-import { after } from "next/server"
-import { db } from "@/lib/supabase"
 import { ehRobo } from "@/lib/convite"
-import { verificarGrupo, despacharAlertas } from "@/lib/redirecionador"
+import { atenderFunil } from "@/lib/redir-clique"
 
 /**
- * Link público do redirecionador: /g/trader e /g/geral.
- * Responde na hora com o grupo da vez; verificação e alertas rodam depois da resposta.
+ * Link público do redirecionador: /g/<funil> (ex.: /g/trader, /g/geral, /g/grupo).
+ * No domínio de links também funciona direto: link.traderdelite.net/<funil>.
  */
 export const dynamic = "force-dynamic"
 export const maxDuration = 30
 
-const SEM_CACHE = { "cache-control": "no-store, max-age=0", "x-robots-tag": "noindex" }
-
-function paginaSemGrupo() {
-  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Grupo completo</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#fff;font-family:system-ui,sans-serif;text-align:center;padding:24px}p{color:#bbb}</style></head>
-<body><main><h1>Los grupos están completos 🙌</h1><p>Estamos abriendo un nuevo grupo. Probá de nuevo en unos minutos.</p></main></body></html>`
-  return new Response(html, { status: 503, headers: { ...SEM_CACHE, "content-type": "text/html; charset=utf-8", "retry-after": "300" } })
-}
-
-async function atender(req: Request, funil: string, contar: boolean) {
-  const url = new URL(req.url)
-  const origem = [url.searchParams.get("utm_source"), url.searchParams.get("utm_campaign"), url.searchParams.get("src")].filter(Boolean).join(" | ") || null
-  const { data, error } = await db().rpc("redir_clique", { p_funil: funil.toLowerCase(), p_origem: origem, p_contar: contar })
-  if (error) {
-    console.error("[redir] clique", error)
-    return paginaSemGrupo()
-  }
-  const r = data as { ok: boolean; link: string | null; grupo_id: number | null; verificar: boolean; reserva: boolean; erro?: string }
-  if (!r.ok) return new Response("Link não encontrado", { status: 404, headers: SEM_CACHE })
-
-  if (contar) {
-    after(async () => {
-      try {
-        if (r.verificar && r.grupo_id) await verificarGrupo(r.grupo_id)
-        await despacharAlertas()
-      } catch (e) {
-        console.error("[redir] pós-clique", e)
-      }
-    })
-  }
-  if (!r.link) return paginaSemGrupo()
-  return new Response(null, { status: 302, headers: { ...SEM_CACHE, location: r.link } })
-}
+const naoEncontrado = () => new Response("Link não encontrado", { status: 404, headers: { "cache-control": "no-store, max-age=0" } })
 
 export async function GET(req: Request, ctx: RouteContext<"/g/[funil]">) {
   const { funil } = await ctx.params
-  return atender(req, funil, !ehRobo(req.headers.get("user-agent")))
+  return (await atenderFunil(req, funil, !ehRobo(req.headers.get("user-agent")))) ?? naoEncontrado()
 }
 
 export async function HEAD(req: Request, ctx: RouteContext<"/g/[funil]">) {
   const { funil } = await ctx.params
-  return atender(req, funil, false)
+  return (await atenderFunil(req, funil, false)) ?? naoEncontrado()
 }
