@@ -36,6 +36,10 @@ async function testes24h(): Promise<Record<string, number>> {
     .gte("criado_em", new Date(Date.now() - 86_400_000).toISOString()).limit(5000);
   const c: Record<string, number> = {};
   for (const x of (data ?? []) as { event_name: string }[]) c[x.event_name] = (c[x.event_name] ?? 0) + 1;
+  // Cada execução dos testes (servidor e navegador) manda 1 "Lead" de teste da página do grupo
+  const { count } = await db().from("testes_execucoes").select("id", { count: "exact", head: true })
+    .gte("criado_em", new Date(Date.now() - 86_400_000).toISOString());
+  if (count) c.Lead = (c.Lead ?? 0) + count;
   return c;
 }
 

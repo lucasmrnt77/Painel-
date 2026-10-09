@@ -94,6 +94,13 @@ export default async function SaudeMeta() {
         </Cartao>
       )}
 
+      {monitorados.length > 0 && (
+        <p className="-mt-2 text-xs text-zinc-500">
+          &quot;Eventos reais 24 h&quot; = o que a Meta recebeu nas últimas 24 h menos os eventos dos testes automáticos.
+          A Meta conta o que chega pelo pixel e pelo servidor antes de juntar os duplicados, então o número pode ser maior que o de pessoas.
+        </p>
+      )}
+
       {nomesOutros.length > 0 && (
         <Cartao titulo="Outros eventos do pixel">
           <Tabela cabecalho={["Evento", "event_id navegador", "event_id servidor", "Cobertura", "Eventos reais 24 h"]}>
