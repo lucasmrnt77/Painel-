@@ -18,6 +18,11 @@ export type RespostaSaude =
 
 const fmt = (n: number) => `${Math.round(n)}%`;
 
+/** A Meta só calcula deduplicação/cobertura para eventos padrão; nos personalizados vem tudo vazio. */
+export function semCalculoDaMeta(e: EventoQualidade): boolean {
+  return e.dedup.length === 0 && e.cobertura == null;
+}
+
 export function dedupEventId(e: EventoQualidade): Dedup | null {
   return e.dedup.find((d) => /event_?id/i.test(d.chave)) ?? null;
 }
@@ -33,6 +38,9 @@ export function avaliarSaude(r: RespostaSaude | null, erroConsulta?: string): { 
     if (monitorados.length === 0) avisos.push("A Meta ainda não tem dados de qualidade dos eventos de lead (últimos 7 dias).");
     for (const e of monitorados) {
       const d = dedupEventId(e);
+      // Eventos personalizados (Lead General, Lead Qualificado...): a Meta não calcula deduplicação nem cobertura.
+      // Para eles quem garante o event_id são os testes diários (Alertas → Testes diários).
+      if (!d && semCalculoDaMeta(e)) continue;
       if (!d) { avisos.push(`${e.evento}: a Meta não informou dados de deduplicação por event_id.`); continue; }
       if (d.navegador != null && d.navegador < LIMITE_DEDUP) problemas.push(`${e.evento}: só ${fmt(d.navegador)} dos eventos do pixel (navegador) chegam com event_id — a Meta pode contar em dobro.`);
       if (d.servidor != null && d.servidor < LIMITE_DEDUP) problemas.push(`${e.evento}: só ${fmt(d.servidor)} dos eventos do servidor chegam com event_id — a Meta pode contar em dobro.`);

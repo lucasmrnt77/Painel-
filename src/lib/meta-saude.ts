@@ -30,11 +30,20 @@ async function buscar(): Promise<{ r: RespostaSaude | null; erro?: string }> {
 }
 
 /** Consulta, grava e avisa no WhatsApp só se houver problema. */
+/** Eventos de TESTE enviados nas últimas 24 h (a Meta conta junto no volume do pixel). */
+async function testes24h(): Promise<Record<string, number>> {
+  const { data } = await db().from("eventos_meta").select("event_name").eq("teste", true)
+    .gte("criado_em", new Date(Date.now() - 86_400_000).toISOString()).limit(5000);
+  const c: Record<string, number> = {};
+  for (const x of (data ?? []) as { event_name: string }[]) c[x.event_name] = (c[x.event_name] ?? 0) + 1;
+  return c;
+}
+
 export async function atualizarSaudeMeta(disparo: "agendado" | "manual"): Promise<RegistroSaude> {
-  const { r, erro } = await buscar();
+  const [{ r, erro }, testes] = await Promise.all([buscar(), testes24h()]);
   const { problemas, avisos } = avaliarSaude(r, erro);
   const { data, error } = await db().from("meta_saude")
-    .insert({ disparo, ok: problemas.length === 0, problemas, avisos, dados: r ?? {} })
+    .insert({ disparo, ok: problemas.length === 0, problemas, avisos, dados: r ? { ...r, testes_24h: testes } : {} })
     .select("*").single();
   if (error) throw new Error(`não consegui gravar a saúde na Meta: ${error.message}`);
   const salvo = data as RegistroSaude;

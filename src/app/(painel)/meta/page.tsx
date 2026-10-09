@@ -1,6 +1,6 @@
 import { exigirLogin } from "@/lib/sessao";
 import { historicoSaude, type RegistroSaude } from "@/lib/meta-saude";
-import { dedupEventId, EVENTOS_MONITORADOS, LIMITE_DEDUP, type EventoQualidade } from "@/lib/meta-saude-regras";
+import { dedupEventId, EVENTOS_MONITORADOS, LIMITE_DEDUP, semCalculoDaMeta, type EventoQualidade } from "@/lib/meta-saude-regras";
 import { dataHora, numero } from "@/lib/formato";
 import { Cartao, Tabela, td } from "@/components/ui";
 import { BotaoAtualizarSaude } from "@/components/meta-saude";
@@ -28,7 +28,12 @@ export default async function SaudeMeta() {
   const outros = eventos.filter((e) => !EVENTOS_MONITORADOS.includes(e.evento));
   const volume = d && d.volume_24h.ok ? d.volume_24h.eventos : null;
   const nomesOutros = [...new Set([...outros.map((e) => e.evento), ...(volume ?? []).map((v) => v.evento)])].filter((n) => !EVENTOS_MONITORADOS.includes(n));
-  const vol = (ev: string) => volume?.find((v) => v.evento === ev)?.total ?? (volume ? 0 : null);
+  const testes = ((d as unknown as { testes_24h?: Record<string, number> } | null)?.testes_24h) ?? {};
+  // A Meta conta os eventos de teste junto no volume do pixel: desconta os testes automáticos
+  const vol = (ev: string) => {
+    const t = volume?.find((v) => v.evento === ev)?.total ?? (volume ? 0 : null);
+    return t == null ? null : Math.max(0, t - (testes[ev] ?? 0));
+  };
 
   return (
     <>
@@ -61,15 +66,24 @@ export default async function SaudeMeta() {
 
       {monitorados.length > 0 && (
         <Cartao titulo="Eventos de lead">
-          <Tabela cabecalho={["Evento", "event_id no navegador", "event_id no servidor", "Cobertura API de Conversões", "Qualidade (0–10)", "Envio do servidor", "Eventos 24 h"]}>
+          <Tabela cabecalho={["Evento", "event_id no navegador", "event_id no servidor", "Cobertura API de Conversões", "Qualidade (0–10)", "Envio do servidor", "Eventos reais 24 h"]}>
             {monitorados.map((e) => {
               const dd = dedupEventId(e);
+              const personalizado = semCalculoDaMeta(e);
               return (
                 <tr key={e.evento}>
                   <td className={`${td} font-medium`}>{e.evento}</td>
-                  <td className={td}><Pct v={dd?.navegador ?? null} limite={LIMITE_DEDUP} /></td>
-                  <td className={td}><Pct v={dd?.servidor ?? null} limite={LIMITE_DEDUP} /></td>
-                  <td className={td}><Pct v={e.cobertura} meta={e.cobertura_meta} />{e.cobertura_meta != null && <span className="text-xs text-zinc-500"> / meta {Math.round(e.cobertura_meta)}%</span>}</td>
+                  {personalizado ? (
+                    <td className={`${td} text-xs text-zinc-500`} colSpan={3}>
+                      Evento personalizado: a Meta não calcula deduplicação nem cobertura. O event_id é garantido pelos testes diários.
+                    </td>
+                  ) : (
+                    <>
+                      <td className={td}><Pct v={dd?.navegador ?? null} limite={LIMITE_DEDUP} /></td>
+                      <td className={td}><Pct v={dd?.servidor ?? null} limite={LIMITE_DEDUP} /></td>
+                      <td className={td}><Pct v={e.cobertura} meta={e.cobertura_meta} />{e.cobertura_meta != null && <span className="text-xs text-zinc-500"> / meta {Math.round(e.cobertura_meta)}%</span>}</td>
+                    </>
+                  )}
                   <td className={`${td} tabular`}>{e.emq ?? "—"}</td>
                   <td className={`${td} text-zinc-400`}>{e.frequencia ? FREQ[e.frequencia] ?? e.frequencia : "—"}</td>
                   <td className={`${td} tabular`}>{vol(e.evento) == null ? "—" : numero(vol(e.evento)!)}</td>
@@ -82,7 +96,7 @@ export default async function SaudeMeta() {
 
       {nomesOutros.length > 0 && (
         <Cartao titulo="Outros eventos do pixel">
-          <Tabela cabecalho={["Evento", "event_id navegador", "event_id servidor", "Cobertura", "Eventos 24 h"]}>
+          <Tabela cabecalho={["Evento", "event_id navegador", "event_id servidor", "Cobertura", "Eventos reais 24 h"]}>
             {nomesOutros.map((n) => {
                 const e = outros.find((x) => x.evento === n);
                 const dd = e ? dedupEventId(e) : null;

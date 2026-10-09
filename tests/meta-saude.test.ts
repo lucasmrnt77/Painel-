@@ -37,10 +37,11 @@ test("saúde: falha na consulta é problema", () => {
   assert.match(q.problemas[0], /recusou .*Permissions/);
 });
 
-test("saúde: sem dados de dedup vira aviso", () => {
-  const r = avaliarSaude(resp([ev("Lead Qualificado", null, null)]));
-  assert.deepEqual(r.problemas, []);
-  assert.match(r.avisos[0], /não informou/);
+test("saúde: evento personalizado (sem cálculo da Meta) não vira aviso; padrão sem dedup vira", () => {
+  const r = avaliarSaude(resp([ev("Lead Qualificado", null, null, null)]));
+  assert.deepEqual(r, { problemas: [], avisos: [] });
+  const p = avaliarSaude(resp([ev("Lead", null, null, 90)]));
+  assert.match(p.avisos[0], /não informou/);
 });
 
 test("saúde: mensagem", () => {
