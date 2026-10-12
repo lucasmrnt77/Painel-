@@ -15,6 +15,8 @@ export const env = {
   sessaoSegredo: () => obrigatoria("SESSAO_SEGREDO"),
   capturaToken: () => obrigatoria("CAPTURA_TOKEN"),
   sendflowWebhookToken: () => obrigatoria("SENDFLOW_WEBHOOK_TOKEN"),
+  // Token que o Apps Script da planilha usa para ler /api/planilha
+  planilhaToken: () => obrigatoria("PLANILHA_TOKEN"),
   // Lista separada por vírgula de origens autorizadas a chamar /api/captura
   // direto do navegador. "*" libera qualquer origem. Vazio = sem CORS.
   capturaOrigens: () =>

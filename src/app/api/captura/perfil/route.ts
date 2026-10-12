@@ -10,7 +10,8 @@ import { extrairCaptura } from "@/lib/captura";
  * Respostas da página de obrigado (depois do cadastro): idade, gênero e
  * capacidade de investimento. Grava na inscrição mais recente do telefone
  * no lançamento indicado (ou no ativo). Campos aceitos: telefono/telefone,
- * age_range/edad, gender/genero, respuesta/capital_amount/respuesta_dinero.
+ * age_range/edad, gender/genero, respuesta/capital_amount/respuesta_dinero e
+ * qualificado (true/false, decisão do serviço de tracking).
  */
 const STATUS_ERRO: Record<string, number> = {
   telefone_invalido: 400,
@@ -33,7 +34,10 @@ export async function POST(req: Request) {
 
   const d = extrairCaptura(bruto, new URL(req.url).searchParams);
   if (!d.telefone) return NextResponse.json({ ok: false, erro: "telefone_obrigatorio" }, { status: 400 });
-  if (!d.faixa_etaria && !d.genero && !d.resposta_dinheiro) {
+  // Decisão do serviço de tracking (Lead Qualificado sim/não), vinda da página de gracias
+  const q = (bruto as Record<string, unknown> | null)?.qualificado;
+  const qualificado = q === true || q === "true" ? true : q === false || q === "false" ? false : null;
+  if (!d.faixa_etaria && !d.genero && !d.resposta_dinheiro && qualificado === null) {
     return NextResponse.json({ ok: false, erro: "sem_respostas" }, { status: 400 });
   }
 
@@ -43,6 +47,7 @@ export async function POST(req: Request) {
     p_faixa_etaria: d.faixa_etaria,
     p_genero: d.genero,
     p_resposta_dinheiro: d.resposta_dinheiro,
+    p_qualificado: qualificado,
   });
   if (error) {
     console.error("[captura/perfil] erro no banco", error);
