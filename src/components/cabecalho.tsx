@@ -2,12 +2,19 @@ import Link from "next/link";
 import type { Resumo } from "@/lib/dados";
 import { SeletorLancamento } from "./navegacao";
 
-export function CabecalhoPagina({ titulo, resumos, atual, children }: { titulo: string; resumos: Resumo[]; atual: Resumo | null; children?: React.ReactNode }) {
+type Opcao = { slug: string; nome: string; ativo: boolean };
+
+/** `extras` entra no seletor depois dos lançamentos (ex.: a campanha do grupo gratuito na Visão geral). */
+export function CabecalhoPagina({ titulo, resumos, atual, children, extras = [], subtitulo, selecionado }: {
+  titulo: string; resumos: Resumo[]; atual: Resumo | null; children?: React.ReactNode;
+  extras?: Opcao[]; subtitulo?: string; selecionado?: string;
+}) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 className="text-xl font-semibold">{titulo}</h1>
-        {atual && (
+        {subtitulo && <p className="text-sm text-zinc-500">{subtitulo}</p>}
+        {!subtitulo && atual && (
           <p className="text-sm text-zinc-500">
             {atual.nome}
             {atual.ativo && <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">ativo</span>}
@@ -16,7 +23,7 @@ export function CabecalhoPagina({ titulo, resumos, atual, children }: { titulo: 
       </div>
       <div className="flex items-center gap-2">
         {children}
-        <SeletorLancamento opcoes={resumos.map((r) => ({ slug: r.slug, nome: r.nome, ativo: r.ativo }))} atual={atual?.slug ?? null} />
+        <SeletorLancamento opcoes={[...resumos.map((r) => ({ slug: r.slug, nome: r.nome, ativo: r.ativo })), ...extras]} atual={selecionado ?? atual?.slug ?? null} />
       </div>
     </div>
   );

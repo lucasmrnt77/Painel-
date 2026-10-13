@@ -1,22 +1,56 @@
 import Link from "next/link";
-import { contexto } from "@/lib/contexto";
-import { grupoGratuito, resumoPaginas, serieDiaria, serieHoraria, situacaoMonitor, type SituacaoMonitor } from "@/lib/dados";
+import { contexto, param } from "@/lib/contexto";
+import { grupoGratuito, resumoPaginas, serieDiaria, serieHoraria, situacaoMonitor } from "@/lib/dados";
 import { CartaoPaginas } from "@/components/paginas";
 import { GraficoHoras } from "@/components/monitor";
-import { duracao } from "@/lib/mensagens";
 import { AutoAtualizar } from "@/components/auto-atualizar";
 import { dia, numero } from "@/lib/formato";
 import { Cartao, Kpi, montarHref } from "@/components/ui";
 import { CabecalhoPagina, SemLancamento } from "@/components/cabecalho";
 import { resumoFunis, resumoGrupoGratuito, resumoLinks } from "@/lib/captacao";
 import { Captacao } from "@/components/captacao";
+import { StatusMonitor } from "@/components/status-monitor";
+import { VisaoGrupo } from "@/components/visao-grupo";
+import { grupoConfigurado } from "@/lib/grupo";
+import { captacaoIniciada, dadosCampanhaGrupo, NOME_CAMPANHA_GRUPO, SLUG_CAMPANHA_GRUPO } from "@/lib/visao-grupo";
+import { BotaoCaptacao } from "@/components/botao-captacao";
 
 export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
-  const { resumos, atual } = await contexto(await searchParams);
-  if (!atual) {
-    return (<><CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={null} /><SemLancamento /></>);
-  }
+  const sp = await searchParams;
+  const { resumos, atual } = await contexto(sp);
   const grupoMon = await grupoGratuito();
+
+  // A campanha do grupo gratuito (OP Futuros) também aparece no seletor da Visão geral.
+  // Sem ?l=, a Visão geral abre nela até o lançamento ativo ser ligado no botão "Ligar lançamento".
+  const temGrupo = grupoConfigurado();
+  const extras = temGrupo ? [{ slug: SLUG_CAMPANHA_GRUPO, nome: NOME_CAMPANHA_GRUPO, ativo: false }] : [];
+  const pedido = param(sp, "l");
+  const ativoLancamento = resumos.find((r) => r.ativo) ?? null;
+  const ligada = await captacaoIniciada(ativoLancamento?.lancamento_id ?? null);
+  const botao = ativoLancamento ? <BotaoCaptacao id={ativoLancamento.lancamento_id} nome={ativoLancamento.nome} ligada={ligada} /> : null;
+  const verGrupo = temGrupo && (pedido === SLUG_CAMPANHA_GRUPO || (!pedido && !ligada));
+
+  if (verGrupo) {
+    const [dados, situacaoGrupo, funis, links] = await Promise.all([
+      dadosCampanhaGrupo(grupoMon?.id ?? null),
+      grupoMon ? situacaoMonitor(grupoMon.id) : Promise.resolve(null),
+      resumoFunis(),
+      resumoLinks(),
+    ]);
+    return (
+      <>
+        <AutoAtualizar segundos={60} />
+        <CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={atual} extras={extras} selecionado={SLUG_CAMPANHA_GRUPO}
+          subtitulo="Campanha OP Futuros · página do grupo gratuito">{botao}</CabecalhoPagina>
+        <VisaoGrupo d={dados} monitor={situacaoGrupo} />
+        <Captacao funis={funis} grupo={null} links={links} />
+      </>
+    );
+  }
+
+  if (!atual) {
+    return (<><CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={null} extras={extras} /><SemLancamento /></>);
+  }
   const [serie, horas, situacao, situacaoGrupo, paginas, funis, grupoGratuitoResumo, links] = await Promise.all([
     serieDiaria(atual.lancamento_id),
     serieHoraria(atual.lancamento_id, 24),
@@ -34,7 +68,7 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   return (
     <>
       <AutoAtualizar segundos={60} />
-      <CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={atual} />
+      <CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={atual} extras={extras}>{atual.ativo ? botao : null}</CabecalhoPagina>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi rotulo="Inscritos (únicos)" valor={numero(atual.inscritos)} detalhe={`${numero(atual.envios_total)} envios do formulário`} />
@@ -108,27 +142,5 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
         </Cartao>
       </div>
     </>
-  );
-}
-
-/** Linha compacta do monitor na Visão geral; o detalhe e a configuração ficam em Alertas. */
-function StatusMonitor({ nome, s }: { nome: string; s: SituacaoMonitor | null }) {
-  const min = s?.minutos_desde_ultima_entrada ?? null;
-  const alerta = !!s?.monitor_ativo && min != null && min >= s.alerta_minutos_sem_entrada;
-  const cor = !s?.monitor_ativo ? "bg-zinc-600" : alerta ? "bg-rose-500" : "animate-pulse bg-emerald-500";
-  return (
-    <Link href="/alertas" className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition hover:border-zinc-600 ${alerta ? "border-rose-500/40 bg-rose-500/5" : "border-zinc-800 bg-zinc-900"}`}>
-      <div className="flex items-center gap-3">
-        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${cor}`} />
-        <div>
-          <div className="text-sm font-medium">{nome}</div>
-          <div className="text-xs text-zinc-500">
-            {!s ? "ainda não configurado" : !s.monitor_ativo ? "desligado" : alerta ? `sem entradas há ${duracao(min!)}` : `ligado · alerta após ${duracao(s.alerta_minutos_sem_entrada)}`}
-            {s?.ultima_entrada_em ? ` · última entrada ${min != null ? `há ${duracao(min)}` : ""}` : ""}
-          </div>
-        </div>
-      </div>
-      <span className="text-xs text-emerald-400">Alertas →</span>
-    </Link>
   );
 }

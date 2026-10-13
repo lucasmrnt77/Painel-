@@ -203,3 +203,15 @@ export async function testarAlerta(_: EstadoForm, fd: FormData): Promise<EstadoF
     return { erro: e instanceof Error ? e.message : String(e) };
   }
 }
+
+/** Botão da Visão geral: liga/desliga a exibição dos dados do lançamento (captação iniciada). */
+export async function alternarCaptacao(fd: FormData): Promise<void> {
+  await exigirLogin();
+  const id = Number(fd.get("id"));
+  const ligar = String(fd.get("ligar")) === "1";
+  if (!Number.isInteger(id)) return;
+  const { error } = await db().from("lancamentos").update({ captacao_iniciada: ligar }).eq("id", id).eq("tipo", "lancamento");
+  if (error) throw new Error(`Não foi possível ${ligar ? "ligar" : "desligar"} a captação: ${error.message}`);
+  revalidatePath("/");
+  redirect(ligar ? "/" : "/?l=op-futuros");
+}
