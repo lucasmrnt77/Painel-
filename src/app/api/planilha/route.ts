@@ -4,12 +4,12 @@ import { env } from "@/lib/env";
 import { tokenValido } from "@/lib/seguranca";
 
 /**
- * GET /api/planilha?token=PLANILHA_TOKEN[&l=slug]
+ * GET /api/planilha?token=PLANILHA_TOKEN&pagina=general|trader[&l=slug]
  * Dados do lançamento (o ativo, se não vier ?l=) para o Apps Script da planilha
- * espelho (planilha/espelho.gs), no MESMO formato da planilha "Pagina de Captura General":
- *  - "Hoja 1"      → leads da página General (colunas A–Q iguais às de antes + Calificado e Email)
- *  - "Traders"     → leads da página Trader (mesmas colunas + Experiencia)
- *  - "Leads Grupo" → entradas nos grupos de WhatsApp (Fecha, Hora, Telefono, Grupo)
+ * espelho (planilha/espelho.gs), no MESMO formato da planilha "Pagina de Captura General".
+ * Uma planilha por página: ?pagina=general (padrão) ou ?pagina=trader.
+ *  - "Hoja 1"      → leads da página (colunas A–Q iguais às de antes + Calificado e Email; Trader + Experiencia)
+ *  - "Leads Grupo" → entradas nos grupos de WhatsApp das pessoas dessa página (Fecha, Hora, Telefono, Grupo)
  * Só leitura.
  */
 export const maxDuration = 60;
@@ -48,7 +48,9 @@ type Lead = Record<string, string | null | boolean>;
 
 export async function GET(req: Request) {
   if (!tokenValido(req, env.planilhaToken())) return NextResponse.json({ ok: false, erro: "nao_autorizado" }, { status: 401 });
-  const slug = new URL(req.url).searchParams.get("l");
+  const sp = new URL(req.url).searchParams;
+  const slug = sp.get("l");
+  const pagina = sp.get("pagina") === "trader" ? "trader" : "general";
 
   const q = db().from("lancamentos").select("id, slug, nome");
   const { data: lanc } = await (slug ? q.eq("slug", slug) : q.eq("ativo", true).eq("tipo", "lancamento")).limit(1).maybeSingle();
@@ -93,24 +95,25 @@ export async function GET(req: Request) {
       return trader ? [...base, ...extra, String(l.experiencia ?? "")] : [...base, ...extra];
     };
 
-    const general = leads.filter((l) => l.pagina_captura !== "trader").map((l) => linha(l, false));
-    const traders = leads.filter((l) => l.pagina_captura === "trader").map((l) => linha(l, true));
+    const trader = pagina === "trader";
+    const daPagina = leads.filter((l) => (l.pagina_captura === "trader") === trader);
+    const chaves = new Set(daPagina.map((l) => String(l.telefone_chave ?? "")).filter(Boolean));
+    const linhas = daPagina.map((l) => linha(l, trader));
 
     const membros = await todas<Lead>((de, ate) =>
-      db().from("membros_grupo").select("telefone, grupo_nome, primeira_entrada_em")
+      db().from("membros_grupo").select("telefone, telefone_chave, grupo_nome, primeira_entrada_em")
         .eq("lancamento_id", lanc.id).not("primeira_entrada_em", "is", null)
         .order("primeira_entrada_em").range(de, ate));
-    const grupo = membros.map((m) => {
+    const grupo = membros.filter((m) => chaves.has(String(m.telefone_chave ?? ""))).map((m) => {
       const [fecha, hora] = dataHora(m.primeira_entrada_em);
       return [fecha, hora, String(m.telefone ?? ""), String(m.grupo_nome ?? "")];
     });
 
     return NextResponse.json(
       {
-        ok: true, lancamento: lanc.slug, nome: lanc.nome, gerado_em: new Date().toISOString(),
+        ok: true, lancamento: lanc.slug, nome: lanc.nome, pagina, gerado_em: new Date().toISOString(),
         abas: {
-          "Hoja 1": { colunas: COLUNAS_LEADS, extra: COLUNAS_EXTRA, linhas: general },
-          Traders: { colunas: COLUNAS_LEADS, extra: [...COLUNAS_EXTRA, "Experiencia"], linhas: traders },
+          "Hoja 1": { colunas: COLUNAS_LEADS, extra: trader ? [...COLUNAS_EXTRA, "Experiencia"] : COLUNAS_EXTRA, linhas },
           "Leads Grupo": { colunas: ["Fecha", "Hora", "Telefono", "Grupo"], extra: [], linhas: grupo },
         },
       },

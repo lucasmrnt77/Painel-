@@ -1,15 +1,16 @@
 /**
  * Planilha espelho do Painel Sendflow — mesmo formato da "Pagina de Captura General".
+ * Uma planilha por página: propriedade PAGINA = "general" (padrão) ou "trader".
  * Substitui os scripts antigos (PaginaTradersAgosto, PaginaTradersAgostoActualizacion, PagGeneralAgosto,
  * ActualizadorPorRespuestaIndividual, SendflowGruposTrader, Ingreso Grupo Sendflow General).
  *
  * As páginas gravam no painel; esta planilha só COPIA de lá, a cada 5 minutos:
- *  - "Hoja 1"      → leads da página General. Colunas A–Q iguais às de antes
+ *  - "Hoja 1"      → leads da página (General ou Trader). Colunas A–Q iguais às de antes
  *                    (Fecha … Pag.Gracias, Chequeo Grupo = "OK" quando entrou no grupo).
  *                    R "Demografico" (fórmula), S "VIDEO" e T "3 PREGUNTAS" ficam livres para vocês:
  *                    o script NÃO mexe nelas. U "Calificado" e V "Email" são novas.
- *  - "Traders"     → leads da página Trader, mesmo formato (+ W "Experiencia").
- *  - "Leads Grupo" → entradas nos grupos (Fecha, Hora, Telefono, Grupo).
+ *                    Na planilha Trader, W "Experiencia" também.
+ *  - "Leads Grupo" → entradas nos grupos das pessoas dessa página (Fecha, Hora, Telefono, Grupo).
  *  - "Estadisticas"→ criada uma vez com as fórmulas de sempre (depois é de vocês; o script não sobrescreve).
  * Abas de cópia/análise ("Copia de …", "Hoja 22" etc.) nunca são tocadas.
  *
@@ -17,7 +18,8 @@
  *
  * Instalação (uma vez):
  *  1. Extensões → Apps Script → cole este arquivo no lugar do anterior.
- *  2. Propriedades do script: PAINEL_URL, PLANILHA_TOKEN e (opcional) LANCAMENTO = slug do lançamento.
+ *  2. Propriedades do script: PAINEL_URL, PLANILHA_TOKEN, PAGINA ("general" ou "trader")
+ *     e (opcional) LANCAMENTO = slug do lançamento (vazio = o ativo).
  *  3. Rode "instalar" uma vez. "atualizarAgora" atualiza na hora.
  */
 var COLS_LEADS = 17;      // A–Q
@@ -36,9 +38,10 @@ function atualizarAgora() {
   var base = String(props.getProperty("PAINEL_URL") || "").replace(/\/+$/, "");
   var token = props.getProperty("PLANILHA_TOKEN");
   var lanc = props.getProperty("LANCAMENTO");
+  var pagina = String(props.getProperty("PAGINA") || "general").trim().toLowerCase() === "trader" ? "trader" : "general";
   if (!base || !token) throw new Error("Configure PAINEL_URL e PLANILHA_TOKEN nas propriedades do script");
 
-  var url = base + "/api/planilha" + (lanc ? "?l=" + encodeURIComponent(lanc) : "");
+  var url = base + "/api/planilha?pagina=" + pagina + (lanc ? "&l=" + encodeURIComponent(lanc) : "");
   var r = UrlFetchApp.fetch(url, { headers: { "x-api-token": token }, muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) throw new Error("Painel respondeu " + r.getResponseCode() + ": " + r.getContentText().slice(0, 200));
   var dados = JSON.parse(r.getContentText());
@@ -48,10 +51,9 @@ function atualizarAgora() {
   lock.waitLock(30000);
   try {
     escreverLeads(ss, "Hoja 1", dados.abas["Hoja 1"]);
-    escreverLeads(ss, "Traders", dados.abas["Traders"]);
     escreverSimples(ss, "Leads Grupo", dados.abas["Leads Grupo"]);
     garantirEstadisticas(ss);
-    var nota = "Lançamento: " + dados.nome + " (" + dados.lancamento + ")\nAtualizado: " + new Date().toLocaleString();
+    var nota = "Página: " + dados.pagina + " · Lançamento: " + dados.nome + " (" + dados.lancamento + ")\nAtualizado: " + new Date().toLocaleString();
     ss.getSheetByName("Hoja 1").getRange("A1").setNote(nota);
   } finally {
     lock.releaseLock();
