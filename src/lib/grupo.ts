@@ -41,3 +41,16 @@ export async function listarGrupo<T>(tabela: string, query: URLSearchParams, ini
   const total = Number(r.headers.get("content-range")?.split("/")[1] ?? 0);
   return { linhas: await r.json(), total: Number.isFinite(total) ? total : 0 };
 }
+
+/** Data do lead mais recente da página do grupo gratuito (null se não houver ou falhar). */
+export async function ultimoLeadGrupo(): Promise<string | null> {
+  if (!grupoConfigurado()) return null;
+  try {
+    const q = new URLSearchParams({ select: "creado_en", order: "creado_en.desc" });
+    const { linhas } = await listarGrupo<{ creado_en: string }>("inscripciones", q, 0, 0);
+    return linhas[0]?.creado_en ?? null;
+  } catch (e) {
+    console.error("[grupo] último lead", e);
+    return null;
+  }
+}

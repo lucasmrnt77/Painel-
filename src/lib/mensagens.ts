@@ -5,6 +5,8 @@ type Janela = { inscricoes: number; entradas: number; saidas: number; inscritos_
 const FUSO = "America/Montevideo";
 const hora = (iso: string | null | undefined) =>
   iso ? new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, hour: "2-digit", minute: "2-digit" }).format(new Date(iso)) : "—";
+const diaHora = (iso: string | null | undefined) =>
+  iso ? new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(iso)) : "—";
 const pct = (a: number, b: number) => (b > 0 ? `${Math.round((100 * a) / b)}%` : "—");
 
 /** 45 → "45 min" · 180 → "3 h" · 200 → "3 h 20 min" · 3000 → "2 dias 2 h" */
@@ -33,6 +35,18 @@ export function mensagemAlerta(tipo: string, lancamento: string, dados: Record<s
       ultima ? `Última entrada: ${hora(ultima)}.` : "Nenhuma entrada desde que o monitor foi ligado.",
       diagnostico,
     ].join("\n");
+  }
+  if (tipo === "sem_leads") {
+    const ultimo = dados.ultimo_lead_em as string | null;
+    return [
+      `⚠️ *${lancamento}*`,
+      `Nenhum lead novo na página há *${duracao(Number(dados.minutos_sem_lead))}*.`,
+      ultimo ? `Último lead: ${diaHora(ultimo)} (horário UY).` : "Nenhum lead desde que o monitor foi ligado.",
+      "Confira os anúncios (pausados, sem saldo ou reprovados) e se a página está no ar.",
+    ].join("\n");
+  }
+  if (tipo === "leads_retomados") {
+    return `✅ *${lancamento}*\nLeads retomados: novo lead em ${diaHora(dados.retomada_em as string)}, depois de ${duracao(Number(dados.minutos_sem_lead))} sem leads.`;
   }
   if (tipo === "entradas_retomadas") {
     return `✅ *${lancamento}*\nEntradas retomadas às ${hora(dados.retomada_em as string)} depois de ${duracao(Number(dados.minutos_sem_entrada))} sem entradas.`;

@@ -3,6 +3,7 @@ import { db } from "./supabase";
 import { rpcGrupo } from "./grupo";
 import { argsResumoGrupo, hojeUY, lerFiltrosGrupo, somarDias, diaCurto } from "./grupo-filtros";
 import type { Ponto } from "@/components/grafico-barras";
+import type { SituacaoMonitor } from "./dados";
 
 /**
  * Campanha do grupo gratuito (OP Futuros) na Visão geral.
@@ -90,5 +91,14 @@ export async function dadosCampanhaGrupo(lancamentoGrupoId: number | null): Prom
     porAnuncio: r7.por_content,
     porOrigem: r7.por_source,
     porPais: r7.por_pais,
+  };
+}
+
+/** Situação do monitor do grupo gratuito contada pelos LEADS da página (o alerta também usa leads). */
+export function situacaoPorLeads(s: SituacaoMonitor, ultimoLead: string | null, agora = new Date()): SituacaoMonitor {
+  return {
+    ...s,
+    ultima_entrada_em: ultimoLead,
+    minutos_desde_ultima_entrada: ultimoLead ? Math.floor((agora.getTime() - new Date(ultimoLead).getTime()) / 60000) : null,
   };
 }

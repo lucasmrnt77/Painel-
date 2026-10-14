@@ -2,7 +2,8 @@ import Link from "next/link";
 import { contexto, param } from "@/lib/contexto";
 import { db } from "@/lib/supabase";
 import { grupoGratuito, situacaoMonitor, ultimosAlertas, type SituacaoMonitor } from "@/lib/dados";
-import { grupoConfigurado, rpcGrupo } from "@/lib/grupo";
+import { grupoConfigurado, rpcGrupo, ultimoLeadGrupo } from "@/lib/grupo";
+import { situacaoPorLeads } from "@/lib/visao-grupo";
 import { modoEnvio } from "@/lib/whatsapp";
 import { dataHora } from "@/lib/formato";
 import { duracao } from "@/lib/mensagens";
@@ -25,6 +26,8 @@ const ROTULO_TIPO: Record<string, { rotulo: string; cor: string }> = {
   entradas_retomadas: { rotulo: "Retomadas", cor: "text-emerald-600 dark:text-emerald-400" },
   resumo: { rotulo: "Resumo", cor: "text-sky-600 dark:text-sky-400" },
   teste: { rotulo: "Teste", cor: "text-zinc-500" },
+  sem_leads: { rotulo: "Sem leads", cor: "text-rose-600 dark:text-rose-400" },
+  leads_retomados: { rotulo: "Leads retomados", cor: "text-emerald-600 dark:text-emerald-400" },
   cheio: { rotulo: "Grupo cheio", cor: "text-amber-600 dark:text-amber-400" },
   invalido: { rotulo: "Convite inválido", cor: "text-rose-600 dark:text-rose-400" },
   sem_grupos: { rotulo: "Sem grupos", cor: "text-rose-600 dark:text-rose-400" },
@@ -85,8 +88,9 @@ async function historico(nomes: Map<number, string>): Promise<Historico[]> {
   return itens.sort((a, b) => b.quando.localeCompare(a.quando)).slice(0, 40);
 }
 
-function Estado({ s, nome }: { s: SituacaoMonitor | null; nome: string }) {
+function Estado({ s, nome, porLeads = false }: { s: SituacaoMonitor | null; nome: string; porLeads?: boolean }) {
   if (!s) return null;
+  const termo = porLeads ? "leads" : "entradas";
   const min = s.minutos_desde_ultima_entrada;
   const alerta = s.monitor_ativo && min != null && min >= s.alerta_minutos_sem_entrada;
   return (
@@ -96,11 +100,11 @@ function Estado({ s, nome }: { s: SituacaoMonitor | null; nome: string }) {
         {nome}
       </div>
       <div className="mt-1 text-lg font-semibold">
-        {!s.monitor_ativo ? "Monitor desligado" : alerta ? `Sem entradas há ${duracao(min!)}` : "Tudo certo"}
+        {!s.monitor_ativo ? "Monitor desligado" : alerta ? `Sem ${termo} há ${duracao(min!)}` : "Tudo certo"}
       </div>
       <div className="text-xs text-zinc-500">
-        {s.monitor_ativo ? `alerta após ${duracao(s.alerta_minutos_sem_entrada)} sem entradas` : "ligue no cartão abaixo"}
-        {s.ultima_entrada_em ? ` · última entrada ${dataHora(s.ultima_entrada_em)}` : ""}
+        {s.monitor_ativo ? `alerta após ${duracao(s.alerta_minutos_sem_entrada)} sem ${termo}` : "ligue no cartão abaixo"}
+        {s.ultima_entrada_em ? ` · ${porLeads ? "último lead" : "última entrada"} ${dataHora(s.ultima_entrada_em)}` : ""}
       </div>
     </div>
   );
@@ -112,13 +116,16 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
   const grupo = await grupoGratuito();
   const modo = modoEnvio();
 
-  const [sLanc, aLanc, sGrupo, aGrupo, inscGrupo] = await Promise.all([
+  const [sLanc, aLanc, sGrupoBruto, aGrupo, inscGrupo, ultimoLead] = await Promise.all([
     atual ? situacaoMonitor(atual.lancamento_id) : null,
     atual ? ultimosAlertas(atual.lancamento_id) : [],
     grupo ? situacaoMonitor(grupo.id) : null,
     grupo ? ultimosAlertas(grupo.id) : [],
     grupo ? inscricoesGrupo() : null,
+    grupo ? ultimoLeadGrupo() : null,
   ]);
+  // Grupo gratuito (OP Futuros): monitor e alerta contam os leads da página, não as entradas no grupo
+  const sGrupo = sGrupoBruto ? situacaoPorLeads(sGrupoBruto, ultimoLead) : null;
   const nomes = new Map<number, string>(resumos.map((r) => [r.lancamento_id, r.nome]));
   if (grupo) nomes.set(grupo.id, grupo.nome);
   const [hist, tst] = await Promise.all([historico(nomes), testes()]);
@@ -128,14 +135,14 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
       <AutoAtualizar segundos={60} />
       <CabecalhoPagina titulo="Alertas" resumos={resumos} atual={atual} />
       <p className="-mt-2 text-sm text-zinc-500">
-        O grupo de alertas no WhatsApp só recebe problemas que precisam de ajuste: ninguém entrou no grupo dentro do prazo
-        (padrão 24 h), redirecionador sem grupo disponível ou falha ao pedir link novo, e testes dos eventos com erro.
+        O grupo de alertas no WhatsApp só recebe problemas que precisam de ajuste: ninguém entrou no grupo do lançamento dentro do prazo,
+        nenhum lead novo na página do grupo gratuito (OP Futuros) dentro do prazo (padrão 24 h), redirecionador sem grupo disponível ou falha ao pedir link novo, e testes dos eventos com erro.
         Resumos, entradas retomadas e avisos de que voltou a funcionar ficam só aqui no painel. O monitor confere a cada 2 minutos.
       </p>
 
       <section className="grid gap-3 md:grid-cols-2">
         <Estado s={sLanc} nome={atual ? `Lançamento · ${atual.nome}` : "Lançamento"} />
-        <Estado s={sGrupo} nome="Grupo gratuito" />
+        <Estado s={sGrupo} nome={grupo?.nome ?? "Grupo gratuito"} porLeads />
       </section>
 
       <section id="testes" className="scroll-mt-6 space-y-3">
@@ -175,7 +182,7 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
                 </ol>
               </div>
             )}
-            <CartaoMonitor s={sGrupo} alertas={aGrupo} modo={modo} titulo="Monitor — Grupo gratuito" inscricoes={inscGrupo} />
+            <CartaoMonitor s={sGrupo} alertas={aGrupo} modo={modo} titulo={`Monitor — ${grupo.nome} · leads da página`} inscricoes={inscGrupo} porLeads />
             <Cartao titulo="Configuração dos alertas do grupo gratuito">
               <FormAlertas id={grupo.id} alertaMinutos={sGrupo.alerta_minutos_sem_entrada} resumoMinutos={sGrupo.resumo_minutos}
                 telefones={sGrupo.alerta_telefones} referencia={{ valor: grupo.sendflow_ref }} />

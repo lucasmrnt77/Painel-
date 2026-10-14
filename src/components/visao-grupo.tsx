@@ -30,7 +30,7 @@ export function VisaoGrupo({ d, monitor }: { d: DadosCampanhaGrupo; monitor: Sit
       </section>
 
       <section className="grid gap-3 md:grid-cols-2">
-        <StatusMonitor nome="Monitor do grupo gratuito" s={monitor} />
+        <StatusMonitor nome="Monitor de leads (alerta sem leads)" s={monitor} porLeads />
         {d.entradas7 == null ? (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-zinc-400">
             <span className="font-medium text-amber-300">Entradas no grupo ainda não aparecem.</span> Falta ligar o webhook do Sendflow da campanha

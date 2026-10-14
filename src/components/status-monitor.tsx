@@ -3,7 +3,8 @@ import type { SituacaoMonitor } from "@/lib/dados";
 import { duracao } from "@/lib/mensagens";
 
 /** Linha compacta do monitor na Visão geral; o detalhe e a configuração ficam em Alertas. */
-export function StatusMonitor({ nome, s }: { nome: string; s: SituacaoMonitor | null }) {
+export function StatusMonitor({ nome, s, porLeads = false }: { nome: string; s: SituacaoMonitor | null; porLeads?: boolean }) {
+  const termo = porLeads ? "lead" : "entrada";
   const min = s?.minutos_desde_ultima_entrada ?? null;
   const alerta = !!s?.monitor_ativo && min != null && min >= s.alerta_minutos_sem_entrada;
   const cor = !s?.monitor_ativo ? "bg-zinc-600" : alerta ? "bg-rose-500" : "animate-pulse bg-emerald-500";
@@ -14,8 +15,8 @@ export function StatusMonitor({ nome, s }: { nome: string; s: SituacaoMonitor | 
         <div>
           <div className="text-sm font-medium">{nome}</div>
           <div className="text-xs text-zinc-500">
-            {!s ? "ainda não configurado" : !s.monitor_ativo ? "desligado" : alerta ? `sem entradas há ${duracao(min!)}` : `ligado · alerta após ${duracao(s.alerta_minutos_sem_entrada)}`}
-            {s?.ultima_entrada_em ? ` · última entrada ${min != null ? `há ${duracao(min)}` : ""}` : ""}
+            {!s ? "ainda não configurado" : !s.monitor_ativo ? "desligado" : alerta ? `sem ${termo}s há ${duracao(min!)}` : `ligado · alerta após ${duracao(s.alerta_minutos_sem_entrada)}`}
+            {s?.ultima_entrada_em ? ` · últim${porLeads ? "o" : "a"} ${termo} ${min != null ? `há ${duracao(min)}` : ""}` : ""}
           </div>
         </div>
       </div>

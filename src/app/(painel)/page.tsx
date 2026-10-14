@@ -11,8 +11,8 @@ import { resumoFunis, resumoGrupoGratuito, resumoLinks } from "@/lib/captacao";
 import { Captacao } from "@/components/captacao";
 import { StatusMonitor } from "@/components/status-monitor";
 import { VisaoGrupo } from "@/components/visao-grupo";
-import { grupoConfigurado } from "@/lib/grupo";
-import { captacaoIniciada, dadosCampanhaGrupo, NOME_CAMPANHA_GRUPO, SLUG_CAMPANHA_GRUPO } from "@/lib/visao-grupo";
+import { captacaoIniciada, dadosCampanhaGrupo, NOME_CAMPANHA_GRUPO, SLUG_CAMPANHA_GRUPO, situacaoPorLeads } from "@/lib/visao-grupo";
+import { grupoConfigurado, ultimoLeadGrupo } from "@/lib/grupo";
 import { BotaoCaptacao } from "@/components/botao-captacao";
 
 export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
@@ -31,12 +31,14 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   const verGrupo = temGrupo && (pedido === SLUG_CAMPANHA_GRUPO || (!pedido && !ligada));
 
   if (verGrupo) {
-    const [dados, situacaoGrupo, funis, links] = await Promise.all([
+    const [dados, situacaoBruta, funis, links, ultimoLead] = await Promise.all([
       dadosCampanhaGrupo(grupoMon?.id ?? null),
       grupoMon ? situacaoMonitor(grupoMon.id) : Promise.resolve(null),
       resumoFunis(),
       resumoLinks(),
+      ultimoLeadGrupo(),
     ]);
+    const situacaoGrupo = situacaoBruta ? situacaoPorLeads(situacaoBruta, ultimoLead) : null;
     return (
       <>
         <AutoAtualizar segundos={60} />

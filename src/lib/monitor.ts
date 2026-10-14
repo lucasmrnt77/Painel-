@@ -4,9 +4,49 @@ import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
 import { mensagemAlerta } from "./mensagens";
 import { monitorVaiProWhatsapp } from "./politica-alertas";
-import { grupoConfigurado, rpcGrupo } from "./grupo";
+import { grupoConfigurado, rpcGrupo, ultimoLeadGrupo } from "./grupo";
 
-type Lanc = { id: number; nome: string; alerta_telefones: string[]; tipo?: string };
+type Lanc = {
+  id: number; nome: string; alerta_telefones: string[]; tipo?: string;
+  monitor_ligado_em?: string | null; alerta_minutos_sem_entrada?: number;
+};
+type Avaliacao = { tipo: string; chave: string; dados: Record<string, unknown> };
+
+/**
+ * Grupo gratuito (OP Futuros): o alerta olha os LEADS da página do grupo (banco da captura-grupo),
+ * não as entradas no grupo. Um alerta a cada N minutos sem lead novo (padrão 24 h) e um aviso
+ * "leads retomados" (só no painel) quando volta a entrar lead depois de um alerta.
+ */
+export async function avaliarGrupoPorLeads(l: Lanc, agora = new Date()): Promise<Avaliacao[]> {
+  const limiar = Math.max(5, Number(l.alerta_minutos_sem_entrada) || 1440);
+  const ultimo = await ultimoLeadGrupo();
+  const ligado = l.monitor_ligado_em ? new Date(l.monitor_ligado_em) : null;
+  const ref = [ultimo ? new Date(ultimo) : null, ligado].filter((d): d is Date => !!d).sort((a, b) => b.getTime() - a.getTime())[0];
+  if (!ref) return [];
+  const minutos = Math.floor((agora.getTime() - ref.getTime()) / 60000);
+  const n = Math.floor(minutos / limiar);
+  const saida: Avaliacao[] = [];
+  if (n >= 1) {
+    saida.push({
+      tipo: "sem_leads",
+      chave: `sem_leads:${l.id}:${Math.floor(ref.getTime() / 1000)}:${n}`,
+      dados: { referencia: ref.toISOString(), ultimo_lead_em: ultimo, minutos_sem_lead: minutos, limiar, repeticao: n },
+    });
+  }
+  const { data: ultimoAlerta } = await db()
+    .from("alertas").select("id, criado_em, dados").eq("lancamento_id", l.id).eq("tipo", "sem_leads")
+    .order("criado_em", { ascending: false }).limit(1).maybeSingle();
+  const a = ultimoAlerta as { id: number; criado_em: string; dados: { referencia?: string } } | null;
+  if (a && ultimo && new Date(ultimo) > new Date(a.criado_em)) {
+    const desde = a.dados?.referencia ? new Date(a.dados.referencia) : new Date(a.criado_em);
+    saida.push({
+      tipo: "leads_retomados",
+      chave: `leads_retomados:${a.id}`,
+      dados: { alerta_id: a.id, retomada_em: ultimo, minutos_sem_lead: Math.floor((new Date(ultimo).getTime() - desde.getTime()) / 60000) },
+    });
+  }
+  return saida;
+}
 
 /**
  * O grupo gratuito recebe as inscrições em outro banco (página captura-grupo).
@@ -52,15 +92,21 @@ async function criarEEnviar(l: Lanc, tipo: string, chave: string, dadosOriginais
 export async function executarMonitor() {
   const { data, error } = await db()
     .from("lancamentos")
-    .select("id, nome, alerta_telefones, tipo")
+    .select("id, nome, alerta_telefones, tipo, monitor_ligado_em, alerta_minutos_sem_entrada")
     .eq("monitor_ativo", true);
   if (error) throw new Error(`[monitor] lançamentos: ${error.message}`);
 
   const criados: unknown[] = [];
   for (const l of (data ?? []) as Lanc[]) {
-    const av = await db().rpc("monitor_avaliar", { p_lancamento_id: l.id });
-    if (av.error) throw new Error(`[monitor] avaliar: ${av.error.message}`);
-    for (const a of (av.data ?? []) as { tipo: string; chave: string; dados: Record<string, unknown> }[]) {
+    let avaliacoes: Avaliacao[];
+    if (l.tipo === "grupo_gratuito" && grupoConfigurado()) {
+      avaliacoes = await avaliarGrupoPorLeads(l);
+    } else {
+      const av = await db().rpc("monitor_avaliar", { p_lancamento_id: l.id });
+      if (av.error) throw new Error(`[monitor] avaliar: ${av.error.message}`);
+      avaliacoes = (av.data ?? []) as Avaliacao[];
+    }
+    for (const a of avaliacoes) {
       const c = await criarEEnviar(l, a.tipo, a.chave, a.dados);
       if (c) criados.push(c);
     }

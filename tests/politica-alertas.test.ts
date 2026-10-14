@@ -22,3 +22,17 @@ test("testes diários: só quando falham", () => {
   assert.equal(testesVaiProWhatsapp(false), true);
   assert.equal(testesVaiProWhatsapp(true), false);
 });
+
+test("grupo gratuito: falta de leads vai para o WhatsApp; leads retomados só no painel", async () => {
+  assert.equal(monitorVaiProWhatsapp("sem_leads"), true);
+  assert.equal(monitorVaiProWhatsapp("leads_retomados"), false);
+  const { mensagemAlerta } = await import("../src/lib/mensagens");
+  const m = mensagemAlerta("sem_leads", "OP Futuros (grupo gratuito)", {
+    minutos_sem_lead: 1500, ultimo_lead_em: "2026-10-13T15:44:00Z",
+  });
+  assert.match(m, /OP Futuros/);
+  assert.match(m, /Nenhum lead novo na página há \*1 dia 1 h\*/);
+  assert.match(m, /Último lead: 13\/10/);
+  const r = mensagemAlerta("leads_retomados", "OP Futuros", { retomada_em: "2026-10-14T12:00:00Z", minutos_sem_lead: 1600 });
+  assert.match(r, /Leads retomados/);
+});

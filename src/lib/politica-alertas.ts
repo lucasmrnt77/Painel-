@@ -9,7 +9,8 @@
 export function monitorVaiProWhatsapp(tipo: string): boolean {
   // sem_entradas: ninguém entrou no prazo configurado (padrão 24 h)
   // teste: só quando alguém clica em "enviar teste" no painel
-  return tipo === "sem_entradas" || tipo === "teste";
+  // sem_leads: grupo gratuito sem lead novo na página no prazo configurado (padrão 24 h)
+  return tipo === "sem_entradas" || tipo === "sem_leads" || tipo === "teste";
 }
 
 /** Redirecionador de grupos. `temProximo` = ainda há grupo ativo na fila. */

@@ -10,12 +10,16 @@ const ROTULO_ALERTA: Record<string, string> = {
   entradas_retomadas: "Retomadas",
   resumo: "Resumo",
   teste: "Teste",
+  sem_leads: "Sem leads",
+  leads_retomados: "Leads retomados",
 };
 const COR_ALERTA: Record<string, string> = {
   sem_entradas: "text-rose-700 dark:text-rose-400",
   entradas_retomadas: "text-emerald-700 dark:text-emerald-400",
   resumo: "text-sky-700 dark:text-sky-400",
   teste: "text-zinc-500",
+  sem_leads: "text-rose-700 dark:text-rose-400",
+  leads_retomados: "text-emerald-700 dark:text-emerald-400",
 };
 const ROTULO_ENVIO: Record<string, string> = {
   enviado: "enviado", parcial: "envio parcial", falhou: "falhou", sem_envio: "só no painel", pendente: "enviando",
@@ -25,8 +29,10 @@ const ROTULO_ENVIO: Record<string, string> = {
  * Monitor de um grupo: liga/desliga, tempo desde a última entrada, entradas recentes e alertas.
  * `inscricoes` substitui as contagens de inscrição (grupo gratuito: vêm do banco da página do grupo).
  */
-export function CartaoMonitor({ s, alertas, modo, titulo = "Monitor de tráfego", inscricoes }: {
+export function CartaoMonitor({ s, alertas, modo, titulo = "Monitor de tráfego", inscricoes, porLeads = false }: {
   s: SituacaoMonitor; alertas: Alerta[]; modo: ModoEnvio; titulo?: string; inscricoes?: { ultimos20: number; ultimos60: number } | null;
+  /** Grupo gratuito: o alerta conta leads da página (não entradas no grupo). */
+  porLeads?: boolean;
 }) {
   const insc20 = inscricoes ? inscricoes.ultimos20 : s.ultimos_20.inscricoes;
   const insc60 = inscricoes ? inscricoes.ultimos60 : s.ultimos_60.inscricoes;
@@ -47,7 +53,7 @@ export function CartaoMonitor({ s, alertas, modo, titulo = "Monitor de tráfego"
           <h2 className="text-sm font-semibold">{titulo}</h2>
           <span className="text-xs text-zinc-500">
             {s.monitor_ativo
-              ? `ligado desde ${dataHora(s.monitor_ligado_em)} · alerta após ${duracao(limiar)} sem entradas`
+              ? `ligado desde ${dataHora(s.monitor_ligado_em)} · alerta após ${duracao(limiar)} sem ${porLeads ? "leads" : "entradas"}`
               : "desligado — ligue quando o tráfego começar"}
           </span>
         </div>
@@ -67,19 +73,19 @@ export function CartaoMonitor({ s, alertas, modo, titulo = "Monitor de tráfego"
       </header>
       <div className="grid gap-4 p-4 md:grid-cols-[1fr_1fr_1fr_2fr]">
         <div>
-          <div className="text-xs text-zinc-500">Última entrada no grupo</div>
+          <div className="text-xs text-zinc-500">{porLeads ? "Último lead na página" : "Última entrada no grupo"}</div>
           <div className={`tabular mt-1 text-2xl font-semibold ${cor}`}>{min == null ? "—" : `há ${duracao(min)}`}</div>
           <div className="text-xs text-zinc-500">{s.ultima_entrada_em ? dataHora(s.ultima_entrada_em) : "nenhuma ainda"}</div>
         </div>
         <div>
           <div className="text-xs text-zinc-500">Últimos 20 min</div>
-          <div className="tabular mt-1 text-2xl font-semibold">{s.ultimos_20.entradas}</div>
-          <div className="text-xs text-zinc-500">entradas · {insc20} inscrições</div>
+          <div className="tabular mt-1 text-2xl font-semibold">{porLeads ? insc20 : s.ultimos_20.entradas}</div>
+          <div className="text-xs text-zinc-500">{porLeads ? "leads" : `entradas · ${insc20} inscrições`}</div>
         </div>
         <div>
           <div className="text-xs text-zinc-500">Última hora</div>
-          <div className="tabular mt-1 text-2xl font-semibold">{s.ultimos_60.entradas}</div>
-          <div className="text-xs text-zinc-500">entradas · {insc60} inscrições</div>
+          <div className="tabular mt-1 text-2xl font-semibold">{porLeads ? insc60 : s.ultimos_60.entradas}</div>
+          <div className="text-xs text-zinc-500">{porLeads ? "leads" : `entradas · ${insc60} inscrições`}</div>
         </div>
         <div className="min-w-0">
           <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
