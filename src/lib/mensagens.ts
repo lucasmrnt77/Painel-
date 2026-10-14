@@ -45,6 +45,14 @@ export function mensagemAlerta(tipo: string, lancamento: string, dados: Record<s
       "Confira os anúncios (pausados, sem saldo ou reprovados) e se a página está no ar.",
     ].join("\n");
   }
+  if (tipo === "planilha_parada") {
+    return [
+      `⚠️ *${lancamento}*`,
+      `A planilha não busca dados do painel há *${duracao(Number(dados.minutos_parada))}* (última busca: ${diaHora(dados.ultima_em as string)}, horário UY).`,
+      "Os leads continuam salvos no painel; quando a planilha voltar, ela recupera tudo sozinha.",
+      "Confira na planilha: Extensões → Apps Script → Execuções (erros ou cota do Google).",
+    ].join("\n");
+  }
   if (tipo === "leads_retomados") {
     return `✅ *${lancamento}*\nLeads retomados: novo lead em ${diaHora(dados.retomada_em as string)}, depois de ${duracao(Number(dados.minutos_sem_lead))} sem leads.`;
   }

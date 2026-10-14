@@ -88,6 +88,43 @@ async function criarEEnviar(l: Lanc, tipo: string, chave: string, dadosOriginais
   return { id: id as number, tipo, envio: envio.status };
 }
 
+const PLANILHA_PARADA_MIN = 15;
+
+/**
+ * Planilhas (planilha/unificada.gs) que pararam de buscar dados: um alerta por parada,
+ * a partir de 15 min sem busca. Só para planilhas que buscaram nos últimos 3 dias
+ * (as antigas/abandonadas não ficam alertando). Os leads seguem salvos no banco;
+ * quando a planilha volta, ela recupera tudo sozinha.
+ */
+async function verificarPlanilhas(): Promise<unknown[]> {
+  const agora = Date.now();
+  const { data, error } = await db()
+    .from("planilha_sync")
+    .select("nome, lancamento_id, ultima_em")
+    .eq("ativo", true)
+    .lt("ultima_em", new Date(agora - PLANILHA_PARADA_MIN * 60_000).toISOString())
+    .gt("ultima_em", new Date(agora - 3 * 86_400_000).toISOString());
+  if (error) {
+    console.error("[monitor] planilhas", error.message); // antes da migração 021
+    return [];
+  }
+  const criados: unknown[] = [];
+  for (const p of (data ?? []) as { nome: string; lancamento_id: number | null; ultima_em: string }[]) {
+    if (p.lancamento_id == null) continue;
+    const { data: l } = await db().from("lancamentos").select("id, nome, alerta_telefones, tipo").eq("id", p.lancamento_id).maybeSingle();
+    if (!l) continue;
+    const minutos = Math.floor((agora - new Date(p.ultima_em).getTime()) / 60_000);
+    const c = await criarEEnviar(
+      { ...(l as Lanc), nome: `Planilha "${p.nome}"` },
+      "planilha_parada",
+      `planilha_parada:${p.nome}:${Math.floor(new Date(p.ultima_em).getTime() / 1000)}`,
+      { planilha: p.nome, ultima_em: p.ultima_em, minutos_parada: minutos },
+    );
+    if (c) criados.push(c);
+  }
+  return criados;
+}
+
 /** Roda uma rodada do monitor para todos os lançamentos com monitor ligado. */
 export async function executarMonitor() {
   const { data, error } = await db()
@@ -111,6 +148,7 @@ export async function executarMonitor() {
       if (c) criados.push(c);
     }
   }
+  criados.push(...(await verificarPlanilhas()));
   return { lancamentos: (data ?? []).length, alertas: criados };
 }
 

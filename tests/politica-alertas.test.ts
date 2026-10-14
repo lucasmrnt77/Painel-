@@ -36,3 +36,11 @@ test("grupo gratuito: falta de leads vai para o WhatsApp; leads retomados só no
   const r = mensagemAlerta("leads_retomados", "OP Futuros", { retomada_em: "2026-10-14T12:00:00Z", minutos_sem_lead: 1600 });
   assert.match(r, /Leads retomados/);
 });
+
+test("planilha parada vai para o WhatsApp com a orientação", async () => {
+  assert.equal(monitorVaiProWhatsapp("planilha_parada"), true);
+  const { mensagemAlerta } = await import("../src/lib/mensagens");
+  const m = mensagemAlerta("planilha_parada", 'Planilha "unificada"', { minutos_parada: 18, ultima_em: "2026-10-14T18:00:00Z" });
+  assert.match(m, /não busca dados do painel há \*18 min\*/);
+  assert.match(m, /recupera tudo/);
+});

@@ -4,6 +4,14 @@ import { env } from "@/lib/env";
 import { tokenValido } from "@/lib/seguranca";
 
 /**
+ * Formato 2 (planilha unificada e incremental — planilha/unificada.gs):
+ * GET /api/planilha?formato=2&pagina=todas[&desde=ISO][&nome=unificada][&l=slug]
+ *  - sem "desde": tudo; com "desde": só os leads novos ou que mudaram depois dessa data
+ *    (respostas, qualificação, entrada no grupo). Cada linha termina com o ID (chave do telefone),
+ *    para a planilha atualizar a linha certa sem reescrever tudo. "cursor" = o "desde" da próxima vez.
+ *  - registra em planilha_sync que a planilha buscou dados (o monitor avisa se ela parar).
+ *
+ * Formato antigo (planilha/espelho.gs, uma planilha por página), mantido igual:
  * GET /api/planilha?token=PLANILHA_TOKEN&pagina=general|trader[&l=slug]
  * Dados do lançamento (o ativo, se não vier ?l=) para o Apps Script da planilha
  * espelho (planilha/espelho.gs), no MESMO formato da planilha "Pagina de Captura General".
@@ -46,15 +54,156 @@ async function todas<T>(consulta: (de: number, ate: number) => PromiseLike<{ dat
 
 type Lead = Record<string, string | null | boolean>;
 
+const EXTRA_V2 = ["Calificado", "Email", "Experiencia", "Página", "ID"];
+const COLUNAS_GRUPO_V2 = ["Fecha", "Hora", "Telefono", "Grupo", "Página", "ID"];
+const SOBREPOSICAO_MS = 90_000; // o cursor volta 90 s para não perder nada que gravou "no meio"
+
+type Perfil = { q: boolean | null; f: string | null; g: string | null; r: string | null };
+
+function juntarPerfis(perfis: Lead[]): Map<string, Perfil> {
+  const perfil = new Map<string, Perfil>();
+  for (const p of perfis) {
+    const k = String(p.telefone_chave ?? "");
+    if (!k) continue;
+    const a = perfil.get(k) ?? { q: null, f: null, g: null, r: null };
+    perfil.set(k, {
+      q: a.q === true || p.qualificado === true ? true : ((p.qualificado as boolean | null) ?? a.q),
+      f: (p.faixa_etaria as string) ?? a.f, g: (p.genero as string) ?? a.g, r: (p.resposta_dinheiro as string) ?? a.r,
+    });
+  }
+  return perfil;
+}
+
+function linhaBase(l: Lead, p: Perfil): string[] {
+  const trader = l.pagina_captura === "trader";
+  const [fecha, hora] = dataHora(l.inscrito_em);
+  const pais = PAIS_ES[String(l.pais ?? "")] ?? String(l.pais ?? "");
+  return [
+    fecha, hora, String(l.telefone ?? ""), pais,
+    p.f ?? l.faixa_etaria ?? "", p.g ?? l.genero ?? "", p.r ?? l.resposta_dinheiro ?? "",
+    `${trader ? "Trader" : "Gen"}-${pais || "Desconocido"}`,
+    l.utm_campaign ?? "", l.utm_content ?? "", l.utm_source ?? "", l.utm_medium ?? "", l.utm_term ?? "",
+    l.landing ?? "", "Video1", l.pagina_obrigado ?? "", l.no_grupo ? "OK" : "",
+  ].map((v) => String(v ?? ""));
+}
+
+const calificado = (p: Perfil) => (p.q === true ? "Sí" : p.q === false ? "No" : "");
+const nomePagina = (l: Lead) => (l.pagina_captura === "trader" ? "Trader" : "General");
+
+const SELECT_LEAD = "inscrito_em, nome, email, telefone, telefone_chave, pais, pagina_captura, experiencia, landing, pagina_obrigado, faixa_etaria, genero, resposta_dinheiro, no_grupo, utm_campaign, utm_content, utm_source, utm_medium, utm_term";
+const SELECT_PERFIL = "telefone_chave, qualificado, faixa_etaria, genero, resposta_dinheiro";
+const COM_PERFIL = "qualificado.not.is.null,faixa_etaria.not.is.null,genero.not.is.null,resposta_dinheiro.not.is.null";
+
+/** .in() em pedaços (a URL do PostgREST tem limite de tamanho). */
+async function porChaves<T>(chaves: string[], consulta: (lote: string[]) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < chaves.length; i += 200) {
+    const { data, error } = await consulta(chaves.slice(i, i + 200));
+    if (error) throw new Error(error.message);
+    out.push(...(data ?? []));
+  }
+  return out;
+}
+
+async function formato2(lanc: { id: number; slug: string; nome: string }, pagina: string, desde: string | null, nome: string) {
+  const cursor = new Date(Date.now() - SOBREPOSICAO_MS).toISOString();
+  let leads: Lead[];
+  let perfis: Lead[];
+  let membros: Lead[];
+
+  if (!desde) {
+    leads = await todas<Lead>((de, ate) =>
+      db().from("v_leads_analise").select(SELECT_LEAD).eq("lancamento_id", lanc.id).order("inscrito_em").range(de, ate));
+    perfis = await todas<Lead>((de, ate) =>
+      db().from("inscricoes").select(SELECT_PERFIL).eq("lancamento_id", lanc.id).or(COM_PERFIL).order("id").range(de, ate));
+    membros = await todas<Lead>((de, ate) =>
+      db().from("membros_grupo").select("id, telefone, telefone_chave, grupo_nome, primeira_entrada_em")
+        .eq("lancamento_id", lanc.id).not("primeira_entrada_em", "is", null).order("primeira_entrada_em").range(de, ate));
+  } else {
+    // Quem mudou: inscrição nova ou alterada (respostas/qualificação) e movimentação no grupo
+    const [insc, mov] = await Promise.all([
+      todas<Lead>((de, ate) =>
+        db().from("inscricoes").select("id, telefone_chave").eq("lancamento_id", lanc.id)
+          .or(`criado_em.gt.${desde},atualizado_em.gt.${desde}`).order("id").range(de, ate)),
+      todas<Lead>((de, ate) =>
+        db().from("membros_grupo").select("id, telefone, telefone_chave, grupo_nome, primeira_entrada_em")
+          .eq("lancamento_id", lanc.id).gt("atualizado_em", desde).order("id").range(de, ate)),
+    ]);
+    const chaves = [...new Set([...insc, ...mov].map((x) => String(x.telefone_chave ?? "")).filter(Boolean))];
+    leads = chaves.length
+      ? await porChaves<Lead>(chaves, (lote) => db().from("v_leads_analise").select(SELECT_LEAD).eq("lancamento_id", lanc.id).in("telefone_chave", lote))
+      : [];
+    perfis = chaves.length
+      ? await porChaves<Lead>(chaves, (lote) => db().from("inscricoes").select(SELECT_PERFIL).eq("lancamento_id", lanc.id).or(COM_PERFIL).in("telefone_chave", lote))
+      : [];
+    membros = mov.filter((m) => m.primeira_entrada_em);
+  }
+
+  if (pagina !== "todas") leads = leads.filter((l) => (l.pagina_captura === "trader") === (pagina === "trader"));
+  leads.sort((a, b) => String(a.inscrito_em).localeCompare(String(b.inscrito_em)));
+  const perfil = juntarPerfis(perfis);
+  const vazio: Perfil = { q: null, f: null, g: null, r: null };
+
+  const linhas = leads.map((l) => {
+    const p = perfil.get(String(l.telefone_chave ?? "")) ?? vazio;
+    return [...linhaBase(l, p), calificado(p), String(l.email ?? ""), String(l.experiencia ?? ""), nomePagina(l), String(l.telefone_chave ?? "")];
+  });
+
+  // "Leads Grupo": entradas no grupo de quem se inscreveu neste lançamento (na página pedida)
+  let paginaDe = new Map(leads.map((l) => [String(l.telefone_chave ?? ""), nomePagina(l)]));
+  if (desde && membros.length) {
+    const faltam = [...new Set(membros.map((m) => String(m.telefone_chave ?? "")))].filter((k) => k && !paginaDe.has(k));
+    const extras = await porChaves<Lead>(faltam, (lote) =>
+      db().from("v_leads_analise").select("telefone_chave, pagina_captura").eq("lancamento_id", lanc.id).in("telefone_chave", lote));
+    const filtrados = pagina === "todas" ? extras : extras.filter((l) => (l.pagina_captura === "trader") === (pagina === "trader"));
+    paginaDe = new Map([...paginaDe, ...filtrados.map((l) => [String(l.telefone_chave ?? ""), nomePagina(l)] as [string, string])]);
+  }
+  const grupo = membros
+    .filter((m) => paginaDe.has(String(m.telefone_chave ?? "")))
+    .sort((a, b) => String(a.primeira_entrada_em).localeCompare(String(b.primeira_entrada_em)))
+    .map((m) => {
+      const [fecha, hora] = dataHora(m.primeira_entrada_em);
+      return [fecha, hora, String(m.telefone ?? ""), String(m.grupo_nome ?? ""), paginaDe.get(String(m.telefone_chave ?? "")) ?? "", `g${m.id}`];
+    });
+
+  // Batimento: a planilha buscou dados agora (não derruba a resposta se falhar)
+  const reg = await db().from("planilha_sync").upsert(
+    { nome, lancamento_id: lanc.id, ultima_em: new Date().toISOString(), linhas: linhas.length, completo: !desde, ativo: true },
+    { onConflict: "nome" },
+  );
+  if (reg.error) console.error("[planilha] planilha_sync", reg.error.message);
+
+  return {
+    ok: true, formato: 2, lancamento: lanc.slug, nome: lanc.nome, pagina, completo: !desde, cursor, gerado_em: new Date().toISOString(),
+    abas: {
+      "Hoja 1": { colunas: COLUNAS_LEADS, extra: EXTRA_V2, linhas },
+      "Leads Grupo": { colunas: COLUNAS_GRUPO_V2, extra: [], linhas: grupo },
+    },
+  };
+}
+
 export async function GET(req: Request) {
   if (!tokenValido(req, env.planilhaToken())) return NextResponse.json({ ok: false, erro: "nao_autorizado" }, { status: 401 });
   const sp = new URL(req.url).searchParams;
   const slug = sp.get("l");
-  const pagina = sp.get("pagina") === "trader" ? "trader" : "general";
+  const v2 = sp.get("formato") === "2";
+  const paginaPedida = sp.get("pagina");
+  const pagina = paginaPedida === "trader" ? "trader" : v2 && paginaPedida !== "general" ? "todas" : "general";
 
   const q = db().from("lancamentos").select("id, slug, nome");
   const { data: lanc } = await (slug ? q.eq("slug", slug) : q.eq("ativo", true).eq("tipo", "lancamento")).limit(1).maybeSingle();
   if (!lanc) return NextResponse.json({ ok: false, erro: "lancamento_nao_encontrado" }, { status: 404 });
+
+  if (v2) {
+    const desdeBruto = sp.get("desde");
+    const desde = desdeBruto && !Number.isNaN(Date.parse(desdeBruto)) ? new Date(desdeBruto).toISOString() : null;
+    const nome = (sp.get("nome") || "unificada").replace(/[^\p{L}\p{N} _.-]/gu, "").slice(0, 60) || "unificada";
+    try {
+      return NextResponse.json(await formato2(lanc, pagina, desde, nome), { headers: { "Cache-Control": "no-store" } });
+    } catch (e) {
+      return NextResponse.json({ ok: false, erro: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    }
+  }
 
   try {
     const leads = await todas<Lead>((de, ate) =>

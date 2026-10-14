@@ -12,6 +12,7 @@ const ROTULO_ALERTA: Record<string, string> = {
   teste: "Teste",
   sem_leads: "Sem leads",
   leads_retomados: "Leads retomados",
+  planilha_parada: "Planilha parada",
 };
 const COR_ALERTA: Record<string, string> = {
   sem_entradas: "text-rose-700 dark:text-rose-400",
@@ -20,6 +21,7 @@ const COR_ALERTA: Record<string, string> = {
   teste: "text-zinc-500",
   sem_leads: "text-rose-700 dark:text-rose-400",
   leads_retomados: "text-emerald-700 dark:text-emerald-400",
+  planilha_parada: "text-rose-700 dark:text-rose-400",
 };
 const ROTULO_ENVIO: Record<string, string> = {
   enviado: "enviado", parcial: "envio parcial", falhou: "falhou", sem_envio: "só no painel", pendente: "enviando",
