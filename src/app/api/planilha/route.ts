@@ -4,7 +4,10 @@ import { env } from "@/lib/env";
 import { tokenValido } from "@/lib/seguranca";
 
 /**
- * Formato 2 (planilha unificada e incremental — planilha/unificada.gs):
+ * Formato 3 (atual, planilha/unificada.gs): igual ao 2, mas uma aba por página no layout da planilha modelo
+ * (General e Trader + "Leads Grupo" de cada uma). Ver formato3().
+ *
+ * Formato 2 (planilha unificada numa aba só — versão anterior do script):
  * GET /api/planilha?formato=2&pagina=todas[&desde=ISO][&nome=unificada][&l=slug]
  *  - sem "desde": tudo; com "desde": só os leads novos ou que mudaram depois dessa data
  *    (respostas, qualificação, entrada no grupo). Cada linha termina com o ID (chave do telefone),
@@ -105,7 +108,7 @@ async function porChaves<T>(chaves: string[], consulta: (lote: string[]) => Prom
   return out;
 }
 
-async function formato2(lanc: { id: number; slug: string; nome: string }, pagina: string, desde: string | null, nome: string) {
+async function formato2(lanc: { id: number; slug: string; nome: string }, pagina: string, desde: string | null, nome: string, versao: 2 | 3 = 2) {
   const cursor = new Date(Date.now() - SOBREPOSICAO_MS).toISOString();
   let leads: Lead[];
   let perfis: Lead[];
@@ -144,6 +147,12 @@ async function formato2(lanc: { id: number; slug: string; nome: string }, pagina
   const perfil = juntarPerfis(perfis);
   const vazio: Perfil = { q: null, f: null, g: null, r: null };
 
+  if (versao === 3) {
+    const r = await formato3(lanc, leads, perfil, membros, desde);
+    await baterPonto(nome, lanc.id, r.total, !desde);
+    return { ok: true, formato: 3, lancamento: lanc.slug, nome: lanc.nome, completo: !desde, cursor, gerado_em: new Date().toISOString(), abas: r.abas };
+  }
+
   const linhas = leads.map((l) => {
     const p = perfil.get(String(l.telefone_chave ?? "")) ?? vazio;
     return [...linhaBase(l, p), calificado(p), String(l.email ?? ""), String(l.experiencia ?? ""), nomePagina(l), String(l.telefone_chave ?? "")];
@@ -166,12 +175,7 @@ async function formato2(lanc: { id: number; slug: string; nome: string }, pagina
       return [fecha, hora, String(m.telefone ?? ""), String(m.grupo_nome ?? ""), paginaDe.get(String(m.telefone_chave ?? "")) ?? "", `g${m.id}`];
     });
 
-  // Batimento: a planilha buscou dados agora (não derruba a resposta se falhar)
-  const reg = await db().from("planilha_sync").upsert(
-    { nome, lancamento_id: lanc.id, ultima_em: new Date().toISOString(), linhas: linhas.length, completo: !desde, ativo: true },
-    { onConflict: "nome" },
-  );
-  if (reg.error) console.error("[planilha] planilha_sync", reg.error.message);
+  await baterPonto(nome, lanc.id, linhas.length, !desde);
 
   return {
     ok: true, formato: 2, lancamento: lanc.slug, nome: lanc.nome, pagina, completo: !desde, cursor, gerado_em: new Date().toISOString(),
@@ -182,11 +186,98 @@ async function formato2(lanc: { id: number; slug: string; nome: string }, pagina
   };
 }
 
+/** Batimento: a planilha buscou dados agora (não derruba a resposta se falhar). */
+async function baterPonto(nome: string, lancamentoId: number, linhas: number, completo: boolean) {
+  const reg = await db().from("planilha_sync").upsert(
+    { nome, lancamento_id: lancamentoId, ultima_em: new Date().toISOString(), linhas, completo, ativo: true },
+    { onConflict: "nome" },
+  );
+  if (reg.error) console.error("[planilha] planilha_sync", reg.error.message);
+}
+
+/**
+ * Formato 3: uma aba por página de captura, cada uma no layout da planilha modelo do lançamento passado.
+ *  - "General" = "Hoja 1" da "Pagina de Captura General" (A–Q) + R/S/T livres + U Calificado, V Email, W ID
+ *  - "Trader"  = "Leads" da "Pagina de Traders" (A–L) + M CHEQUEO livre + N Pais, O Calificado, P ID
+ *  - "Leads Grupo General" / "Leads Grupo Trader" = Fecha, Hora, Telefono, Grupo, ID
+ * Cada aba descreve seus blocos de colunas: a planilha escreve só neles e nunca mexe nas colunas livres.
+ */
+type Bloco = { col: number; cab: string[] };
+type AbaV3 = { blocos: Bloco[]; fixos?: { col: number; valores: string[] }[]; formula?: { celula: string; f: string }; linhas: (string | boolean)[][] };
+
+const CAB_TRADER = ["Fecha", "Hora", "Experiencia", "Telefono", "Campana", "Anuncio", "utm_source", "utm_medium", "utm_term", "Landing", "Pagina de gracias", "Grupo"];
+const CAB_GRUPO = ["Fecha", "Hora", "Telefono", "Grupo", "ID"];
+
+async function formato3(
+  lanc: { id: number }, leads: Lead[], perfil: Map<string, Perfil>, membros: Lead[], desde: string | null,
+): Promise<{ abas: Record<string, AbaV3>; total: number }> {
+  const vazio: Perfil = { q: null, f: null, g: null, r: null };
+  const general: (string | boolean)[][] = [];
+  const trader: (string | boolean)[][] = [];
+  const paginaDe = new Map<string, "General" | "Trader">();
+  for (const l of leads) {
+    const k = String(l.telefone_chave ?? "");
+    const p = perfil.get(k) ?? vazio;
+    if (l.pagina_captura === "trader") {
+      paginaDe.set(k, "Trader");
+      const [fecha, hora] = dataHora(l.inscrito_em);
+      const pais = PAIS_ES[String(l.pais ?? "")] ?? String(l.pais ?? "");
+      trader.push([
+        fecha, hora, String(l.experiencia ?? ""), String(l.telefone ?? ""),
+        String(l.utm_campaign ?? ""), String(l.utm_content ?? ""), String(l.utm_source ?? ""), String(l.utm_medium ?? ""), String(l.utm_term ?? ""),
+        String(l.landing ?? ""), String(l.pagina_obrigado ?? ""), l.no_grupo === true,
+        pais, calificado(p), k,
+      ]);
+    } else {
+      paginaDe.set(k, "General");
+      general.push([...linhaBase(l, p), calificado(p), String(l.email ?? ""), k]);
+    }
+  }
+
+  // Entradas no grupo: precisa saber de que página é a pessoa (no incremental, pode não estar entre os leads alterados)
+  if (desde && membros.length) {
+    const faltam = [...new Set(membros.map((m) => String(m.telefone_chave ?? "")))].filter((k) => k && !paginaDe.has(k));
+    const extras = await porChaves<Lead>(faltam, (lote) =>
+      db().from("v_leads_analise").select("telefone_chave, pagina_captura").eq("lancamento_id", lanc.id).in("telefone_chave", lote));
+    for (const l of extras) paginaDe.set(String(l.telefone_chave ?? ""), l.pagina_captura === "trader" ? "Trader" : "General");
+  }
+  const grupoG: string[][] = [];
+  const grupoT: string[][] = [];
+  [...membros]
+    .sort((a, b) => String(a.primeira_entrada_em).localeCompare(String(b.primeira_entrada_em)))
+    .forEach((m) => {
+      const pag = paginaDe.get(String(m.telefone_chave ?? ""));
+      if (!pag) return; // entrou no grupo sem ter se inscrito neste lançamento
+      const [fecha, hora] = dataHora(m.primeira_entrada_em);
+      (pag === "Trader" ? grupoT : grupoG).push([fecha, hora, String(m.telefone ?? ""), String(m.grupo_nome ?? ""), `g${m.id}`]);
+    });
+
+  return {
+    total: general.length + trader.length,
+    abas: {
+      General: {
+        blocos: [{ col: 1, cab: COLUNAS_LEADS }, { col: 21, cab: ["Calificado", "Email", "ID"] }],
+        fixos: [{ col: 18, valores: ["Demografico", "VIDEO", "3 PREGUNTAS"] }],
+        formula: { celula: "R2", f: '=ARRAYFORMULA(IF(F2:F="","",F2:F&" "&E2:E))' },
+        linhas: general,
+      },
+      Trader: {
+        blocos: [{ col: 1, cab: CAB_TRADER }, { col: 14, cab: ["Pais", "Calificado", "ID"] }],
+        fixos: [{ col: 13, valores: ["CHEQUEO"] }],
+        linhas: trader,
+      },
+      "Leads Grupo General": { blocos: [{ col: 1, cab: CAB_GRUPO }], linhas: grupoG },
+      "Leads Grupo Trader": { blocos: [{ col: 1, cab: CAB_GRUPO }], linhas: grupoT },
+    },
+  };
+}
+
 export async function GET(req: Request) {
   if (!tokenValido(req, env.planilhaToken())) return NextResponse.json({ ok: false, erro: "nao_autorizado" }, { status: 401 });
   const sp = new URL(req.url).searchParams;
   const slug = sp.get("l");
-  const v2 = sp.get("formato") === "2";
+  const versao = sp.get("formato") === "3" ? 3 : sp.get("formato") === "2" ? 2 : 0;
+  const v2 = versao > 0;
   const paginaPedida = sp.get("pagina");
   const pagina = paginaPedida === "trader" ? "trader" : v2 && paginaPedida !== "general" ? "todas" : "general";
 
@@ -199,7 +290,8 @@ export async function GET(req: Request) {
     const desde = desdeBruto && !Number.isNaN(Date.parse(desdeBruto)) ? new Date(desdeBruto).toISOString() : null;
     const nome = (sp.get("nome") || "unificada").replace(/[^\p{L}\p{N} _.-]/gu, "").slice(0, 60) || "unificada";
     try {
-      return NextResponse.json(await formato2(lanc, pagina, desde, nome), { headers: { "Cache-Control": "no-store" } });
+      const pag = versao === 3 ? "todas" : pagina;
+      return NextResponse.json(await formato2(lanc, pag, desde, nome, versao === 3 ? 3 : 2), { headers: { "Cache-Control": "no-store" } });
     } catch (e) {
       return NextResponse.json({ ok: false, erro: e instanceof Error ? e.message : String(e) }, { status: 500 });
     }
