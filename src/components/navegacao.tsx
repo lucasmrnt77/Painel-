@@ -229,7 +229,7 @@ export function SeletorLancamento({ opcoes, atual }: { opcoes: { slug: string; n
     >
       {opcoes.map((o) => (
         <option key={o.slug} value={o.slug}>
-          {o.nome}{o.ativo ? ` · ${t("ativo")}` : ""}
+          {t(o.nome)}{o.ativo ? ` · ${t("ativo")}` : ""}
         </option>
       ))}
     </select>

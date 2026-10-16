@@ -17,7 +17,7 @@ export function CabecalhoPagina({ titulo, resumos, atual, children, extras = [],
         {subtitulo && <p className="text-sm text-zinc-500">{subtitulo}</p>}
         {!subtitulo && atual && (
           <p className="text-sm text-zinc-500">
-            {atual.nome}
+            <Tx>{atual.nome}</Tx>
             {atual.ativo && <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"><Tx>ativo</Tx></span>}
           </p>
         )}

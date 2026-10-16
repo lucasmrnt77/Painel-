@@ -3,6 +3,8 @@ import type { Dic, Padroes } from "./tipos";
 /** OP Futuros em Visão geral / Inscritos x grupo / Análise e a nomenclatura da aba Páginas. */
 export const ES_OP: Dic = {
   "(não entrou)": "(no entró)",
+  "Testes das páginas": "Pruebas de las páginas",
+  "Teste-Setembro": "Prueba-Septiembre",
   "(sem UTM)": "(sin UTM)",
   "(sem país)": "(sin país)",
   "A coluna \"% do total\" mostra a divisão real do tráfego dentro de cada página. Num teste de 3 páginas com 33% cada, cada uma deve ficar perto de 33%.":

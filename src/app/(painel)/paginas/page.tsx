@@ -44,11 +44,11 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">{t("Páginas")}</h1>
-          <p className="text-sm text-zinc-500">{atual.nome} · {t("funil por página de captura e de gracias")}</p>
+          <p className="text-sm text-zinc-500">{t(atual.nome)} · {t("funil por página de captura e de gracias")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {resumos.map((r) => (
-            <Link key={r.slug} href={montarHref("/paginas", { l: r.slug })} className={`rounded-full border px-3 py-1 text-xs font-medium ${atual.slug === r.slug ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 dark:border-zinc-700"}`}>{r.nome}</Link>
+            <Link key={r.slug} href={montarHref("/paginas", { l: r.slug })} className={`rounded-full border px-3 py-1 text-xs font-medium ${atual.slug === r.slug ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 dark:border-zinc-700"}`}>{t(r.nome)}</Link>
           ))}
         </div>
       </div>

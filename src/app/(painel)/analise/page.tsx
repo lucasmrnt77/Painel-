@@ -31,7 +31,7 @@ export default async function Analise({ searchParams }: PageProps<"/analise">) {
     const seletor = (
       <div className="flex flex-wrap gap-2">
         <Link href={montarHref("/analise", { l: "todos" })} className={chip(false)}>{t("Todos")}</Link>
-        {resumos.map((r) => <Link key={r.slug} href={montarHref("/analise", { l: r.slug })} className={chip(false)}>{r.nome}</Link>)}
+        {resumos.map((r) => <Link key={r.slug} href={montarHref("/analise", { l: r.slug })} className={chip(false)}>{t(r.nome)}</Link>)}
         {chipOp}
       </div>
     );
@@ -62,12 +62,12 @@ export default async function Analise({ searchParams }: PageProps<"/analise">) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">{t("Análise")}</h1>
-          <p className="text-sm text-zinc-500">{todos ? t("Todos os lançamentos") : atual?.nome} · {t("taxa de entrada no grupo por dimensão")}</p>
+          <p className="text-sm text-zinc-500">{todos ? t("Todos os lançamentos") : t(atual?.nome ?? "")} · {t("taxa de entrada no grupo por dimensão")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={href({ l: "todos" })} className={`rounded-full border px-3 py-1 text-xs font-medium ${todos ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 dark:border-zinc-700"}`}>{t("Todos")}</Link>
           {resumos.map((r) => (
-            <Link key={r.slug} href={href({ l: r.slug })} className={`rounded-full border px-3 py-1 text-xs font-medium ${!todos && atual?.slug === r.slug ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 dark:border-zinc-700"}`}>{r.nome}</Link>
+            <Link key={r.slug} href={href({ l: r.slug })} className={`rounded-full border px-3 py-1 text-xs font-medium ${!todos && atual?.slug === r.slug ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 dark:border-zinc-700"}`}>{t(r.nome)}</Link>
           ))}
           {chipOp}
         </div>
