@@ -23,6 +23,14 @@ export type ContagemEdicao = {
   compras: number; compras_validas: number; compras_sem_telefone: number;
 };
 
+export type Combinacao = {
+  lancamentos: string; n_lancamentos: number; pessoas: number; compraram_et: number; compraram_tpp: number; taxa_algum: number | null;
+};
+
+export type RepeticaoEdicao = {
+  edicao: string; inicio: string; pessoas: number; em_outros: number; ja_vinham_de_antes: number; pct_em_outros: number | null;
+};
+
 export type Revisar = {
   telefone_original: string; motivo: string | null; sugestao: string | null; origem_sugestao: string | null;
   motivo_sugestao: string | null; ocorrencias: number; e_comprador: boolean; edicoes: string;
@@ -55,6 +63,21 @@ export async function conversaoPorTotal(): Promise<LinhaTotal[]> {
   const { data, error } = await db().from("v_bd_conversao_total").select("*");
   if (error) throw new Error(error.message);
   return ordenar((data ?? []) as LinhaTotal[]);
+}
+
+/** Pessoas que estiveram em mais de 1 lançamento, agrupadas pela combinação de lançamentos. */
+export async function combinacoes(): Promise<Combinacao[]> {
+  const { data, error } = await db().from("v_bd_combinacoes").select("*")
+    .order("pessoas", { ascending: false }).limit(200);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Combinacao[];
+}
+
+/** Em cada lançamento: quantas pessoas também estiveram em outro. */
+export async function repeticaoPorEdicao(): Promise<RepeticaoEdicao[]> {
+  const { data, error } = await db().from("v_bd_repeticao_edicao").select("*").order("inicio");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as RepeticaoEdicao[];
 }
 
 export async function contagensPorEdicao(): Promise<ContagemEdicao[]> {

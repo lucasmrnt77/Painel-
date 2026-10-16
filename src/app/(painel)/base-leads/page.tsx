@@ -1,7 +1,7 @@
 import { exigirLogin } from "@/lib/sessao";
 import { db } from "@/lib/supabase";
 import {
-  contagensPorEdicao, conversaoPorEdicao, conversaoPorParticipacao, conversaoPorTotal, edicoes,
+  combinacoes, contagensPorEdicao, conversaoPorEdicao, repeticaoPorEdicao, conversaoPorParticipacao, conversaoPorTotal, edicoes,
   FILTROS_COMPRA, FILTROS_N, telefonesParaRevisar,
 } from "@/lib/base-leads";
 import {
@@ -23,17 +23,21 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
   const sp = await searchParams;
   const revisarTodos = sp.revisar === "todos";
 
-  const [eds, porPart, porEdicao, porTotal, contagens, revisar, ultima, totais] = await Promise.all([
+  const [eds, porPart, porEdicao, porTotal, contagens, revisar, ultima, totais, combos, repeticao] = await Promise.all([
     edicoes(), conversaoPorParticipacao(), conversaoPorEdicao(), conversaoPorTotal(), contagensPorEdicao(),
     telefonesParaRevisar(100, revisarTodos ? "todos" : "compradores"),
     db().from("bd_atualizacoes").select("atualizado_em").order("id", { ascending: false }).limit(1).maybeSingle(),
     db().from("v_bd_revisar").select("telefone_original", { count: "exact", head: true }),
+    combinacoes(), repeticaoPorEdicao(),
   ]);
   const cont = new Map(contagens.map((c) => [c.edicao_id, c]));
   const pessoas = porTotal.reduce((s, l) => s + l.pessoas, 0);
   const compraramEt = porTotal.reduce((s, l) => s + l.compraram_et, 0);
   const compraramTpp = porTotal.reduce((s, l) => s + l.compraram_tpp, 0);
   const totalRevisar = totais.count ?? 0;
+  const emMaisDeUm = porTotal.filter((l) => l.lancamentos !== "1").reduce((s, l) => s + l.pessoas, 0);
+  const nomeEdicao = new Map(eds.map((e) => [e.codigo, e.nome]));
+  const nomesCombo = (c: string) => c.split(", ").map((x) => nomeEdicao.get(x) ?? x).join(" + ");
   const edicoesTaxa = eds.filter((e) => e.tem_leads && e.tem_compras).map((e) => e.nome).join(", ");
 
   return (
@@ -48,8 +52,9 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
         <form action={atualizarBase}><button className={botao}>Recalcular agora</button></form>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Kpi rotulo="Pessoas" valor={numero(pessoas)} detalhe="telefones únicos e válidos" />
+        <Kpi rotulo="Em mais de 1 lançamento" valor={numero(emMaisDeUm)} detalhe={pessoas ? `${pct(Math.round((emMaisDeUm / pessoas) * 10000) / 100)} das pessoas` : undefined} />
         <Kpi rotulo="Compraram Expert Trader" valor={numero(compraramEt)} />
         <Kpi rotulo="Compraram TPP" valor={numero(compraramTpp)} />
         <Kpi rotulo="Telefones para revisar" valor={numero(totalRevisar)} destaque={totalRevisar ? "ambar" : undefined} detalhe="fora das estatísticas até revisar" />
@@ -106,6 +111,39 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
               <td className={`${td} tabular`}>{numero(l.compraram_tpp)}</td>
               <td className={`${td} tabular`}>{pct(l.taxa_tpp)}</td>
               <td className={`${td} tabular`}>{pct(l.taxa_algum)}</td>
+            </tr>
+          ))}
+        </Tabela>
+      </Cartao>
+
+      <Cartao titulo={`Leads em mais de 1 lançamento (${numero(emMaisDeUm)})`}>
+        <p className="mb-3 text-xs text-zinc-500">
+          Em cada lançamento, quantas pessoas também estiveram em outro (antes ou depois), e quantas já vinham de um lançamento anterior.
+        </p>
+        <Tabela cabecalho={["Lançamento", "Pessoas", "Também em outro", "%", "Já vinham de antes"]} vazio={repeticao.length === 0}>
+          {repeticao.map((r) => (
+            <tr key={r.edicao}>
+              <td className={`${td} font-medium`}>{nomeEdicao.get(r.edicao) ?? r.edicao}</td>
+              <td className={`${td} tabular`}>{numero(r.pessoas)}</td>
+              <td className={`${td} tabular`}>{numero(r.em_outros)}</td>
+              <td className={`${td} tabular`}>{pct(r.pct_em_outros)}</td>
+              <td className={`${td} tabular`}>{numero(r.ja_vinham_de_antes)}</td>
+            </tr>
+          ))}
+        </Tabela>
+        <h3 className="mt-5 mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">Em quais lançamentos estiveram</h3>
+        <Tabela cabecalho={["Lançamentos", "Qtd.", "Pessoas", "Compraram ET", "Compraram TPP", "% ET ou TPP", ""]} vazio={combos.length === 0}>
+          {combos.map((c) => (
+            <tr key={c.lancamentos}>
+              <td className={td}>{nomesCombo(c.lancamentos)}</td>
+              <td className={`${td} tabular`}>{c.n_lancamentos}</td>
+              <td className={`${td} tabular font-medium`}>{numero(c.pessoas)}</td>
+              <td className={`${td} tabular`}>{numero(c.compraram_et)}</td>
+              <td className={`${td} tabular`}>{numero(c.compraram_tpp)}</td>
+              <td className={`${td} tabular`}>{pct(c.taxa_algum)}</td>
+              <td className={td}>
+                <a className="text-xs underline" href={`/api/base-leads/exportar?combo=${encodeURIComponent(c.lancamentos)}`}>baixar CSV</a>
+              </td>
             </tr>
           ))}
         </Tabela>

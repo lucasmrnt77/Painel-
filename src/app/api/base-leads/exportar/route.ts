@@ -14,6 +14,7 @@ const COLUNAS = [
 
 /**
  * GET /api/base-leads/exportar?n=todos|1|2|3|4+&compra=todos|nao|et|tpp|tpp-sem-et&pais=Argentina&edicao=mar-2026
+ *     &combo=mar-2026, mai-2026 (combinação exata de lançamentos)
  * CSV de pessoas (uma linha por telefone). Precisa estar logado.
  */
 export async function GET(req: Request) {
@@ -23,6 +24,8 @@ export async function GET(req: Request) {
   const compra = url.searchParams.get("compra") ?? "todos";
   const pais = url.searchParams.get("pais") ?? "";
   const edicao = url.searchParams.get("edicao") ?? "";
+  // combinação exata de lançamentos (ex.: "mar-2026, mai-2026"), vinda da tabela de repetidos
+  const combo = url.searchParams.get("combo") ?? "";
 
   const linhas: Record<string, unknown>[] = [];
   const passo = 1000;
@@ -36,6 +39,7 @@ export async function GET(req: Request) {
     else if (compra === "tpp-sem-et") q = q.eq("comprou_tpp", true).eq("comprou_et", false);
     if (pais) q = q.eq("pais", pais);
     if (/^[a-z0-9-]+$/.test(edicao)) q = q.like("lancamentos", `%${edicao}%`);
+    if (/^[a-z0-9, -]+$/.test(combo)) q = q.eq("lancamentos", combo);
     const { data, error } = await q;
     if (error) return new Response(error.message, { status: 500 });
     linhas.push(...((data ?? []) as unknown as Record<string, unknown>[]));
@@ -43,7 +47,9 @@ export async function GET(req: Request) {
   }
 
   const corpo = [COLUNAS.join(","), ...linhas.map((l) => COLUNAS.map((c) => csv(l[c])).join(","))].join("\n");
-  const nome = `base-leads-${n}${compra !== "todos" ? `-${compra}` : ""}${edicao ? `-${edicao}` : ""}${pais ? `-${pais.toLowerCase()}` : ""}.csv`;
+  const nome = combo
+    ? `base-leads-${combo.replace(/, /g, "+")}.csv`
+    : `base-leads-${n}${compra !== "todos" ? `-${compra}` : ""}${edicao ? `-${edicao}` : ""}${pais ? `-${pais.toLowerCase()}` : ""}.csv`;
   return new Response("﻿" + corpo, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
