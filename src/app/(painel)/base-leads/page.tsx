@@ -1,8 +1,9 @@
 import { exigirLogin } from "@/lib/sessao";
+import { MultiSelecao } from "@/components/multi-selecao";
 import { db } from "@/lib/supabase";
 import {
   combinacoes, contagensPorEdicao, conversaoPorEdicao, repeticaoPorEdicao, conversaoPorParticipacao, conversaoPorTotal, edicoes,
-  FILTROS_COMPRA, FILTROS_N, telefonesParaRevisar,
+  FILTROS_COMPRA, telefonesParaRevisar,
 } from "@/lib/base-leads";
 import {
   alternarEdicao, aprovarTelefone, aprovarTodasSugestoes, atualizarBase, criarEdicao, descartarTelefone,
@@ -16,6 +17,11 @@ export const dynamic = "force-dynamic";
 const pct = (v: number | null | undefined) => (v == null ? "—" : `${Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`);
 const rotuloPart = (p: string) => (p === "+3" ? "4ª ou mais" : `${p}ª`);
 const botao = "rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800";
+const PAISES = [
+  "Argentina", "Uruguay", "Chile", "EE. UU./Canadá", "Colombia", "Brasil", "España", "México", "Venezuela", "Perú",
+  "Bolivia", "Ecuador", "Paraguay", "Costa Rica", "Panamá", "Israel", "Otro",
+];
+
 const campo = "rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950";
 
 export default async function BaseLeads({ searchParams }: PageProps<"/base-leads">) {
@@ -153,35 +159,18 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
       <Cartao titulo="Exportar leads">
         <form action="/api/base-leads/exportar" method="get" className="flex flex-wrap items-end gap-3 text-sm">
           <label className="space-y-1">
-            <span className="block text-xs text-zinc-500">Participaram de</span>
-            <select name="n" className={campo} defaultValue="todos">
-              {FILTROS_N.map((f) => <option key={f.valor} value={f.valor}>{f.rotulo}</option>)}
-            </select>
-          </label>
-          <label className="space-y-1">
             <span className="block text-xs text-zinc-500">Compra</span>
             <select name="compra" className={campo} defaultValue="todos">
               {FILTROS_COMPRA.map((f) => <option key={f.valor} value={f.valor}>{f.rotulo}</option>)}
             </select>
           </label>
-          <label className="space-y-1">
-            <span className="block text-xs text-zinc-500">Esteve no lançamento</span>
-            <select name="edicao" className={campo} defaultValue="">
-              <option value="">Qualquer um</option>
-              {eds.map((e) => <option key={e.codigo} value={e.codigo}>{e.nome}</option>)}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="block text-xs text-zinc-500">País</span>
-            <select name="pais" className={campo} defaultValue="">
-              <option value="">Todos</option>
-              <option>Argentina</option><option>Uruguay</option><option>Chile</option><option>Paraguay</option>
-              <option>Brasil</option><option>EE. UU./Canadá</option><option>Otro</option>
-            </select>
-          </label>
+          <MultiSelecao nome="edicao" rotulo="Esteve no lançamento" vazio="Qualquer um"
+            opcoes={eds.map((e) => ({ valor: e.codigo, rotulo: e.nome }))} />
+          <MultiSelecao nome="pais" rotulo="País" vazio="Todos"
+            opcoes={PAISES.map((p) => ({ valor: p, rotulo: p }))} />
           <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">Baixar CSV</button>
         </form>
-        <p className="mt-2 text-xs text-zinc-500">Uma linha por pessoa: telefone, país, e-mail, lançamentos em que esteve, se comprou ET/TPP e em quais.</p>
+        <p className="mt-2 text-xs text-zinc-500">Uma linha por pessoa: telefone, país, e-mail, lançamentos em que esteve, se comprou ET/TPP e em quais. Marcando mais de um lançamento, saem as pessoas que estiveram em qualquer um deles; o mesmo vale para os países.</p>
       </Cartao>
 
       <Cartao titulo={`Telefones para revisar (${numero(totalRevisar)})`}
