@@ -3,6 +3,7 @@ import type { Dic, Padroes } from "./tipos";
 /** OP Futuros em Visão geral / Inscritos x grupo / Análise e a nomenclatura da aba Páginas. */
 export const ES_OP: Dic = {
   "(não entrou)": "(no entró)",
+  "Antes do webhook": "Antes del webhook",
   "Testes das páginas": "Pruebas de las páginas",
   "Teste-Setembro": "Prueba-Septiembre",
   "(sem UTM)": "(sin UTM)",
@@ -11,8 +12,8 @@ export const ES_OP: Dic = {
     "La columna \"% del total\" muestra la división real del tráfico dentro de cada página. En una prueba de 3 páginas con 33% cada una, cada una debería quedar cerca del 33%.",
   "A taxa de entrada começa a ser calculada quando o webhook da campanha OP - FUTUROS mandar o primeiro evento.":
     "La tasa de entrada se empieza a calcular cuando el webhook de la campaña OP - FUTUROS mande el primer evento.",
-  "As taxas contam as inscrições desde {d}, quando o webhook começou a mandar entradas ({n} inscritos). Para incluir quem entrou antes, importe a lista de membros em Inscritos x grupo.":
-    "Las tasas cuentan las inscripciones desde {d}, cuando el webhook empezó a mandar entradas ({n} inscritos). Para incluir a quien entró antes, importá la lista de miembros en Inscritos x grupo.",
+  "As taxas contam só a página de captura nova, a partir de {d}, quando o webhook começou a mandar entradas ({n} inscritos). Quem se inscreveu antes aparece como \"Antes do webhook\" e fica fora das taxas.":
+    "Las tasas cuentan solo la página de captura nueva, desde {d}, cuando el webhook empezó a mandar entradas ({n} inscritos). Quien se inscribió antes aparece como \"Antes del webhook\" y queda fuera de las tasas.",
   "Cada pessoa conta uma vez (primeira inscrição). \"No grupo\" inclui quem entrou e depois saiu. Taxas em cinza têm menos de 30 leads. Verde ≥ 90%, vermelho < 75%.":
     "Cada persona cuenta una vez (primera inscripción). \"En el grupo\" incluye a quien entró y después salió. Tasas en gris tienen menos de 30 leads. Verde ≥ 90%, rojo < 75%.",
   "Divisão: landing × gracias · {s}": "División: landing × gracias · {s}",
@@ -22,8 +23,8 @@ export const ES_OP: Dic = {
   "Não consegui cruzar inscrições e grupo.": "No pude cruzar inscripciones y grupo.",
   "O painel ainda não recebeu nenhum evento da campanha OP - FUTUROS pelo webhook do Sendflow. Assim que a primeira pessoa entrar, esta tela mostra quem entrou e quem saiu.":
     "El panel todavía no recibió ningún evento de la campaña OP - FUTUROS por el webhook de Sendflow. Apenas entre la primera persona, esta pantalla muestra quién entró y quién salió.",
-  "O painel ainda não recebeu nenhum evento da campanha OP - FUTUROS pelo webhook do Sendflow. Até lá, todos aparecem como fora do grupo; dá para importar a lista de membros no fim da página.":
-    "El panel todavía no recibió ningún evento de la campaña OP - FUTUROS por el webhook de Sendflow. Hasta entonces, todos aparecen fuera del grupo; podés importar la lista de miembros al final de la página.",
+  "O painel ainda não recebeu nenhum evento da campanha OP - FUTUROS pelo webhook do Sendflow. Até lá, as inscrições aparecem como \"Antes do webhook\".":
+    "El panel todavía no recibió ningún evento de la campaña OP - FUTUROS por el webhook de Sendflow. Hasta entonces, las inscripciones aparecen como \"Antes del webhook\".",
   "OP Futuros — grupo gratuito": "OP Futuros — grupo gratuito",
   "Página {s}": "Página {s}",
   "Páginas de captura · {s}": "Páginas de captura · {s}",

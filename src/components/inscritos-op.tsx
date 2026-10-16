@@ -5,11 +5,10 @@ import { dataHora, linkWhatsapp, numero, telefoneBonito } from "@/lib/formato";
 import { telefoneComDdi } from "@/lib/grupo-filtros";
 import { Busca, Cartao, Chips, Kpi, Paginacao, Selo, Tabela, montarHref, td } from "@/components/ui";
 import { CabecalhoPagina } from "@/components/cabecalho";
-import { FormImportar } from "@/components/formularios";
 import { tradutor } from "@/lib/i18n/servidor";
 import type { Busca as BuscaSp } from "@/lib/contexto";
 
-const STATUS = ["fora_do_grupo", "aguardando", "no_grupo", "saiu"] as const;
+const STATUS = ["fora_do_grupo", "aguardando", "no_grupo", "saiu", "sem_dado"] as const;
 const FILTROS = ["no_grupo", "saiu", "sem_inscricao"] as const;
 const um = (sp: BuscaSp, k: string) => (Array.isArray(sp[k]) ? sp[k]![0] : sp[k]) ?? undefined;
 
@@ -65,12 +64,12 @@ export async function InscritosOp({ sp, resumos, extras }: { sp: BuscaSp; resumo
       {op.ok && !op.webhookLigado && (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-zinc-400">
           <span className="font-medium text-amber-300">{t("Entradas no grupo ainda não aparecem.")}</span>{" "}
-          {t("O painel ainda não recebeu nenhum evento da campanha OP - FUTUROS pelo webhook do Sendflow. Até lá, todos aparecem como fora do grupo; dá para importar a lista de membros no fim da página.")}
+          {t("O painel ainda não recebeu nenhum evento da campanha OP - FUTUROS pelo webhook do Sendflow. Até lá, as inscrições aparecem como \"Antes do webhook\".")}
         </p>
       )}
       {op.corte && (
         <p className="text-xs text-zinc-500">
-          {t("As taxas contam as inscrições desde {d}, quando o webhook começou a mandar entradas ({n} inscritos). Para incluir quem entrou antes, importe a lista de membros em Inscritos x grupo.", { d: dataHora(op.corte), n: numero(r.base) })}
+          {t("As taxas contam só a página de captura nova, a partir de {d}, quando o webhook começou a mandar entradas ({n} inscritos). Quem se inscreveu antes aparece como \"Antes do webhook\" e fica fora das taxas.", { d: dataHora(op.corte), n: numero(r.base) })}
         </p>
       )}
 
@@ -95,6 +94,7 @@ export async function InscritosOp({ sp, resumos, extras }: { sp: BuscaSp; resumo
               { valor: "aguardando", rotulo: t("Aguardando"), qtd: conta("aguardando"), href: href({ status: "aguardando", p: undefined }, "#inscricoes") },
               { valor: "no_grupo", rotulo: t("No grupo"), qtd: conta("no_grupo"), href: href({ status: "no_grupo", p: undefined }, "#inscricoes") },
               { valor: "saiu", rotulo: t("Saíram"), qtd: conta("saiu"), href: href({ status: "saiu", p: undefined }, "#inscricoes") },
+              ...(conta("sem_dado") ? [{ valor: "sem_dado", rotulo: t("Antes do webhook"), qtd: conta("sem_dado"), href: href({ status: "sem_dado", p: undefined }, "#inscricoes") }] : []),
             ]}
           />
           <Busca acao="/inscricoes" valor={q} ocultos={{ l: SLUG_OP, status, filtro, mq, mp }} placeholder={t("E-mail ou telefone")} />
@@ -160,11 +160,6 @@ export async function InscritosOp({ sp, resumos, extras }: { sp: BuscaSp; resumo
         </div>
       </Cartao>
 
-      {op.lancamentoId != null && (
-        <Cartao titulo={t("Importar números que já estão no grupo")}>
-          <FormImportar lancamentoId={op.lancamentoId} />
-        </Cartao>
-      )}
     </>
   );
 }

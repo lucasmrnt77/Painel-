@@ -57,7 +57,7 @@ export async function VisaoGrupo({ d, monitor, op }: { d: DadosCampanhaGrupo; mo
         ) : (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs text-zinc-400 space-y-1">
             {op.corte && (
-              <p>{t("As taxas contam as inscrições desde {d}, quando o webhook começou a mandar entradas ({n} inscritos). Para incluir quem entrou antes, importe a lista de membros em Inscritos x grupo.", { d: dataHora(op.corte), n: numero(r.base) })}</p>
+              <p>{t("As taxas contam só a página de captura nova, a partir de {d}, quando o webhook começou a mandar entradas ({n} inscritos). Quem se inscreveu antes aparece como \"Antes do webhook\" e fica fora das taxas.", { d: dataHora(op.corte), n: numero(r.base) })}</p>
             )}
             <p>{t("{n} pessoa(s) se inscreveram mais de 1 vez nos últimos 7 dias.", { n: numero(d.repetidas7) })}</p>
             <p>

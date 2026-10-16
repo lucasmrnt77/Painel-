@@ -79,7 +79,7 @@ export async function AnaliseOp({ sp, seletor }: { sp: Busca; seletor: React.Rea
       )}
       {op.corte && (
         <p className="text-xs text-zinc-500">
-          {t("As taxas contam as inscrições desde {d}, quando o webhook começou a mandar entradas ({n} inscritos). Para incluir quem entrou antes, importe a lista de membros em Inscritos x grupo.", { d: dataHora(op.corte), n: numero(base.length) })}
+          {t("As taxas contam só a página de captura nova, a partir de {d}, quando o webhook começou a mandar entradas ({n} inscritos). Quem se inscreveu antes aparece como \"Antes do webhook\" e fica fora das taxas.", { d: dataHora(op.corte), n: numero(base.length) })}
         </p>
       )}
 

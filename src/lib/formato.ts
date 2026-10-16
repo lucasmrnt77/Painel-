@@ -35,6 +35,7 @@ export const ROTULO_STATUS: Record<string, string> = {
   fora_do_grupo: "Fora do grupo",
   saiu: "Saiu",
   telefone_invalido: "Telefone inválido",
+  sem_dado: "Antes do webhook",
 };
 
 export const COR_STATUS: Record<string, string> = {
@@ -43,6 +44,7 @@ export const COR_STATUS: Record<string, string> = {
   fora_do_grupo: "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-300",
   saiu: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300",
   telefone_invalido: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+  sem_dado: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-400",
 };
 
 // ---------------------------------------------------------------------

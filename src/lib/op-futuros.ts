@@ -13,13 +13,14 @@ import { FUSO_GRUPO } from "./grupo-filtros";
  * (e pela importação manual da lista de membros, na aba Inscritos x grupo).
  * O cruzamento é pelos últimos 8 dígitos do telefone (mesma regra de public.telefone_chave).
  *
- * Quem entrou antes de o webhook ser ligado não aparece como membro. Por isso, enquanto não houver
- * importação da lista de membros, as taxas contam só as inscrições feitas depois do primeiro evento
- * do webhook ("corte").
+ * A base é sempre a página de captura nova (os grupos são antigos e têm membros que nunca passaram por ela).
+ * Quem se inscreveu antes de o webhook começar a mandar entradas fica "sem_dado" e fora das taxas:
+ * as taxas contam só as inscrições a partir do primeiro evento ("corte", com 10 min de folga).
  */
 export const SLUG_OP = "op-futuros";
 
-export type StatusOp = "no_grupo" | "aguardando" | "fora_do_grupo" | "saiu";
+/** sem_dado = inscrito antes de o webhook começar a mandar entradas: não dá para saber se entrou. */
+export type StatusOp = "no_grupo" | "aguardando" | "fora_do_grupo" | "saiu" | "sem_dado";
 
 export type LeadOp = {
   id: number;
@@ -168,9 +169,11 @@ export function cruzarOp(
     if (k) chavesInscritas.add(k);
     const m = k ? porChave.get(k) : undefined;
     const inscritoMs = new Date(i.creado_en).getTime();
+    const conta = corteMs == null || inscritoMs >= corteMs;
     let status: StatusOp;
     if (m?.no_grupo) status = "no_grupo";
     else if (m) status = "saiu";
+    else if (!conta) status = "sem_dado";
     else status = agora.getTime() - inscritoMs < opts.minutosReenvio * 60_000 ? "aguardando" : "fora_do_grupo";
     const entrouMs = m?.primeira_entrada_em ? new Date(m.primeira_entrada_em).getTime() : null;
     return {
@@ -188,7 +191,7 @@ export function cruzarOp(
       saiu_em: m && !m.no_grupo ? m.saiu_em : null,
       grupo_nome: m?.grupo_nome ?? null,
       minutos_ate_entrar: entrouMs != null && entrouMs >= inscritoMs ? Math.round((entrouMs - inscritoMs) / 60_000) : null,
-      conta: corteMs == null || inscritoMs >= corteMs,
+      conta,
     };
   });
 
