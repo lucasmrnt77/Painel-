@@ -35,6 +35,7 @@ const MENU: Grupo[] = [
     titulo: "Dados",
     itens: [
       { href: "/base-leads", rotulo: "Base de leads", icone: "pessoas" },
+      { href: "/base-leads/tpp", rotulo: "TPP → Expert Trader", icone: "tendencia" },
       { href: "/eventos", rotulo: "Sendflow e importação", icone: "camadas" },
       { href: "/lancamentos", rotulo: "Lançamentos", icone: "calendario" },
     ],
@@ -98,7 +99,7 @@ function ListaMenu({ aoNavegar, avisos = {} }: { aoNavegar?: () => void; avisos?
           {g.titulo && <div className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-500">{g.titulo}</div>}
           <ul className="space-y-0.5">
             {g.itens.map((it) => {
-              const ativa = it.href === "/" ? caminho === "/" : caminho.startsWith(it.href);
+              const ativa = it.href === "/" || it.href === "/base-leads" ? caminho === it.href : caminho.startsWith(it.href);
               const classe = `group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
                 ativa
                   ? "bg-emerald-500/10 font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/25"

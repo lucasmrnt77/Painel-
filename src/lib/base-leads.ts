@@ -111,3 +111,35 @@ export const FILTROS_COMPRA = [
   { valor: "tpp", rotulo: "Compraram TPP" },
   { valor: "tpp-sem-et", rotulo: "Compraram TPP e não ET" },
 ] as const;
+
+// ── TPP → Expert Trader ──────────────────────────────────────────────
+
+export type JornadaResumo = {
+  caminho: "et_direto" | "tpp_depois_et" | "so_tpp" | "mesmo_lancamento" | "et_antes_do_tpp";
+  pessoas: number; dias_medio: number | null; dias_mediana: number | null; lancamentos_medio: number | null;
+};
+export type JornadaPorTpp = {
+  lancamento: string; inicio: string; compraram_tpp: number; depois_compraram_et: number; taxa: number | null; ja_eram_alunos_et: number;
+};
+export type JornadaDistancia = { lancamentos_depois: string; pessoas: number; dias_mediana: number | null };
+export type JornadaPessoa = {
+  telefone: string; tpp_lancamento: string | null; tpp_data: string | null; et_lancamento: string | null; et_data: string | null;
+  dias_ate_et: number | null; lancamentos_ate_et: number | null;
+};
+
+export async function jornada() {
+  const [resumo, porTpp, distancia, pessoas] = await Promise.all([
+    db().from("v_bd_jornada_resumo").select("*"),
+    db().from("v_bd_jornada_por_tpp").select("*").order("inicio"),
+    db().from("v_bd_jornada_distancia").select("*").order("lancamentos_depois"),
+    db().from("v_bd_jornada_compra").select("telefone, tpp_lancamento, tpp_data, et_lancamento, et_data, dias_ate_et, lancamentos_ate_et")
+      .eq("caminho", "tpp_depois_et").order("dias_ate_et").limit(500),
+  ]);
+  for (const r of [resumo, porTpp, distancia, pessoas]) if (r.error) throw new Error(r.error.message);
+  return {
+    resumo: (resumo.data ?? []) as JornadaResumo[],
+    porTpp: (porTpp.data ?? []) as JornadaPorTpp[],
+    distancia: (distancia.data ?? []) as JornadaDistancia[],
+    pessoas: (pessoas.data ?? []) as JornadaPessoa[],
+  };
+}

@@ -63,7 +63,8 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
       <Cartao titulo="Probabilidade de compra por participação">
         <p className="mb-3 text-xs text-zinc-500">
           De cada 100 pessoas que estavam no seu 1º, 2º, 3º ou 4º+ lançamento, quantas compraram naquele lançamento.
-          Entram só os lançamentos com lista de inscritos e de compradores ({edicoesTaxa}). A contagem começa em julho/2025:
+          Entram só os lançamentos com lista de inscritos e de compradores ({edicoesTaxa}). Quem comprou o Expert Trader vira
+          aluno e deixa de contar nos lançamentos seguintes (comprar só o TPP não tira a pessoa da contagem). A contagem começa em julho/2025:
           quem participou de lançamentos anteriores aparece como se fosse a 1ª vez.
         </p>
         <Tabela cabecalho={["Participação", "Pessoas", "Compraram ET", "% ET", "Compraram TPP", "% TPP", "% ET ou TPP"]} vazio={porPart.length === 0}>
