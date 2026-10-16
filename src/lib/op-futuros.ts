@@ -244,7 +244,8 @@ export const dadosOp = cache(async (): Promise<DadosOp> => {
       l ? todosMembros(l.id) : Promise.resolve([] as MembroBanco[]),
       l ? corteDoWebhook(l.id) : Promise.resolve({ primeiro: null, importou: false }),
     ]);
-    const corte = c.importou ? null : c.primeiro;
+    // Quem se inscreveu poucos minutos antes do primeiro evento entra junto (a pessoa costuma entrar no grupo na hora)
+    const corte = c.importou || !c.primeiro ? null : new Date(new Date(c.primeiro).getTime() - base.minutosReenvio * 60_000).toISOString();
     const webhookLigado = c.primeiro != null || c.importou;
     // Sem nenhum evento ainda: não há como saber quem entrou → ninguém entra nas taxas
     const corteEfetivo = webhookLigado ? corte : new Date().toISOString();
