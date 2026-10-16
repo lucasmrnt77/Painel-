@@ -34,6 +34,7 @@ const MENU: Grupo[] = [
   {
     titulo: "Dados",
     itens: [
+      { href: "/base-leads", rotulo: "Base de leads", icone: "pessoas" },
       { href: "/eventos", rotulo: "Sendflow e importação", icone: "camadas" },
       { href: "/lancamentos", rotulo: "Lançamentos", icone: "calendario" },
     ],
