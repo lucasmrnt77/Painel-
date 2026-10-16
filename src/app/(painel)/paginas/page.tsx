@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { contexto, param } from "@/lib/contexto";
 import { escolherLancamento } from "@/lib/dados";
-import { metricasPaginas, pct, type LinhaFunil } from "@/lib/metricas-paginas";
+import { metricasPaginas, pct, pesoNome, type LinhaFunil } from "@/lib/metricas-paginas";
 import { numero } from "@/lib/formato";
 import { Cartao, Kpi, Tabela, montarHref, td } from "@/components/ui";
 import { SemLancamento } from "@/components/cabecalho";
@@ -23,17 +23,12 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
   const qualificados = soma("qualificados", landings);
   const noGrupo = soma("no_grupo", landings);
 
-  // Divisão landing × gracias: % de cada gracias dentro de cada landing
-  const paginasGracias = [...new Set(cruzado.map((c) => c.pagina_obrigado))].sort();
-  const porLanding = new Map<string, Map<string, number>>();
-  for (const c of cruzado) {
-    const m = porLanding.get(c.landing) ?? new Map<string, number>();
-    m.set(c.pagina_obrigado, c.leads);
-    porLanding.set(c.landing, m);
-  }
+  // Cada site (General / Trader) tem as próprias /v1, /v2…: as tabelas e a divisão do tráfego são por site
+  const sites = [...new Set([...landings, ...gracias].map((l) => l.site))];
+  const leadsSite = (site: string) => soma("leads", landings.filter((l) => l.site === site));
 
   const linhaFunil = (l: LinhaFunil, totalLeads: number, comVisitas: boolean) => (
-    <tr key={l.chave}>
+    <tr key={`${l.site}${l.chave}`}>
       <td className={`${td} font-medium`}>{t(l.chave)}</td>
       {comVisitas && <td className={`${td} tabular text-right`}>{numero(l.visitas)}</td>}
       <td className={`${td} tabular text-right`}>{numero(l.leads)} <span className="text-xs text-zinc-500">({pct(l.leads, totalLeads)})</span></td>
@@ -66,39 +61,59 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
         <Kpi rotulo={t("No grupo")} valor={numero(noGrupo)} detalhe={pct(noGrupo, leads)} />
       </div>
 
-      <Cartao titulo={t("Páginas de captura")}>
-        <Tabela cabecalho={[t("Landing"), t("Visitas"), t("Leads (% do total)"), t("Conversão"), t("Responderam"), t("Calificados (% de quem respondeu)"), t("No grupo")]} vazio={landings.length === 0}>
-          {landings.map((l) => linhaFunil(l, leads, true))}
-        </Tabela>
-        <p className="mt-3 text-xs text-zinc-500">
-          {t("A coluna \"% do total\" mostra a divisão real do tráfego. Num teste de 3 páginas com 33% cada, cada uma deve ficar perto de 33%.")}{" "}
-          {t("Páginas antigas aparecem pelo nome que mandavam (ex.: Gen-Argentina); as novas, pelo endereço (/v1, /v2…).")}
-        </p>
-      </Cartao>
+      {sites.map((site) => {
+        const ls = landings.filter((l) => l.site === site);
+        const gs = gracias.filter((l) => l.site === site);
+        const cs = cruzado.filter((c) => c.site === site);
+        const total = leadsSite(site);
+        const paginasGracias = [...new Set(cs.map((c) => c.pagina_obrigado))].sort((a, b) => pesoNome(a) - pesoNome(b) || a.localeCompare(b, undefined, { numeric: true }));
+        const porLanding = new Map<string, Map<string, number>>();
+        for (const c of cs) {
+          const m = porLanding.get(c.landing) ?? new Map<string, number>();
+          m.set(c.pagina_obrigado, c.leads);
+          porLanding.set(c.landing, m);
+        }
+        const ordemLandings = [...porLanding.keys()].sort((a, b) => pesoNome(a) - pesoNome(b) || a.localeCompare(b, undefined, { numeric: true }));
+        const nomeSite = site === "—" ? t("Sem página") : site;
+        return (
+          <div key={site} className="space-y-4">
+            <h2 className="pt-2 text-base font-semibold">{t("Página {s}", { s: nomeSite })}</h2>
+            <Cartao titulo={t("Páginas de captura · {s}", { s: nomeSite })}>
+              <Tabela cabecalho={[t("Landing"), t("Visitas"), t("Leads (% do total)"), t("Conversão"), t("Responderam"), t("Calificados (% de quem respondeu)"), t("No grupo")]} vazio={ls.length === 0}>
+                {ls.map((l) => linhaFunil(l, total, true))}
+              </Tabela>
+            </Cartao>
+            <Cartao titulo={t("Páginas de gracias · {s}", { s: nomeSite })}>
+              <Tabela cabecalho={[t("Gracias"), t("Leads (% do total)"), t("Responderam"), t("Calificados (% de quem respondeu)"), t("No grupo")]} vazio={gs.length === 0}>
+                {gs.map((l) => linhaFunil(l, total, false))}
+              </Tabela>
+            </Cartao>
+            {paginasGracias.length > 1 && (
+              <Cartao titulo={t("Divisão: landing × gracias · {s}", { s: nomeSite })}>
+                <Tabela cabecalho={[t("Landing"), ...paginasGracias.map((g) => t(g))]}>
+                  {ordemLandings.map((landing) => {
+                    const m = porLanding.get(landing)!;
+                    const tot = [...m.values()].reduce((a, b) => a + b, 0);
+                    return (
+                      <tr key={landing}>
+                        <td className={`${td} font-medium`}>{t(landing)}</td>
+                        {paginasGracias.map((g) => (
+                          <td key={g} className={`${td} tabular text-right`}>{numero(m.get(g) ?? 0)} <span className="text-xs text-zinc-500">({pct(m.get(g) ?? 0, tot)})</span></td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </Tabela>
+              </Cartao>
+            )}
+          </div>
+        );
+      })}
 
-      <Cartao titulo={t("Páginas de gracias")}>
-        <Tabela cabecalho={[t("Gracias"), t("Leads (% do total)"), t("Responderam"), t("Calificados (% de quem respondeu)"), t("No grupo")]} vazio={gracias.length === 0}>
-          {gracias.map((l) => linhaFunil(l, leads, false))}
-        </Tabela>
-      </Cartao>
-
-      {paginasGracias.length > 1 && (
-        <Cartao titulo={t("Divisão: landing × gracias")}>
-          <Tabela cabecalho={[t("Landing"), ...paginasGracias.map((g) => t(g))]}>
-            {[...porLanding.entries()].map(([landing, m]) => {
-              const total = [...m.values()].reduce((a, b) => a + b, 0);
-              return (
-                <tr key={landing}>
-                  <td className={`${td} font-medium`}>{t(landing)}</td>
-                  {paginasGracias.map((g) => (
-                    <td key={g} className={`${td} tabular text-right`}>{numero(m.get(g) ?? 0)} <span className="text-xs text-zinc-500">({pct(m.get(g) ?? 0, total)})</span></td>
-                  ))}
-                </tr>
-              );
-            })}
-          </Tabela>
-        </Cartao>
-      )}
+      <p className="text-xs text-zinc-500">
+        {t("A coluna \"% do total\" mostra a divisão real do tráfego dentro de cada página. Num teste de 3 páginas com 33% cada, cada uma deve ficar perto de 33%.")}{" "}
+        {t("Nomenclatura única nas duas páginas: captura /v1, /v2, /v3… e gracias /gracias-v1, /gracias-v2… Nomes antigos (/t1, /gracias-a, /gracias-trader-a) aparecem já convertidos; páginas de lançamentos antigos aparecem pelo nome que mandavam (ex.: Gen-Argentina).")}
+      </p>
     </>
   );
 }

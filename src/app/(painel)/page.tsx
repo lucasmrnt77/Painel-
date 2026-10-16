@@ -15,6 +15,7 @@ import { captacaoIniciada, dadosCampanhaGrupo, NOME_CAMPANHA_GRUPO, SLUG_CAMPANH
 import { grupoConfigurado, ultimoLeadGrupo } from "@/lib/grupo";
 import { BotaoCaptacao } from "@/components/botao-captacao";
 import { tradutor } from "@/lib/i18n/servidor";
+import { dadosOp } from "@/lib/op-futuros";
 
 export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
@@ -33,12 +34,13 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   const verGrupo = temGrupo && (pedido === SLUG_CAMPANHA_GRUPO || (!pedido && !ligada));
 
   if (verGrupo) {
-    const [dados, situacaoBruta, funis, links, ultimoLead] = await Promise.all([
+    const [dados, situacaoBruta, funis, links, ultimoLead, op] = await Promise.all([
       dadosCampanhaGrupo(grupoMon?.id ?? null),
       grupoMon ? situacaoMonitor(grupoMon.id) : Promise.resolve(null),
       resumoFunis(),
       resumoLinks(),
       ultimoLeadGrupo(),
+      dadosOp(),
     ]);
     const situacaoGrupo = situacaoBruta ? situacaoPorLeads(situacaoBruta, ultimoLead) : null;
     return (
@@ -46,7 +48,7 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
         <AutoAtualizar segundos={60} />
         <CabecalhoPagina titulo={t("Visão geral")} resumos={resumos} atual={atual} extras={extras} selecionado={SLUG_CAMPANHA_GRUPO}
           subtitulo={t("Campanha OP Futuros · página do grupo gratuito")}>{botao}</CabecalhoPagina>
-        <VisaoGrupo d={dados} monitor={situacaoGrupo} />
+        <VisaoGrupo d={dados} monitor={situacaoGrupo} op={op} />
         <Captacao funis={funis} grupo={null} links={links} />
       </>
     );

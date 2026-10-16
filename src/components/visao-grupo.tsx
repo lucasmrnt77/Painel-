@@ -5,14 +5,19 @@ import { GraficoBarras } from "@/components/grafico-barras";
 import { Ranking } from "@/components/ranking";
 import { StatusMonitor } from "@/components/status-monitor";
 import type { DadosCampanhaGrupo } from "@/lib/visao-grupo";
+import type { DadosOp } from "@/lib/op-futuros";
+import { montarHref } from "@/components/ui";
 import type { SituacaoMonitor } from "@/lib/dados";
 import { tradutor } from "@/lib/i18n/servidor";
 
 const filtro = (chave: string) => (v: string | null) => (v ? `/grupo?periodo=7d&${chave}=${encodeURIComponent(v)}` : "/grupo?periodo=7d");
 
 /** Visão geral da campanha do grupo gratuito (OP Futuros). */
-export async function VisaoGrupo({ d, monitor }: { d: DadosCampanhaGrupo; monitor: SituacaoMonitor | null }) {
+export async function VisaoGrupo({ d, monitor, op }: { d: DadosCampanhaGrupo; monitor: SituacaoMonitor | null; op: DadosOp }) {
   const t = await tradutor();
+  const r = op.resumo;
+  const pctBase = (n: number) => (r.base ? t("{p}% dos inscritos", { p: Math.round((100 * n) / r.base) }) : undefined);
+  const lk = (status?: string) => montarHref("/inscricoes", { l: "op-futuros", status });
   const media = d.mediaSemana.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
   return (
     <>
@@ -24,23 +29,41 @@ export async function VisaoGrupo({ d, monitor }: { d: DadosCampanhaGrupo; monito
           valor={d.cliques7 != null ? numero(d.cliques7) : "—"}
           detalhe={d.cliquesHoje != null ? t("{n} hoje · redirecionador", { n: numero(d.cliquesHoje) }) : t("redirecionador")}
         />
-        {d.entradas7 != null ? (
-          <Kpi rotulo={t("Entradas no grupo · 7 dias")} valor={numero(d.entradas7)} detalhe={t("segundo o Sendflow")} destaque="verde" />
-        ) : (
-          <Kpi rotulo={t("Inscrições desde o início")} valor={numero(d.total)} detalhe={d.primeira ? t("desde {d}", { d: dataHora(d.primeira).split(",")[0] }) : undefined} />
-        )}
+        <Kpi rotulo={t("Entradas no grupo · 7 dias")} valor={op.webhookLigado ? numero(r.entradas_7d) : "—"}
+          detalhe={op.webhookLigado ? t("{n} hoje · segundo o Sendflow", { n: numero(r.entradas_hoje) }) : t("aguardando o webhook do Sendflow")} destaque="verde" />
       </section>
+
+      {op.webhookLigado && (
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <Kpi rotulo={t("Inscritos que entraram")} valor={numero(r.no_grupo + r.saiu)} detalhe={r.pct_no_grupo != null ? t("{p}% dos inscritos", { p: r.pct_no_grupo }) : undefined} destaque="verde" />
+          <Kpi rotulo={t("Fora do grupo (> {n} min)", { n: op.minutosReenvio })} valor={numero(r.fora_do_grupo)} detalhe={pctBase(r.fora_do_grupo)} destaque="ambar" />
+          <Kpi rotulo={t("Saíram do grupo")} valor={numero(r.saiu)} detalhe={pctBase(r.saiu)} destaque="vermelho" />
+          <Kpi rotulo={t("Mediana até entrar")} valor={r.mediana_minutos_ate_entrar != null ? `${Math.round(r.mediana_minutos_ate_entrar)} min` : "—"} detalhe={t("da inscrição à entrada")} />
+          <Kpi rotulo={t("Membros no grupo")} valor={numero(r.membros_no_grupo)} detalhe={t("{n} sem inscrição na página", { n: numero(r.membros_sem_inscricao) })} />
+        </section>
+      )}
 
       <section className="grid gap-3 md:grid-cols-2">
         <StatusMonitor nome={t("Monitor de leads (alerta sem leads)")} s={monitor} porLeads />
-        {d.entradas7 == null ? (
+        {!op.ok ? (
+          <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 px-4 py-3 text-xs text-zinc-400">
+            <span className="font-medium text-rose-300">{t("Não consegui cruzar inscrições e grupo.")}</span> {op.erro}
+          </div>
+        ) : !op.webhookLigado ? (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-zinc-400">
             <span className="font-medium text-amber-300">{t("Entradas no grupo ainda não aparecem.")}</span>{" "}
-            {t("Falta ligar o webhook do Sendflow da campanha OP - FUTUROS para o painel; com ele, esta tela mostra quem entrou e quem saiu do grupo.")}
+            {t("O painel ainda não recebeu nenhum evento da campanha OP - FUTUROS pelo webhook do Sendflow. Assim que a primeira pessoa entrar, esta tela mostra quem entrou e quem saiu.")}
           </div>
         ) : (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs text-zinc-400">
-            {t("{n} pessoa(s) se inscreveram mais de 1 vez nos últimos 7 dias.", { n: numero(d.repetidas7) })}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs text-zinc-400 space-y-1">
+            {op.corte && (
+              <p>{t("As taxas contam as inscrições desde {d}, quando o webhook começou a mandar entradas ({n} inscritos). Para incluir quem entrou antes, importe a lista de membros em Inscritos x grupo.", { d: dataHora(op.corte), n: numero(r.base) })}</p>
+            )}
+            <p>{t("{n} pessoa(s) se inscreveram mais de 1 vez nos últimos 7 dias.", { n: numero(d.repetidas7) })}</p>
+            <p>
+              <Link className="text-emerald-400 hover:underline" href={lk("fora_do_grupo")}>{t("Ver quem está fora do grupo")} →</Link>{" "}·{" "}
+              <Link className="text-emerald-400 hover:underline" href={lk()}>{t("Inscritos x grupo")} →</Link>
+            </p>
           </div>
         )}
       </section>

@@ -7,6 +7,9 @@ import { numero } from "@/lib/formato";
 import { Cartao, Kpi, montarHref, td } from "@/components/ui";
 import { SemLancamento } from "@/components/cabecalho";
 import { tradutor } from "@/lib/i18n/servidor";
+import { AnaliseOp } from "@/components/analise-op";
+import { SLUG_OP } from "@/lib/op-futuros";
+import { grupoConfigurado } from "@/lib/grupo";
 
 const ROTULO_FILTRO: Record<string, string> = {
   pagina_captura: "Página de captura", perfil: "Perfil real", faixa_etaria_norm: "Faixa etária", genero_norm: "Gênero",
@@ -18,10 +21,24 @@ export default async function Analise({ searchParams }: PageProps<"/analise">) {
   await exigirLogin();
   const sp = await searchParams;
   const t = await tradutor();
-  const { resumos } = await contexto(sp);
+  const { resumos } = await contexto(sp, { semTestes: true });
+  const lParam = param(sp, "l");
+  const temOp = grupoConfigurado();
+  const chip = (ativo: boolean) => `rounded-full border px-3 py-1 text-xs font-medium ${ativo ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 dark:border-zinc-700"}`;
+  const chipOp = temOp ? <Link href={montarHref("/analise", { l: SLUG_OP })} className={chip(lParam === SLUG_OP)}>{t("OP Futuros — grupo gratuito")}</Link> : null;
+
+  if (temOp && lParam === SLUG_OP) {
+    const seletor = (
+      <div className="flex flex-wrap gap-2">
+        <Link href={montarHref("/analise", { l: "todos" })} className={chip(false)}>{t("Todos")}</Link>
+        {resumos.map((r) => <Link key={r.slug} href={montarHref("/analise", { l: r.slug })} className={chip(false)}>{r.nome}</Link>)}
+        {chipOp}
+      </div>
+    );
+    return <AnaliseOp sp={sp} seletor={seletor} />;
+  }
   if (resumos.length === 0) return <SemLancamento />;
 
-  const lParam = param(sp, "l");
   const todos = lParam === "todos";
   const atual = todos ? null : escolherLancamento(resumos, lParam);
   const por = DIMENSOES[param(sp, "por") ?? ""] ? param(sp, "por")! : "pagina_captura";
@@ -52,6 +69,7 @@ export default async function Analise({ searchParams }: PageProps<"/analise">) {
           {resumos.map((r) => (
             <Link key={r.slug} href={href({ l: r.slug })} className={`rounded-full border px-3 py-1 text-xs font-medium ${!todos && atual?.slug === r.slug ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 dark:border-zinc-700"}`}>{r.nome}</Link>
           ))}
+          {chipOp}
         </div>
       </div>
 

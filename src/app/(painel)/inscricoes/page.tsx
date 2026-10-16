@@ -5,6 +5,9 @@ import { Busca, Cartao, Chips, Kpi, Paginacao, Selo, Tabela, montarHref, td } fr
 import { CabecalhoPagina, SemLancamento } from "@/components/cabecalho";
 import { FormImportar } from "@/components/formularios";
 import { tradutor } from "@/lib/i18n/servidor";
+import { InscritosOp } from "@/components/inscritos-op";
+import { SLUG_OP } from "@/lib/op-futuros";
+import { grupoConfigurado } from "@/lib/grupo";
 
 const STATUS = ["fora_do_grupo", "aguardando", "no_grupo", "saiu", "telefone_invalido"] as const;
 const FILTROS = ["no_grupo", "saiu", "sem_inscricao"] as const;
@@ -19,8 +22,11 @@ const botaoCsv = "rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-med
 export default async function InscritosXGrupo({ searchParams }: PageProps<"/inscricoes">) {
   const sp = await searchParams;
   const t = await tradutor();
-  const { resumos, atual } = await contexto(sp);
-  if (!atual) return (<><CabecalhoPagina titulo={t("Inscritos x grupo")} resumos={resumos} atual={null} /><SemLancamento /></>);
+  const { resumos, atual } = await contexto(sp, { semTestes: true });
+  // OP Futuros (grupo gratuito) entra no seletor depois dos lançamentos
+  const extras = grupoConfigurado() ? [{ slug: SLUG_OP, nome: t("OP Futuros — grupo gratuito"), ativo: false }] : [];
+  if (extras.length && param(sp, "l") === SLUG_OP) return <InscritosOp sp={sp} resumos={resumos} extras={extras} />;
+  if (!atual) return (<><CabecalhoPagina titulo={t("Inscritos x grupo")} resumos={resumos} atual={null} extras={extras} /><SemLancamento /></>);
 
   const statusParam = param(sp, "status");
   const status = STATUS.includes(statusParam as (typeof STATUS)[number]) ? statusParam : undefined;
@@ -46,7 +52,7 @@ export default async function InscritosXGrupo({ searchParams }: PageProps<"/insc
 
   return (
     <>
-      <CabecalhoPagina titulo={t("Inscritos x grupo")} resumos={resumos} atual={atual} />
+      <CabecalhoPagina titulo={t("Inscritos x grupo")} resumos={resumos} atual={atual} extras={extras} />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Kpi rotulo={t("Inscritos (únicos)")} valor={numero(atual.inscritos)} detalhe={t("{n} envios do formulário", { n: numero(atual.envios_total) })} />
