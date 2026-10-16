@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { lerArquivo, type Aba } from "@/lib/ler-arquivo";
+import { useT } from "@/lib/i18n/cliente";
 
 type Tipo = "leads" | "compras";
 
@@ -66,6 +67,7 @@ function converter(aba: Aba): { linhas: Record<string, string>[]; colunas: strin
 
 export function ImportadorBaseLeads({ edicoes }: { edicoes: { codigo: string; nome: string }[] }) {
   const router = useRouter();
+  const t = useT();
   const [tipo, setTipo] = useState<Tipo>("leads");
   const [edicao, setEdicao] = useState("");
   const [abas, setAbas] = useState<(Aba & { incluir: boolean })[]>([]);
@@ -79,7 +81,7 @@ export function ImportadorBaseLeads({ edicoes }: { edicoes: { codigo: string; no
       const lidas = await lerArquivo(f);
       setAbas(lidas.map((a) => ({ ...a, incluir: !/^copia/i.test(a.nome) && converter(a).linhas.length > 0 })));
     } catch (e) {
-      setErro(e instanceof Error ? e.message : String(e));
+      setErro(t(e instanceof Error ? e.message : String(e)));
     }
   }
 
@@ -90,24 +92,24 @@ export function ImportadorBaseLeads({ edicoes }: { edicoes: { codigo: string; no
       for (const a of abas.filter((x) => x.incluir)) {
         const { linhas } = converter(a);
         for (let i = 0; i < linhas.length; i += LOTE) {
-          setMsg(`${a.nome}: enviando ${Math.min(i + LOTE, linhas.length)} de ${linhas.length}...`);
+          setMsg(t("{aba}: enviando {i} de {n}...", { aba: a.nome, i: Math.min(i + LOTE, linhas.length), n: linhas.length }));
           const r = await fetch("/api/base-leads/importar", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tipo, edicao: edicao || null, linhas: linhas.slice(i, i + LOTE) }),
           });
           const j = await r.json();
-          if (!r.ok) throw new Error(j.erro ?? `erro ${r.status}`);
+          if (!r.ok) throw new Error(j.erro ? t(j.erro) : t("erro {s}", { s: r.status }));
           total += j.recebidas ?? 0; gravadas += j.inseridas ?? j.gravadas ?? 0; semEdicao += j.sem_edicao ?? 0;
         }
       }
-      setMsg("Recalculando as estatísticas...");
+      setMsg(t("Recalculando as estatísticas..."));
       await fetch("/api/base-leads/importar", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tipo: "atualizar", linhas: [{}] }),
       });
-      setMsg(`Pronto: ${total} linhas lidas, ${gravadas} gravadas` +
-        (total - gravadas - semEdicao > 0 ? `, ${total - gravadas - semEdicao} já estavam na base` : "") +
-        (semEdicao ? `. ${semEdicao} sem lançamento (escolha um lançamento ou preencha a coluna "edicao")` : "") + ".");
+      setMsg(t("Pronto: {total} linhas lidas, {gravadas} gravadas", { total, gravadas }) +
+        (total - gravadas - semEdicao > 0 ? t(", {n} já estavam na base", { n: total - gravadas - semEdicao }) : "") +
+        (semEdicao ? t(". {n} sem lançamento (escolha um lançamento ou preencha a coluna \"edicao\")", { n: semEdicao }) : "") + ".");
       setAbas([]);
       router.refresh();
     } catch (e) {
@@ -122,21 +124,21 @@ export function ImportadorBaseLeads({ edicoes }: { edicoes: { codigo: string; no
     <div className="space-y-3 text-sm">
       <div className="flex flex-wrap items-end gap-3">
         <label className="space-y-1">
-          <span className="block text-xs text-zinc-500">O arquivo tem</span>
+          <span className="block text-xs text-zinc-500">{t("O arquivo tem")}</span>
           <select className={campo} value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)}>
-            <option value="leads">Inscritos (leads)</option>
-            <option value="compras">Compradores</option>
+            <option value="leads">{t("Inscritos (leads)")}</option>
+            <option value="compras">{t("Compradores")}</option>
           </select>
         </label>
         <label className="space-y-1">
-          <span className="block text-xs text-zinc-500">Lançamento (se o arquivo não tiver a coluna &quot;edicao&quot;)</span>
+          <span className="block text-xs text-zinc-500">{t("Lançamento (se o arquivo não tiver a coluna \"edicao\")")}</span>
           <select className={campo} value={edicao} onChange={(e) => setEdicao(e.target.value)}>
-            <option value="">— usar a coluna do arquivo —</option>
+            <option value="">{t("— usar a coluna do arquivo —")}</option>
             {edicoes.map((e) => <option key={e.codigo} value={e.codigo}>{e.nome} ({e.codigo})</option>)}
           </select>
         </label>
         <label className="space-y-1">
-          <span className="block text-xs text-zinc-500">Arquivo .csv ou .xlsx</span>
+          <span className="block text-xs text-zinc-500">{t("Arquivo .csv ou .xlsx")}</span>
           <input type="file" accept=".csv,.xlsx" className="text-xs" onChange={(e) => e.target.files?.[0] && ler(e.target.files[0])} />
         </label>
       </div>
@@ -151,7 +153,7 @@ export function ImportadorBaseLeads({ edicoes }: { edicoes: { codigo: string; no
                   onChange={(e) => setAbas((as) => as.map((x, j) => (j === i ? { ...x, incluir: e.target.checked } : x)))} />
                 <span className="font-medium">{a.nome}</span>
                 <span className="text-xs text-zinc-500">
-                  {c.erro ?? `${c.linhas.length} linhas · colunas: ${c.colunas.join(", ")}`}
+                  {c.erro ? t(c.erro) : t("{n} linhas · colunas: {c}", { n: c.linhas.length, c: c.colunas.join(", ") })}
                 </span>
               </li>
             );
@@ -164,15 +166,12 @@ export function ImportadorBaseLeads({ edicoes }: { edicoes: { codigo: string; no
         disabled={rodando || !abas.some((a) => a.incluir)}
         className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
       >
-        {rodando ? "Importando..." : "Importar"}
+        {rodando ? t("Importando...") : t("Importar")}
       </button>
       {msg && <p className="text-xs text-zinc-600 dark:text-zinc-400">{msg}</p>}
       {erro && <p className="text-xs text-rose-600">{erro}</p>}
       <p className="text-xs text-zinc-500">
-        Colunas reconhecidas: telefone (ou WhatsApp), data, país, email, fonte, edicao. Para compradores também: produto
-        (ET ou TPP), estado, conta_compra (sim/nao), valor_usd, email_compra. Reimportar o mesmo arquivo não duplica.
-        O telefone é normalizado pela base (549 na Argentina, 598 no Uruguai...); o que não der para corrigir com
-        segurança vai para a lista de revisão.
+        {t("Colunas reconhecidas: telefone (ou WhatsApp), data, país, email, fonte, edicao. Para compradores também: produto (ET ou TPP), estado, conta_compra (sim/nao), valor_usd, email_compra. Reimportar o mesmo arquivo não duplica. O telefone é normalizado pela base (549 na Argentina, 598 no Uruguai...); o que não der para corrigir com segurança vai para a lista de revisão.")}
       </p>
     </div>
   );

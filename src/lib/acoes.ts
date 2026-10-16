@@ -8,6 +8,8 @@ import { iguaisSeguro } from "./seguranca";
 import { gravarSessao, apagarSessao, exigirLogin } from "./sessao";
 import { normalizarTelefone } from "./telefone";
 import { enviarTeste } from "./monitor";
+import { tradutor } from "./i18n/servidor";
+import type { T } from "./i18n";
 
 export type EstadoForm = { erro?: string; ok?: string } | undefined;
 
@@ -15,7 +17,7 @@ export async function entrar(_: EstadoForm, fd: FormData): Promise<EstadoForm> {
   const senha = String(fd.get("senha") ?? "");
   if (!senha || !iguaisSeguro(senha, env.painelSenha())) {
     await new Promise((r) => setTimeout(r, 600)); // freia tentativa e erro
-    return { erro: "Senha incorreta" };
+    return { erro: (await tradutor())("Senha incorreta") };
   }
   await gravarSessao();
   redirect("/");
@@ -33,64 +35,66 @@ function texto(fd: FormData, k: string): string | null {
 
 const RESUMOS = [0, 15, 20, 30, 60, 120, 180, 240, 360, 720, 1440];
 
-function validarAlerta(alertaMin: number, resumoMin: number): string | null {
-  if (!Number.isInteger(alertaMin) || alertaMin < 5 || alertaMin > 2880) return "Alerta: entre 5 minutos e 48 horas sem entrada";
-  if (!RESUMOS.includes(resumoMin)) return "Resumo inválido";
+function validarAlerta(t: T, alertaMin: number, resumoMin: number): string | null {
+  if (!Number.isInteger(alertaMin) || alertaMin < 5 || alertaMin > 2880) return t("Alerta: entre 5 minutos e 48 horas sem entrada");
+  if (!RESUMOS.includes(resumoMin)) return t("Resumo inválido");
   return null;
 }
 
-function lerTelefones(fd: FormData): { telefones: string[] } | { erro: string } {
+function lerTelefones(tr: T, fd: FormData): { telefones: string[] } | { erro: string } {
   const telefones: string[] = [];
   for (const item of String(fd.get("alerta_telefones") ?? "").split(/[\n,;]+/)) {
     if (!item.trim()) continue;
     const t = normalizarTelefone(item);
-    if (!t || t.length < 11) return { erro: `Telefone de alerta inválido (use DDI): ${item.trim()}` };
+    if (!t || t.length < 11) return { erro: tr("Telefone de alerta inválido (use DDI): {x}", { x: item.trim() }) };
     if (!telefones.includes(t)) telefones.push(t);
   }
-  if (telefones.length > 10) return { erro: "Máximo de 10 telefones de alerta" };
+  if (telefones.length > 10) return { erro: tr("Máximo de 10 telefones de alerta") };
   return { telefones };
 }
 
 /** Configuração dos alertas de um monitor (lançamento ou grupo gratuito), na aba Alertas. */
 export async function salvarAlertas(_: EstadoForm, fd: FormData): Promise<EstadoForm> {
   await exigirLogin();
+  const t = await tradutor();
   const id = Number(fd.get("id"));
-  if (!Number.isInteger(id)) return { erro: "Monitor inválido" };
+  if (!Number.isInteger(id)) return { erro: t("Monitor inválido") };
   const alertaMin = Number(texto(fd, "alerta_minutos_sem_entrada") ?? "20");
   const resumoMin = Number(texto(fd, "resumo_minutos") ?? "0");
-  const erroAlerta = validarAlerta(alertaMin, resumoMin);
+  const erroAlerta = validarAlerta(t, alertaMin, resumoMin);
   if (erroAlerta) return { erro: erroAlerta };
-  const tel = lerTelefones(fd);
+  const tel = lerTelefones(t, fd);
   if ("erro" in tel) return { erro: tel.erro };
   const linha: Record<string, unknown> = { alerta_minutos_sem_entrada: alertaMin, resumo_minutos: resumoMin, alerta_telefones: tel.telefones };
   if (fd.has("sendflow_ref")) linha.sendflow_ref = texto(fd, "sendflow_ref");
   const { error } = await db().from("lancamentos").update(linha).eq("id", id);
   if (error) {
-    if (error.code === "23505") return { erro: "Essa referência do Sendflow já está em outro lançamento" };
+    if (error.code === "23505") return { erro: t("Essa referência do Sendflow já está em outro lançamento") };
     return { erro: error.message };
   }
   revalidatePath("/", "layout");
-  return { ok: "Alertas salvos" };
+  return { ok: t("Alertas salvos") };
 }
 
 export async function salvarLancamento(_: EstadoForm, fd: FormData): Promise<EstadoForm> {
   await exigirLogin();
+  const t = await tradutor();
   const id = texto(fd, "id");
   const slug = (texto(fd, "slug") ?? "").toLowerCase();
   const nome = texto(fd, "nome");
   const minutos = Number(texto(fd, "minutos_reenvio") ?? "10");
   const link = texto(fd, "link_grupo");
 
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return { erro: "Slug: só letras minúsculas, números e hífen (ex.: set-2026)" };
-  if (!nome) return { erro: "Informe o nome do lançamento" };
-  if (!Number.isInteger(minutos) || minutos < 1 || minutos > 1440) return { erro: "Minutos para reenvio entre 1 e 1440" };
-  if (link && !/^https:\/\//.test(link)) return { erro: "O link do grupo deve começar com https://" };
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return { erro: t("Slug: só letras minúsculas, números e hífen (ex.: set-2026)") };
+  if (!nome) return { erro: t("Informe o nome do lançamento") };
+  if (!Number.isInteger(minutos) || minutos < 1 || minutos > 1440) return { erro: t("Minutos para reenvio entre 1 e 1440") };
+  if (link && !/^https:\/\//.test(link)) return { erro: t("O link do grupo deve começar com https://") };
 
   const alertaMin = Number(texto(fd, "alerta_minutos_sem_entrada") ?? "20");
   const resumoMin = Number(texto(fd, "resumo_minutos") ?? "60");
-  const erroAlerta = validarAlerta(alertaMin, resumoMin);
+  const erroAlerta = validarAlerta(t, alertaMin, resumoMin);
   if (erroAlerta) return { erro: erroAlerta };
-  const tel = lerTelefones(fd);
+  const tel = lerTelefones(t, fd);
   if ("erro" in tel) return { erro: tel.erro };
   const telefones = tel.telefones;
 
@@ -102,11 +106,11 @@ export async function salvarLancamento(_: EstadoForm, fd: FormData): Promise<Est
     ? await db().from("lancamentos").update(linha).eq("id", Number(id))
     : await db().from("lancamentos").insert(linha);
   if (error) {
-    if (error.code === "23505") return { erro: "Já existe um lançamento com esse slug ou essa referência do Sendflow" };
+    if (error.code === "23505") return { erro: t("Já existe um lançamento com esse slug ou essa referência do Sendflow") };
     return { erro: error.message };
   }
   revalidatePath("/", "layout");
-  return { ok: id ? "Lançamento atualizado" : "Lançamento criado" };
+  return { ok: id ? t("Lançamento atualizado") : t("Lançamento criado") };
 }
 
 export async function ativarLancamento(fd: FormData) {
@@ -139,10 +143,11 @@ export async function desativarLancamento(fd: FormData) {
  */
 export async function importarMembros(_: EstadoForm, fd: FormData): Promise<EstadoForm> {
   await exigirLogin();
+  const t = await tradutor();
   const lancamentoId = Number(fd.get("lancamento_id"));
   const grupo = texto(fd, "grupo_nome");
   const bruto = String(fd.get("numeros") ?? "");
-  if (!Number.isInteger(lancamentoId)) return { erro: "Lançamento inválido" };
+  if (!Number.isInteger(lancamentoId)) return { erro: t("Lançamento inválido") };
 
   const numeros: string[] = [];
   let rejeitadas = 0;
@@ -155,8 +160,8 @@ export async function importarMembros(_: EstadoForm, fd: FormData): Promise<Esta
       rejeitadas++;
     }
   }
-  if (numeros.length === 0) return { erro: "Nenhum número válido encontrado" };
-  if (numeros.length > 5000) return { erro: "Máximo de 5.000 números por importação" };
+  if (numeros.length === 0) return { erro: t("Nenhum número válido encontrado") };
+  if (numeros.length > 5000) return { erro: t("Máximo de 5.000 números por importação") };
 
   const eventos = numeros.map((telefone) => ({
     tipo: "importacao",
@@ -175,7 +180,7 @@ export async function importarMembros(_: EstadoForm, fd: FormData): Promise<Esta
   if (error) return { erro: error.message };
   revalidatePath("/", "layout");
   const aplicados = (data as { aplicados?: number })?.aplicados ?? numeros.length;
-  return { ok: `${aplicados} números importados${rejeitadas ? ` · ${rejeitadas} linhas ignoradas` : ""}` };
+  return { ok: t("{n} números importados", { n: aplicados }) + (rejeitadas ? t(" · {n} linhas ignoradas", { n: rejeitadas }) : "") };
 }
 
 export async function alternarMonitor(fd: FormData) {
@@ -190,17 +195,18 @@ export async function alternarMonitor(fd: FormData) {
 
 export async function testarAlerta(_: EstadoForm, fd: FormData): Promise<EstadoForm> {
   await exigirLogin();
+  const t = await tradutor();
   const id = Number(fd.get("id"));
-  if (!Number.isInteger(id)) return { erro: "Lançamento inválido" };
+  if (!Number.isInteger(id)) return { erro: t("Lançamento inválido") };
   try {
     const r = await enviarTeste(id);
     revalidatePath("/", "layout");
     const status = r?.envio;
-    if (status === "enviado") return { ok: "Teste enviado para os telefones cadastrados" };
-    if (status === "sem_envio") return { ok: "Teste registrado no painel (envio por WhatsApp ainda não configurado ou sem telefones)" };
-    return { erro: `Falha no envio (${status}). Veja o detalhe no alerta.` };
+    if (status === "enviado") return { ok: t("Teste enviado para os telefones cadastrados") };
+    if (status === "sem_envio") return { ok: t("Teste registrado no painel (envio por WhatsApp ainda não configurado ou sem telefones)") };
+    return { erro: t("Falha no envio ({s}). Veja o detalhe no alerta.", { s: String(status) }) };
   } catch (e) {
-    return { erro: e instanceof Error ? e.message : String(e) };
+    return { erro: t(e instanceof Error ? e.message : String(e)) };
   }
 }
 
@@ -211,7 +217,10 @@ export async function alternarCaptacao(fd: FormData): Promise<void> {
   const ligar = String(fd.get("ligar")) === "1";
   if (!Number.isInteger(id)) return;
   const { error } = await db().from("lancamentos").update({ captacao_iniciada: ligar }).eq("id", id).eq("tipo", "lancamento");
-  if (error) throw new Error(`Não foi possível ${ligar ? "ligar" : "desligar"} a captação: ${error.message}`);
+  if (error) {
+    const t = await tradutor();
+    throw new Error(t(ligar ? "Não foi possível ligar a captação: {e}" : "Não foi possível desligar a captação: {e}", { e: error.message }));
+  }
   revalidatePath("/");
   redirect(ligar ? "/" : "/?l=op-futuros");
 }

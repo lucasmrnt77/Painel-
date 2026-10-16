@@ -111,12 +111,12 @@ export function argsResumoGrupo(f: FiltrosGrupo) {
   };
 }
 
-/** "2026-10-05" → "05/10" (+ dia da semana opcional) */
-export function diaCurto(dia: string, comSemana = false) {
+/** "2026-10-05" → "05/10" (+ dia da semana opcional, no idioma de `locale`) */
+export function diaCurto(dia: string, comSemana = false, locale = "pt-BR") {
   const d = new Date(`${dia}T12:00:00Z`);
   const base = new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", day: "2-digit", month: "2-digit" }).format(d);
   if (!comSemana) return base;
-  const sem = new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", weekday: "short" }).format(d).replace(".", "");
+  const sem = new Intl.DateTimeFormat(locale, { timeZone: "UTC", weekday: "short" }).format(d).replace(".", "");
   return `${sem} ${base}`;
 }
 

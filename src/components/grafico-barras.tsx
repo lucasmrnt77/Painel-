@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/lib/i18n/cliente";
 
 export type Ponto = { chave: string; rotulo: string; rotuloLongo: string; n: number };
 
@@ -9,6 +10,7 @@ export type Ponto = { chave: string; rotulo: string; rotuloLongo: string; n: num
  * Passe o mouse/foco numa barra para ver o valor; a área de toque é a coluna inteira.
  */
 export function GraficoBarras({ pontos, titulo, unidade }: { pontos: Ponto[]; titulo: string; unidade: string }) {
+  const t = useT();
   const [ativo, setAtivo] = useState<number | null>(null);
   const max = Math.max(1, ...pontos.map((p) => p.n));
   const passo = Math.ceil(max / 4) || 1;
@@ -64,7 +66,7 @@ export function GraficoBarras({ pontos, titulo, unidade }: { pontos: Ponto[]; ti
         ))}
       </div>
       <details className="mt-3 text-xs text-zinc-500">
-        <summary className="cursor-pointer select-none">Ver em tabela</summary>
+        <summary className="cursor-pointer select-none">{t("Ver em tabela")}</summary>
         <table className="tabular mt-2 w-full max-w-xs">
           <tbody>
             {pontos.map((pt) => (

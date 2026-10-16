@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { COR_STATUS, ROTULO_STATUS } from "@/lib/formato";
+import { Tx } from "@/lib/i18n/cliente";
 
 export function Cartao({ titulo, children, acao, className = "" }: { titulo?: string; children: React.ReactNode; acao?: React.ReactNode; className?: string }) {
   return (
@@ -33,7 +34,7 @@ export function Kpi({ rotulo, valor, detalhe, destaque }: { rotulo: string; valo
 export function Selo({ status }: { status: string }) {
   return (
     <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${COR_STATUS[status] ?? COR_STATUS.telefone_invalido}`}>
-      {ROTULO_STATUS[status] ?? status}
+      <Tx>{ROTULO_STATUS[status] ?? status}</Tx>
     </span>
   );
 }
@@ -76,20 +77,20 @@ export function Busca({ acao, valor, ocultos, placeholder, nome = "q" }: { acao:
         placeholder={placeholder}
         className="w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 sm:w-64 dark:border-zinc-700 dark:bg-zinc-950"
       />
-      <button className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">Buscar</button>
+      <button className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"><Tx>Buscar</Tx></button>
     </form>
   );
 }
 
 export function Paginacao({ pagina, total, porPagina, href }: { pagina: number; total: number; porPagina: number; href: (p: number) => string }) {
   const paginas = Math.max(1, Math.ceil(total / porPagina));
-  if (paginas <= 1) return <p className="text-xs text-zinc-500">{total} registro(s)</p>;
+  if (paginas <= 1) return <p className="text-xs text-zinc-500"><Tx vars={{ n: total }}>{"{n} registro(s)"}</Tx></p>;
   return (
     <div className="flex items-center justify-between text-xs text-zinc-500">
-      <span className="tabular">{total} registros · página {pagina} de {paginas}</span>
+      <span className="tabular"><Tx vars={{ n: total, p: pagina, de: paginas }}>{"{n} registros · página {p} de {de}"}</Tx></span>
       <div className="flex gap-2">
-        {pagina > 1 && <Link className="rounded border border-zinc-300 px-2 py-1 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800" href={href(pagina - 1)}>← Anterior</Link>}
-        {pagina < paginas && <Link className="rounded border border-zinc-300 px-2 py-1 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800" href={href(pagina + 1)}>Próxima →</Link>}
+        {pagina > 1 && <Link className="rounded border border-zinc-300 px-2 py-1 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800" href={href(pagina - 1)}>← <Tx>Anterior</Tx></Link>}
+        {pagina < paginas && <Link className="rounded border border-zinc-300 px-2 py-1 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800" href={href(pagina + 1)}><Tx>Próxima</Tx> →</Link>}
       </div>
     </div>
   );
@@ -106,7 +107,7 @@ export function Tabela({ cabecalho, children, vazio }: { cabecalho: string[]; ch
         </thead>
         <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">{children}</tbody>
       </table>
-      {vazio && <p className="px-4 py-8 text-center text-sm text-zinc-500">Nada por aqui ainda.</p>}
+      {vazio && <p className="px-4 py-8 text-center text-sm text-zinc-500"><Tx>Nada por aqui ainda.</Tx></p>}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { dataHora } from "@/lib/formato";
 import { FormTesteAlerta } from "./formularios";
 import type { ModoEnvio } from "@/lib/whatsapp";
 import { duracao } from "@/lib/mensagens";
+import { tradutor } from "@/lib/i18n/servidor";
 
 const ROTULO_ALERTA: Record<string, string> = {
   sem_entradas: "Sem entradas",
@@ -31,11 +32,12 @@ const ROTULO_ENVIO: Record<string, string> = {
  * Monitor de um grupo: liga/desliga, tempo desde a última entrada, entradas recentes e alertas.
  * `inscricoes` substitui as contagens de inscrição (grupo gratuito: vêm do banco da página do grupo).
  */
-export function CartaoMonitor({ s, alertas, modo, titulo = "Monitor de tráfego", inscricoes, porLeads = false }: {
+export async function CartaoMonitor({ s, alertas, modo, titulo = "Monitor de tráfego", inscricoes, porLeads = false }: {
   s: SituacaoMonitor; alertas: Alerta[]; modo: ModoEnvio; titulo?: string; inscricoes?: { ultimos20: number; ultimos60: number } | null;
   /** Grupo gratuito: o alerta conta leads da página (não entradas no grupo). */
   porLeads?: boolean;
 }) {
+  const t = await tradutor();
   const insc20 = inscricoes ? inscricoes.ultimos20 : s.ultimos_20.inscricoes;
   const insc60 = inscricoes ? inscricoes.ultimos60 : s.ultimos_60.inscricoes;
   const porTelefone = modo === "sendflow_direto" || modo === "webhook";
@@ -52,11 +54,11 @@ export function CartaoMonitor({ s, alertas, modo, titulo = "Monitor de tráfego"
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <div className="flex items-center gap-2">
           <span className={`inline-block h-2.5 w-2.5 rounded-full ${s.monitor_ativo ? "animate-pulse bg-emerald-500" : "bg-zinc-400"}`} />
-          <h2 className="text-sm font-semibold">{titulo}</h2>
+          <h2 className="text-sm font-semibold">{t(titulo)}</h2>
           <span className="text-xs text-zinc-500">
             {s.monitor_ativo
-              ? `ligado desde ${dataHora(s.monitor_ligado_em)} · alerta após ${duracao(limiar)} sem ${porLeads ? "leads" : "entradas"}`
-              : "desligado — ligue quando o tráfego começar"}
+              ? t(porLeads ? "ligado desde {d} · alerta após {x} sem leads" : "ligado desde {d} · alerta após {x} sem entradas", { d: dataHora(s.monitor_ligado_em), x: t(duracao(limiar)) })
+              : t("desligado — ligue quando o tráfego começar")}
           </span>
         </div>
         <form action={alternarMonitor}>
@@ -69,44 +71,44 @@ export function CartaoMonitor({ s, alertas, modo, titulo = "Monitor de tráfego"
                 : "bg-emerald-600 text-white hover:bg-emerald-700"
             }`}
           >
-            {s.monitor_ativo ? "Desligar monitor" : "Ligar monitor"}
+            {s.monitor_ativo ? t("Desligar monitor") : t("Ligar monitor")}
           </button>
         </form>
       </header>
       <div className="grid gap-4 p-4 md:grid-cols-[1fr_1fr_1fr_2fr]">
         <div>
-          <div className="text-xs text-zinc-500">{porLeads ? "Último lead na página" : "Última entrada no grupo"}</div>
-          <div className={`tabular mt-1 text-2xl font-semibold ${cor}`}>{min == null ? "—" : `há ${duracao(min)}`}</div>
-          <div className="text-xs text-zinc-500">{s.ultima_entrada_em ? dataHora(s.ultima_entrada_em) : "nenhuma ainda"}</div>
+          <div className="text-xs text-zinc-500">{porLeads ? t("Último lead na página") : t("Última entrada no grupo")}</div>
+          <div className={`tabular mt-1 text-2xl font-semibold ${cor}`}>{min == null ? "—" : t("há {d}", { d: t(duracao(min)) })}</div>
+          <div className="text-xs text-zinc-500">{s.ultima_entrada_em ? dataHora(s.ultima_entrada_em) : t("nenhuma ainda")}</div>
         </div>
         <div>
-          <div className="text-xs text-zinc-500">Últimos 20 min</div>
+          <div className="text-xs text-zinc-500">{t("Últimos 20 min")}</div>
           <div className="tabular mt-1 text-2xl font-semibold">{porLeads ? insc20 : s.ultimos_20.entradas}</div>
-          <div className="text-xs text-zinc-500">{porLeads ? "leads" : `entradas · ${insc20} inscrições`}</div>
+          <div className="text-xs text-zinc-500">{porLeads ? "leads" : t("entradas · {n} inscrições", { n: insc20 })}</div>
         </div>
         <div>
-          <div className="text-xs text-zinc-500">Última hora</div>
+          <div className="text-xs text-zinc-500">{t("Última hora")}</div>
           <div className="tabular mt-1 text-2xl font-semibold">{porLeads ? insc60 : s.ultimos_60.entradas}</div>
-          <div className="text-xs text-zinc-500">{porLeads ? "leads" : `entradas · ${insc60} inscrições`}</div>
+          <div className="text-xs text-zinc-500">{porLeads ? "leads" : t("entradas · {n} inscrições", { n: insc60 })}</div>
         </div>
         <div className="min-w-0">
           <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
-            <span>Alertas recentes</span>
-            {modo === "nenhum" && <span className="text-amber-700 dark:text-amber-400">WhatsApp ainda não configurado</span>}
-            {modo === "sendflow_grupo" && <span className="text-emerald-700 dark:text-emerald-400">envio: grupo da equipe via Sendflow</span>}
-            {porTelefone && s.alerta_telefones.length === 0 && <span className="text-amber-700 dark:text-amber-400">sem telefones cadastrados</span>}
-            {porTelefone && s.alerta_telefones.length > 0 && <span>envio: {s.alerta_telefones.length} telefone(s){modo === "sendflow_direto" ? " via Sendflow" : ""}</span>}
+            <span>{t("Alertas recentes")}</span>
+            {modo === "nenhum" && <span className="text-amber-700 dark:text-amber-400">{t("WhatsApp ainda não configurado")}</span>}
+            {modo === "sendflow_grupo" && <span className="text-emerald-700 dark:text-emerald-400">{t("envio: grupo da equipe via Sendflow")}</span>}
+            {porTelefone && s.alerta_telefones.length === 0 && <span className="text-amber-700 dark:text-amber-400">{t("sem telefones cadastrados")}</span>}
+            {porTelefone && s.alerta_telefones.length > 0 && <span>{t("envio: {n} telefone(s)", { n: s.alerta_telefones.length })}{modo === "sendflow_direto" ? " via Sendflow" : ""}</span>}
           </div>
           {alertas.length === 0 ? (
-            <p className="text-sm text-zinc-500">Nenhum alerta ainda.</p>
+            <p className="text-sm text-zinc-500">{t("Nenhum alerta ainda.")}</p>
           ) : (
             <ul className="space-y-1 text-xs">
               {alertas.map((a) => (
                 <li key={a.id} className="flex gap-2" title={a.mensagem}>
                   <span className="tabular shrink-0 text-zinc-500">{dataHora(a.criado_em)}</span>
-                  <span className={`shrink-0 font-medium ${COR_ALERTA[a.tipo] ?? ""}`}>{ROTULO_ALERTA[a.tipo] ?? a.tipo}</span>
+                  <span className={`shrink-0 font-medium ${COR_ALERTA[a.tipo] ?? ""}`}>{t(ROTULO_ALERTA[a.tipo] ?? a.tipo)}</span>
                   <span className="truncate text-zinc-600 dark:text-zinc-400">{a.mensagem.split("\n").slice(1).join(" · ").replace(/\*/g, "")}</span>
-                  <span className="ml-auto shrink-0 text-zinc-400">{ROTULO_ENVIO[a.envio_status] ?? a.envio_status}</span>
+                  <span className="ml-auto shrink-0 text-zinc-400">{t(ROTULO_ENVIO[a.envio_status] ?? a.envio_status)}</span>
                 </li>
               ))}
             </ul>
@@ -118,18 +120,19 @@ export function CartaoMonitor({ s, alertas, modo, titulo = "Monitor de tráfego"
   );
 }
 
-export function GraficoHoras({ serie }: { serie: { hora: string; inscricoes: number; entradas: number; saidas: number }[] }) {
+export async function GraficoHoras({ serie }: { serie: { hora: string; inscricoes: number; entradas: number; saidas: number }[] }) {
+  const t = await tradutor();
   const horas = serie.map((s) => ({ ...s, k: s.hora.slice(0, 13) }));
   const max = Math.max(1, ...horas.map((s) => Math.max(s.inscricoes, s.entradas)));
   const vazio = horas.every((h) => h.inscricoes === 0 && h.entradas === 0);
   return (
     <div className="overflow-x-auto">
-      {vazio && <p className="mb-2 text-center text-xs text-zinc-500">Sem movimento nas últimas 24h.</p>}
+      {vazio && <p className="mb-2 text-center text-xs text-zinc-500">{t("Sem movimento nas últimas 24h.")}</p>}
       <div className="flex h-40 min-w-[560px] items-end gap-1">
         {horas.map((s) => {
           const h = s.k.slice(11, 13);
           return (
-            <div key={s.k} className="flex flex-1 flex-col items-center gap-1" title={`${s.k.slice(8, 10)}/${s.k.slice(5, 7)} ${h}h — ${s.inscricoes} inscrições, ${s.entradas} entradas, ${s.saidas} saídas`}>
+            <div key={s.k} className="flex flex-1 flex-col items-center gap-1" title={`${s.k.slice(8, 10)}/${s.k.slice(5, 7)} ${h}h — ${t("{i} inscrições, {e} entradas, {s} saídas", { i: s.inscricoes, e: s.entradas, s: s.saidas })}`}>
               <div className="flex h-32 w-full items-end justify-center gap-px">
                 <div className="w-2/5 max-w-3 rounded-t-sm bg-zinc-400" style={{ height: `${(100 * s.inscricoes) / max}%` }} />
                 <div className="w-2/5 max-w-3 rounded-t-sm bg-emerald-500" style={{ height: `${(100 * s.entradas) / max}%` }} />

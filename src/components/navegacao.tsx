@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useIdioma, useT } from "@/lib/i18n/cliente";
+import { IDIOMAS } from "@/lib/i18n";
+import { trocarIdioma } from "@/lib/i18n/acoes";
 
 type Item = { href: string; rotulo: string; icone: keyof typeof ICONES; externo?: boolean };
 type Grupo = { titulo?: string; itens: Item[] };
@@ -89,14 +92,42 @@ function Marca() {
   );
 }
 
+/** Botão PT | ES: grava o idioma num cookie e recarrega o painel já traduzido. */
+export function SeletorIdioma() {
+  const idioma = useIdioma();
+  const t = useT();
+  const router = useRouter();
+  const [carregando, iniciar] = useTransition();
+  return (
+    <div role="group" aria-label={t("Idioma")} className={`inline-flex rounded-lg border border-zinc-700 p-0.5 text-xs ${carregando ? "opacity-60" : ""}`}>
+      {IDIOMAS.map((i) => (
+        <button
+          key={i.valor}
+          type="button"
+          title={i.rotulo}
+          aria-pressed={idioma === i.valor}
+          disabled={carregando}
+          onClick={() => idioma !== i.valor && iniciar(async () => { await trocarIdioma(i.valor); router.refresh(); })}
+          className={`rounded-md px-2.5 py-1 font-medium transition ${
+            idioma === i.valor ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-inset ring-emerald-500/30" : "text-zinc-400 hover:text-zinc-100"
+          }`}
+        >
+          {i.curto}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ListaMenu({ aoNavegar, avisos = {} }: { aoNavegar?: () => void; avisos?: Record<string, number> }) {
+  const t = useT();
   const caminho = usePathname();
   const l = useSearchParams().get("l");
   return (
-    <nav className="space-y-5" aria-label="Menu do painel">
+    <nav className="space-y-5" aria-label={t("Menu do painel")}>
       {MENU.map((g, i) => (
         <div key={i}>
-          {g.titulo && <div className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-500">{g.titulo}</div>}
+          {g.titulo && <div className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-wider text-zinc-500">{t(g.titulo)}</div>}
           <ul className="space-y-0.5">
             {g.itens.map((it) => {
               const ativa = it.href === "/" || it.href === "/base-leads" ? caminho === it.href : caminho.startsWith(it.href);
@@ -108,9 +139,9 @@ function ListaMenu({ aoNavegar, avisos = {} }: { aoNavegar?: () => void; avisos?
               const conteudo = (
                 <>
                   <Icone nome={it.icone} className={`h-4 w-4 shrink-0 ${ativa ? "text-emerald-400" : "text-zinc-500 group-hover:text-zinc-300"}`} />
-                  <span className="truncate">{it.rotulo}</span>
+                  <span className="truncate">{t(it.rotulo)}</span>
                   {!!avisos[it.href] && (
-                    <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1.5 text-[11px] font-semibold text-white" aria-label={`${avisos[it.href]} problema(s)`}>
+                    <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1.5 text-[11px] font-semibold text-white" aria-label={t("{n} problema(s)", { n: avisos[it.href] })}>
                       {avisos[it.href]}
                     </span>
                   )}
@@ -140,6 +171,7 @@ function ListaMenu({ aoNavegar, avisos = {} }: { aoNavegar?: () => void; avisos?
 /** Menu lateral fixo no computador; no celular, barra no topo com o menu em gaveta. */
 export function MenuLateral({ sair, avisos }: { sair: React.ReactNode; avisos?: Record<string, number> }) {
   const [aberto, setAberto] = useState(false);
+  const t = useT();
   return (
     <>
       {/* Computador */}
@@ -148,31 +180,34 @@ export function MenuLateral({ sair, avisos }: { sair: React.ReactNode; avisos?: 
         <div className="flex-1 overflow-y-auto px-3 pb-4">
           <ListaMenu avisos={avisos} />
         </div>
-        <div className="border-t border-zinc-800 px-5 py-3">{sair}</div>
+        <div className="flex items-center justify-between gap-2 border-t border-zinc-800 px-5 py-3"><div className="min-w-0 flex-1">{sair}</div><SeletorIdioma /></div>
       </aside>
 
       {/* Celular */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur lg:hidden">
         <Marca />
-        <button type="button" onClick={() => setAberto(true)} aria-label="Abrir menu" className="relative rounded-lg p-2 text-zinc-300 hover:bg-zinc-800">
+        <div className="flex items-center gap-2">
+        <SeletorIdioma />
+        <button type="button" onClick={() => setAberto(true)} aria-label={t("Abrir menu")} className="relative rounded-lg p-2 text-zinc-300 hover:bg-zinc-800">
           <Icone nome="menu" className="h-5 w-5" />
           {Object.values(avisos ?? {}).some(Boolean) && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-rose-500" />}
         </button>
+        </div>
       </header>
       {aberto && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <button type="button" aria-label="Fechar menu" className="absolute inset-0 bg-black/60" onClick={() => setAberto(false)} />
+          <button type="button" aria-label={t("Fechar menu")} className="absolute inset-0 bg-black/60" onClick={() => setAberto(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-zinc-800 bg-zinc-950">
             <div className="flex items-center justify-between px-5 pb-4 pt-5">
               <Marca />
-              <button type="button" onClick={() => setAberto(false)} aria-label="Fechar menu" className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800">
+              <button type="button" onClick={() => setAberto(false)} aria-label={t("Fechar menu")} className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-800">
                 <Icone nome="fechar" className="h-5 w-5" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 pb-4">
               <ListaMenu aoNavegar={() => setAberto(false)} avisos={avisos} />
             </div>
-            <div className="border-t border-zinc-800 px-5 py-3">{sair}</div>
+            <div className="flex items-center justify-between gap-2 border-t border-zinc-800 px-5 py-3"><div className="min-w-0 flex-1">{sair}</div><SeletorIdioma /></div>
           </aside>
         </div>
       )}
@@ -183,17 +218,18 @@ export function MenuLateral({ sair, avisos }: { sair: React.ReactNode; avisos?: 
 export function SeletorLancamento({ opcoes, atual }: { opcoes: { slug: string; nome: string; ativo: boolean }[]; atual: string | null }) {
   const router = useRouter();
   const caminho = usePathname();
+  const t = useT();
   if (opcoes.length === 0) return null;
   return (
     <select
-      aria-label="Lançamento"
+      aria-label={t("Lançamento")}
       value={atual ?? ""}
       onChange={(e) => router.push(`${caminho}?l=${encodeURIComponent(e.target.value)}`)}
       className="max-w-[60vw] rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
     >
       {opcoes.map((o) => (
         <option key={o.slug} value={o.slug}>
-          {o.nome}{o.ativo ? " · ativo" : ""}
+          {o.nome}{o.ativo ? ` · ${t("ativo")}` : ""}
         </option>
       ))}
     </select>

@@ -15,6 +15,9 @@ import { Cartao, Tabela, td } from "@/components/ui";
 import { CabecalhoPagina } from "@/components/cabecalho";
 import { TestesEventos } from "@/components/testes";
 import { historicoTestes, type Execucao } from "@/lib/testes-eventos";
+import { traduzirDetalhe } from "@/lib/testes-casos";
+import { tradutor } from "@/lib/i18n/servidor";
+import type { T } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120; // botão "Rodar testes agora"
@@ -63,7 +66,7 @@ async function testes(): Promise<{ servidor: Execucao | null; navegador: Execuca
   }
 }
 
-async function historico(nomes: Map<number, string>): Promise<Historico[]> {
+async function historico(nomes: Map<number, string>, t: T): Promise<Historico[]> {
   const [mon, redir, tst] = await Promise.all([
     db().from("alertas").select("lancamento_id, tipo, mensagem, criado_em, envio_status").order("id", { ascending: false }).limit(40),
     db().from("redir_eventos").select("funil, tipo, detalhe, criado_em, alertado_em").eq("alertar", true).order("criado_em", { ascending: false }).limit(20),
@@ -76,22 +79,23 @@ async function historico(nomes: Map<number, string>): Promise<Historico[]> {
   }
   for (const e of (redir.data ?? []) as { funil: string; tipo: string; detalhe: Record<string, unknown>; criado_em: string; alertado_em: string | null }[]) {
     const grupo = typeof e.detalhe?.grupo === "string" ? e.detalhe.grupo : "";
-    itens.push({ quando: e.criado_em, origem: `Redirecionador ${e.funil}`, tipo: e.tipo, texto: grupo, envio: e.alertado_em ? "enviado" : "pendente" });
+    itens.push({ quando: e.criado_em, origem: `${t("Redirecionador")} ${e.funil}`, tipo: e.tipo, texto: grupo, envio: e.alertado_em ? "enviado" : "pendente" });
   }
-  for (const t of (tst.data ?? []) as { origem: string; ok: boolean; falhas: number; total: number; criado_em: string; detalhes: { teste: string; motivo: string }[]; envio_status: string }[]) {
-    const primeira = t.detalhes?.[0];
+  for (const x of (tst.data ?? []) as { origem: string; ok: boolean; falhas: number; total: number; criado_em: string; detalhes: { teste: string; motivo: string }[]; envio_status: string }[]) {
+    const primeira = x.detalhes?.[0];
     itens.push({
-      quando: t.criado_em, origem: `Testes · ${t.origem}`, tipo: t.ok ? "testes_voltaram" : "testes_falharam",
-      texto: t.ok ? `${t.total} verificações ok` : `${t.falhas}/${t.total} falharam${primeira ? ` · ${primeira.teste}: ${primeira.motivo}` : ""}`,
-      envio: t.envio_status,
+      quando: x.criado_em, origem: `${t("Testes")} · ${t(x.origem)}`, tipo: x.ok ? "testes_voltaram" : "testes_falharam",
+      texto: x.ok ? t("{n} verificações ok", { n: x.total })
+        : `${t("{f}/{n} falharam", { f: x.falhas, n: x.total })}${primeira ? ` · ${traduzirDetalhe(t, primeira.teste)}: ${traduzirDetalhe(t, primeira.motivo)}` : ""}`,
+      envio: x.envio_status,
     });
   }
   return itens.sort((a, b) => b.quando.localeCompare(a.quando)).slice(0, 40);
 }
 
-function Estado({ s, nome, porLeads = false }: { s: SituacaoMonitor | null; nome: string; porLeads?: boolean }) {
+function Estado({ s, nome, porLeads = false, t }: { s: SituacaoMonitor | null; nome: string; porLeads?: boolean; t: T }) {
   if (!s) return null;
-  const termo = porLeads ? "leads" : "entradas";
+  const termo = porLeads ? "leads" : t("entradas");
   const min = s.minutos_desde_ultima_entrada;
   const alerta = s.monitor_ativo && min != null && min >= s.alerta_minutos_sem_entrada;
   return (
@@ -101,11 +105,11 @@ function Estado({ s, nome, porLeads = false }: { s: SituacaoMonitor | null; nome
         {nome}
       </div>
       <div className="mt-1 text-lg font-semibold">
-        {!s.monitor_ativo ? "Monitor desligado" : alerta ? `Sem ${termo} há ${duracao(min!)}` : "Tudo certo"}
+        {!s.monitor_ativo ? t("Monitor desligado") : alerta ? t("Sem {termo} há {d}", { termo, d: t(duracao(min!)) }) : t("Tudo certo")}
       </div>
       <div className="text-xs text-zinc-500">
-        {s.monitor_ativo ? `alerta após ${duracao(s.alerta_minutos_sem_entrada)} sem ${termo}` : "ligue no cartão abaixo"}
-        {s.ultima_entrada_em ? ` · ${porLeads ? "último lead" : "última entrada"} ${dataHora(s.ultima_entrada_em)}` : ""}
+        {s.monitor_ativo ? t("alerta após {d} sem {termo}", { d: t(duracao(s.alerta_minutos_sem_entrada)), termo }) : t("ligue no cartão abaixo")}
+        {s.ultima_entrada_em ? ` · ${porLeads ? t("último lead") : t("última entrada")} ${dataHora(s.ultima_entrada_em)}` : ""}
       </div>
     </div>
   );
@@ -113,6 +117,7 @@ function Estado({ s, nome, porLeads = false }: { s: SituacaoMonitor | null; nome
 
 export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
   const sp = await searchParams;
+  const t = await tradutor();
   const { resumos, atual } = await contexto(sp);
   const grupo = await grupoGratuito();
   const modo = modoEnvio();
@@ -129,62 +134,61 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
   const sGrupo = sGrupoBruto ? situacaoPorLeads(sGrupoBruto, ultimoLead) : null;
   const nomes = new Map<number, string>(resumos.map((r) => [r.lancamento_id, r.nome]));
   if (grupo) nomes.set(grupo.id, grupo.nome);
-  const [hist, tst] = await Promise.all([historico(nomes), testes()]);
+  const [hist, tst] = await Promise.all([historico(nomes, t), testes()]);
 
   return (
     <>
       <AutoAtualizar segundos={60} />
-      <CabecalhoPagina titulo="Alertas" resumos={resumos} atual={atual} />
+      <CabecalhoPagina titulo={t("Alertas")} resumos={resumos} atual={atual} />
       <p className="-mt-2 text-sm text-zinc-500">
-        O grupo de alertas no WhatsApp só recebe problemas que precisam de ajuste: ninguém entrou no grupo do lançamento dentro do prazo,
-        nenhum lead novo na página do grupo gratuito (OP Futuros) dentro do prazo (padrão 24 h), redirecionador sem grupo disponível ou falha ao pedir link novo, e testes dos eventos com erro.
-        Resumos, entradas retomadas e avisos de que voltou a funcionar ficam só aqui no painel. O monitor confere a cada 2 minutos.
+        {t("O grupo de alertas no WhatsApp só recebe problemas que precisam de ajuste: ninguém entrou no grupo do lançamento dentro do prazo, nenhum lead novo na página do grupo gratuito (OP Futuros) dentro do prazo (padrão 24 h), redirecionador sem grupo disponível ou falha ao pedir link novo, e testes dos eventos com erro.")}{" "}
+        {t("Resumos, entradas retomadas e avisos de que voltou a funcionar ficam só aqui no painel. O monitor confere a cada 2 minutos.")}
       </p>
 
       <section className="grid gap-3 md:grid-cols-2">
-        <Estado s={sLanc} nome={atual ? `Lançamento · ${atual.nome}` : "Lançamento"} />
-        <Estado s={sGrupo} nome={grupo?.nome ?? "Grupo gratuito"} porLeads />
+        <Estado t={t} s={sLanc} nome={atual ? `${t("Lançamento")} · ${atual.nome}` : t("Lançamento")} />
+        <Estado t={t} s={sGrupo} nome={grupo?.nome ?? t("Grupo gratuito")} porLeads />
       </section>
 
       <section id="testes" className="scroll-mt-6 space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Testes diários dos eventos Meta</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">{t("Testes diários dos eventos Meta")}</h2>
         <Cartao>
           {tst ? <TestesEventos {...tst} /> : (
-            <p className="text-sm text-zinc-400">Aplique a migração <code>014-testes-automaticos.sql</code> no Supabase do painel para ver os testes.</p>
+            <p className="text-sm text-zinc-400">{t("Aplique a migração")} <code>014-testes-automaticos.sql</code> {t("no Supabase do painel para ver os testes.")}</p>
           )}
         </Cartao>
       </section>
 
       {atual && sLanc && (
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Lançamento · {atual.nome}</h2>
-          <CartaoMonitor s={sLanc} alertas={aLanc} modo={modo} titulo={`Monitor — ${atual.nome}`} />
-          <Cartao titulo="Configuração dos alertas do lançamento">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">{t("Lançamento")} · {atual.nome}</h2>
+          <CartaoMonitor s={sLanc} alertas={aLanc} modo={modo} titulo={`${t("Monitor")} — ${atual.nome}`} />
+          <Cartao titulo={t("Configuração dos alertas do lançamento")}>
             <FormAlertas id={atual.lancamento_id} alertaMinutos={sLanc.alerta_minutos_sem_entrada} resumoMinutos={sLanc.resumo_minutos} telefones={sLanc.alerta_telefones} />
           </Cartao>
         </section>
       )}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">Grupo gratuito</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">{t("Grupo gratuito")}</h2>
         {!grupo || !sGrupo ? (
           <Cartao>
-            <p className="text-sm text-zinc-400">Aplique a migração <code>013-alertas-grupo-gratuito.sql</code> no Supabase do painel para monitorar o grupo gratuito.</p>
+            <p className="text-sm text-zinc-400">{t("Aplique a migração")} <code>013-alertas-grupo-gratuito.sql</code> {t("no Supabase do painel para monitorar o grupo gratuito.")}</p>
           </Cartao>
         ) : (
           <>
             {!grupo.sendflow_ref && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-200">
-                <p className="font-medium">Falta ligar o grupo gratuito ao Sendflow</p>
+                <p className="font-medium">{t("Falta ligar o grupo gratuito ao Sendflow")}</p>
                 <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-amber-100/80">
-                  <li>No Sendflow, na campanha do grupo gratuito, cadastre o mesmo webhook usado nas campanhas dos lançamentos (entrada e saída).</li>
-                  <li>Abaixo, preencha o nome da campanha exatamente como aparece no Sendflow e salve.</li>
-                  <li>Ligue o monitor. Quando alguém entrar no grupo, a entrada aparece aqui.</li>
+                  <li>{t("No Sendflow, na campanha do grupo gratuito, cadastre o mesmo webhook usado nas campanhas dos lançamentos (entrada e saída).")}</li>
+                  <li>{t("Abaixo, preencha o nome da campanha exatamente como aparece no Sendflow e salve.")}</li>
+                  <li>{t("Ligue o monitor. Quando alguém entrar no grupo, a entrada aparece aqui.")}</li>
                 </ol>
               </div>
             )}
-            <CartaoMonitor s={sGrupo} alertas={aGrupo} modo={modo} titulo={`Monitor — ${grupo.nome} · leads da página`} inscricoes={inscGrupo} porLeads />
-            <Cartao titulo="Configuração dos alertas do grupo gratuito">
+            <CartaoMonitor s={sGrupo} alertas={aGrupo} modo={modo} titulo={`${t("Monitor")} — ${grupo.nome} · ${t("leads da página")}`} inscricoes={inscGrupo} porLeads />
+            <Cartao titulo={t("Configuração dos alertas do grupo gratuito")}>
               <FormAlertas id={grupo.id} alertaMinutos={sGrupo.alerta_minutos_sem_entrada} resumoMinutos={sGrupo.resumo_minutos}
                 telefones={sGrupo.alerta_telefones} referencia={{ valor: grupo.sendflow_ref }} />
             </Cartao>
@@ -192,15 +196,15 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
         )}
       </section>
 
-      <Cartao titulo="Histórico de alertas" acao={<Link href="/redirecionador" className="text-xs text-emerald-700 hover:underline dark:text-emerald-400">redirecionador →</Link>}>
-        <Tabela cabecalho={["Quando", "Origem", "Alerta", "Detalhe", "Envio"]} vazio={hist.length === 0}>
+      <Cartao titulo={t("Histórico de alertas")} acao={<Link href="/redirecionador" className="text-xs text-emerald-700 hover:underline dark:text-emerald-400">{t("redirecionador")} →</Link>}>
+        <Tabela cabecalho={[t("Quando"), t("Origem"), t("Alerta"), t("Detalhe"), t("Envio")]} vazio={hist.length === 0}>
           {hist.map((h, i) => (
             <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
               <td className={`${td} tabular whitespace-nowrap text-zinc-500`}>{dataHora(h.quando)}</td>
               <td className={`${td} whitespace-nowrap`}>{h.origem}</td>
-              <td className={`${td} whitespace-nowrap font-medium ${ROTULO_TIPO[h.tipo]?.cor ?? ""}`}>{ROTULO_TIPO[h.tipo]?.rotulo ?? h.tipo}</td>
+              <td className={`${td} whitespace-nowrap font-medium ${ROTULO_TIPO[h.tipo]?.cor ?? ""}`}>{ROTULO_TIPO[h.tipo] ? t(ROTULO_TIPO[h.tipo].rotulo) : h.tipo}</td>
               <td className={`${td} max-w-[520px] truncate text-zinc-400`} title={h.texto}>{h.texto || "—"}</td>
-              <td className={`${td} whitespace-nowrap text-xs text-zinc-500`}>{h.envio ? ENVIO[h.envio] ?? h.envio : "—"}</td>
+              <td className={`${td} whitespace-nowrap text-xs text-zinc-500`}>{h.envio ? (ENVIO[h.envio] ? t(ENVIO[h.envio]) : h.envio) : "—"}</td>
             </tr>
           ))}
         </Tabela>

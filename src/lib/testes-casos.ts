@@ -13,6 +13,8 @@
  * Lead — "Lead General" / "Lead Trader" para todos.
  */
 
+import type { T } from "./i18n";
+
 export type CorpoEvento = {
   landing: string;
   acao: string;
@@ -210,4 +212,37 @@ export function lerResultadoNavegador(b: unknown): Execucao | null {
     duracao_ms: Number.isInteger(o.duracao_ms) ? Number(o.duracao_ms) : null,
     resumo, detalhes,
   };
+}
+
+// ---------------------------------------------------------------------
+// Exibição no painel (tradução). Os textos gravados e enviados nos alertas
+// continuam em português; aqui só se traduz o que aparece na tela.
+// ---------------------------------------------------------------------
+
+/** Textos montados com partes que também precisam de tradução (a, b, c = grupos do regex). */
+const COMPOSTOS: [RegExp, string, boolean[]][] = [
+  [/^Não consegui consultar a Meta: (.+)$/, "Não consegui consultar a Meta: {a}", [true]],
+  [/^A Meta recusou a consulta de qualidade: (.+)$/, "A Meta recusou a consulta de qualidade: {a}", [true]],
+  [/^Volume das últimas 24 h indisponível: (.+)$/, "Volume das últimas 24 h indisponível: {a}", [true]],
+  [/^resposta sem ok \((.*)\)$/, "resposta sem ok ({a})", [true]],
+  [/^evento "(.*)" \(esperado "(.*)"\)$/, 'evento "{a}" (esperado "{b}")', [true, true]],
+  [/^Meta não confirmou o evento do servidor \((.*)\)$/, "Meta não confirmou o evento do servidor ({a})", [true]],
+  [/^servidor devolveu "(.*)"$/, 'servidor devolveu "{a}"', [true]],
+  [/^([^:]+): (.+)$/, "{a}: {b}", [true, true]],
+];
+
+/** Traduz nomes de teste, motivos de falha e problemas/avisos da Meta para exibir. */
+export function traduzirDetalhe(t: T, s: string): string {
+  if (!s) return s;
+  const direto = t(s);
+  if (direto !== s) return direto;
+  for (const [re, chave, traduzir] of COMPOSTOS) {
+    const m = s.match(re);
+    if (!m) continue;
+    const vars: Record<string, string> = {};
+    traduzir.forEach((tr, i) => { vars["abc"[i]] = tr ? traduzirDetalhe(t, m[i + 1]) : m[i + 1]; });
+    return t(chave, vars);
+  }
+  if (s.includes(" · ")) return s.split(" · ").map((p) => traduzirDetalhe(t, p)).join(" · ");
+  return s;
 }

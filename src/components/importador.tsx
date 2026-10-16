@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { classificarAba, converterEntradasGrupo, converterPlanilha, type LinhaEntrada, type LinhaPlanilha, type TipoAba } from "@/lib/planilha";
 import { lerArquivo } from "@/lib/ler-arquivo";
+import { useT } from "@/lib/i18n/cliente";
 
 type Opcao = { id: number; nome: string };
 type Previa = {
@@ -34,6 +35,7 @@ const dataBR = (iso?: string) => iso?.slice(0, 10).split("-").reverse().join("/"
 
 export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
   const router = useRouter();
+  const t = useT();
   const [lancId, setLancId] = useState<number | "">(lancamentos[0]?.id ?? "");
   const [pagina, setPagina] = useState<"" | "trader" | "nunca_operou">("");
   const [arquivo, setArquivo] = useState<string>("");
@@ -54,7 +56,7 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
         }),
       );
     } catch (e) {
-      setErro(e instanceof Error ? e.message : String(e));
+      setErro(t(e instanceof Error ? e.message : String(e)));
     } finally {
       setLendo(false);
     }
@@ -86,7 +88,7 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
     try {
       for (const aba of ordem) {
         const linhas = aba.previa!.linhas;
-        const t: Record<string, number> = {};
+        const tot: Record<string, number> = {};
         for (let i = 0; i < linhas.length; i += LOTE) {
           setProgresso(`${aba.nome}: ${Math.min(linhas.length, i + LOTE)}/${linhas.length}`);
           const r = await fetch("/api/importar", {
@@ -95,17 +97,17 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
             body: JSON.stringify({ lancamento_id: lancId, tipo: aba.tipo, pagina_captura: pagina || null, linhas: linhas.slice(i, i + LOTE) }),
           });
           const j = await r.json();
-          if (!r.ok) throw new Error(`${aba.nome}: ${j.erro ?? `HTTP ${r.status}`}`);
-          for (const [k, v] of Object.entries(j)) if (typeof v === "number") t[k] = (t[k] ?? 0) + v;
+          if (!r.ok) throw new Error(`${aba.nome}: ${t(j.erro ?? `HTTP ${r.status}`)}`);
+          for (const [k, v] of Object.entries(j)) if (typeof v === "number") tot[k] = (tot[k] ?? 0) + v;
         }
         const resultado =
           aba.tipo === "leads"
-            ? `${t.novas ?? 0} novas, ${t.atualizadas ?? 0} atualizadas${t.repetidas ? `, ${t.repetidas} repetidas` : ""}`
-            : `${t.novas ?? 0} entradas novas (${(t.validas ?? 0) - (t.novas ?? 0)} já existiam)`;
+            ? t("{n} novas, {a} atualizadas", { n: tot.novas ?? 0, a: tot.atualizadas ?? 0 }) + (tot.repetidas ? t(", {r} repetidas", { r: tot.repetidas }) : "")
+            : t("{n} entradas novas ({e} já existiam)", { n: tot.novas ?? 0, e: (tot.validas ?? 0) - (tot.novas ?? 0) });
         setAbas((as) => as.map((a) => (a.nome === aba.nome ? { ...a, resultado } : a)));
       }
       // Atualiza as estatísticas do banco (sem isso, as telas podem ficar lentas logo após importar muito)
-      setProgresso("atualizando estatísticas…");
+      setProgresso(t("atualizando estatísticas…"));
       await fetch("/api/importar", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tipo: "finalizar" }) });
       setConcluido(true);
       router.refresh();
@@ -123,38 +125,38 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
         <label className={rotulo}>
-          Lançamento de destino
+          {t("Lançamento de destino")}
           <select className={`${campo} w-full`} value={lancId} onChange={(e) => setLancId(Number(e.target.value))}>
             {lancamentos.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
           </select>
         </label>
         <label className={rotulo}>
-          Página de captura destes leads
+          {t("Página de captura destes leads")}
           <select className={`${campo} w-full`} value={pagina} onChange={(e) => setPagina(e.target.value as typeof pagina)}>
-            <option value="">Escolha…</option>
-            <option value="trader">Trader (quem já opera)</option>
-            <option value="nunca_operou">Nunca operou</option>
+            <option value="">{t("Escolha…")}</option>
+            <option value="trader">{t("Trader (quem já opera)")}</option>
+            <option value="nunca_operou">{t("Nunca operou")}</option>
           </select>
         </label>
         <label className={rotulo}>
-          Planilha (.xlsx com todas as abas, ou .csv)
+          {t("Planilha (.xlsx com todas as abas, ou .csv)")}
           <input type="file" accept=".xlsx,.csv,text/csv" className={`${campo} w-full`} onChange={(e) => e.target.files?.[0] && ler(e.target.files[0])} />
         </label>
       </div>
 
-      {lendo && <p className="text-sm text-zinc-500">Lendo {arquivo}…</p>}
+      {lendo && <p className="text-sm text-zinc-500">{t("Lendo {arquivo}…", { arquivo })}</p>}
 
       {abas.length > 0 && (
         <div className="rounded-lg bg-zinc-50 p-4 text-sm dark:bg-zinc-950">
-          <p className="mb-3 font-medium">{arquivo} · {abas.length} aba(s)</p>
+          <p className="mb-3 font-medium">{arquivo} · {t("{n} aba(s)", { n: abas.length })}</p>
           <div className="-mx-4 overflow-x-auto">
             <table className="w-full min-w-[760px] text-left">
               <thead>
                 <tr className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800">
-                  <th className="px-4 py-2 font-medium">Importar</th>
-                  <th className="px-4 py-2 font-medium">Aba</th>
-                  <th className="px-4 py-2 font-medium">Tipo</th>
-                  <th className="px-4 py-2 font-medium">O que tem</th>
+                  <th className="px-4 py-2 font-medium">{t("Importar")}</th>
+                  <th className="px-4 py-2 font-medium">{t("Aba")}</th>
+                  <th className="px-4 py-2 font-medium">{t("Tipo")}</th>
+                  <th className="px-4 py-2 font-medium">{t("O que tem")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -168,29 +170,29 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
                       </td>
                       <td className="px-4 py-2 align-top font-medium">
                         {a.nome}
-                        {a.copia && <span className="ml-2 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-normal text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">parece cópia</span>}
+                        {a.copia && <span className="ml-2 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-normal text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">{t("parece cópia")}</span>}
                       </td>
                       <td className="px-4 py-2 align-top">
                         <select className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900" value={a.tipo} onChange={(e) => mudar(i, { tipo: e.target.value as TipoAba })}>
                           <option value="leads">Leads</option>
-                          <option value="entradas">Entradas no grupo</option>
-                          <option value="ignorar">Ignorar</option>
+                          <option value="entradas">{t("Entradas no grupo")}</option>
+                          <option value="ignorar">{t("Ignorar")}</option>
                         </select>
                       </td>
                       <td className="px-4 py-2 align-top text-xs text-zinc-600 dark:text-zinc-400">
-                        {a.tipo === "ignorar" && <span>{a.motivo} · {Math.max(0, a.tabela.length - 1)} linhas</span>}
+                        {a.tipo === "ignorar" && <span>{t(a.motivo)} · {t("{n} linhas", { n: Math.max(0, a.tabela.length - 1) })}</span>}
                         {a.previa && a.previa.colunasFaltando.length > 0 && (
-                          <span className="text-rose-600">Faltam colunas: {a.previa.colunasFaltando.join(", ")}</span>
+                          <span className="text-rose-600">{t("Faltam colunas:")} {a.previa.colunasFaltando.join(", ")}</span>
                         )}
                         {a.previa && a.previa.colunasFaltando.length === 0 && (
                           <>
-                            <b className="tabular">{a.previa.linhas.length}</b> linhas · {dataBR(datas[0])} a {dataBR(datas.at(-1))}
+                            <b className="tabular">{a.previa.linhas.length}</b> {t("linhas · {de} a {ate}", { de: dataBR(datas[0]), ate: dataBR(datas.at(-1)) })}
                             {a.previa.rejeitadas.length > 0 && (
-                              <span className="text-amber-700 dark:text-amber-400" title={a.previa.rejeitadas.slice(0, 20).map((r) => `linha ${r.linha}: ${r.motivo} (${r.valor})`).join("\n")}>
-                                {" "}· {a.previa.rejeitadas.length} ignoradas
+                              <span className="text-amber-700 dark:text-amber-400" title={a.previa.rejeitadas.slice(0, 20).map((r) => `${t("linha {n}", { n: r.linha })}: ${t(r.motivo)} (${r.valor})`).join("\n")}>
+                                {" "}· {t("{n} ignoradas", { n: a.previa.rejeitadas.length })}
                               </span>
                             )}
-                            {semGrupo && <span className="block text-amber-700 dark:text-amber-400">Sem coluna Grupo (TRUE/FALSE): quem entrou vem da aba de entradas.</span>}
+                            {semGrupo && <span className="block text-amber-700 dark:text-amber-400">{t("Sem coluna Grupo (TRUE/FALSE): quem entrou vem da aba de entradas.")}</span>}
                             {a.resultado && <span className="block font-medium text-emerald-700 dark:text-emerald-400">✓ {a.resultado}</span>}
                           </>
                         )}
@@ -207,10 +209,10 @@ export function Importador({ lancamentos }: { lancamentos: Opcao[] }) {
               disabled={!podeImportar}
               className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
             >
-              {progresso ? `Importando ${progresso}` : `Importar ${selecionadas.length} aba(s)`}
+              {progresso ? t("Importando {p}", { p: progresso }) : t("Importar {n} aba(s)", { n: selecionadas.length })}
             </button>
-            {precisaPagina && !pagina && <span className="text-xs text-amber-700 dark:text-amber-400">Escolha a página de captura dos leads.</span>}
-            {concluido && <span className="text-sm text-emerald-700 dark:text-emerald-400">Importação concluída. Reimportar não duplica.</span>}
+            {precisaPagina && !pagina && <span className="text-xs text-amber-700 dark:text-amber-400">{t("Escolha a página de captura dos leads.")}</span>}
+            {concluido && <span className="text-sm text-emerald-700 dark:text-emerald-400">{t("Importação concluída. Reimportar não duplica.")}</span>}
           </div>
         </div>
       )}

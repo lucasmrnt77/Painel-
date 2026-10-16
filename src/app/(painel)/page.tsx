@@ -14,9 +14,11 @@ import { VisaoGrupo } from "@/components/visao-grupo";
 import { captacaoIniciada, dadosCampanhaGrupo, NOME_CAMPANHA_GRUPO, SLUG_CAMPANHA_GRUPO, situacaoPorLeads } from "@/lib/visao-grupo";
 import { grupoConfigurado, ultimoLeadGrupo } from "@/lib/grupo";
 import { BotaoCaptacao } from "@/components/botao-captacao";
+import { tradutor } from "@/lib/i18n/servidor";
 
 export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
+  const t = await tradutor();
   const { resumos, atual } = await contexto(sp);
   const grupoMon = await grupoGratuito();
 
@@ -42,8 +44,8 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
     return (
       <>
         <AutoAtualizar segundos={60} />
-        <CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={atual} extras={extras} selecionado={SLUG_CAMPANHA_GRUPO}
-          subtitulo="Campanha OP Futuros · página do grupo gratuito">{botao}</CabecalhoPagina>
+        <CabecalhoPagina titulo={t("Visão geral")} resumos={resumos} atual={atual} extras={extras} selecionado={SLUG_CAMPANHA_GRUPO}
+          subtitulo={t("Campanha OP Futuros · página do grupo gratuito")}>{botao}</CabecalhoPagina>
         <VisaoGrupo d={dados} monitor={situacaoGrupo} />
         <Captacao funis={funis} grupo={null} links={links} />
       </>
@@ -51,7 +53,7 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   }
 
   if (!atual) {
-    return (<><CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={null} extras={extras} /><SemLancamento /></>);
+    return (<><CabecalhoPagina titulo={t("Visão geral")} resumos={resumos} atual={null} extras={extras} /><SemLancamento /></>);
   }
   const [serie, horas, situacao, situacaoGrupo, paginas, funis, grupoGratuitoResumo, links] = await Promise.all([
     serieDiaria(atual.lancamento_id),
@@ -64,30 +66,30 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
     resumoLinks(),
   ]);
   const maximo = Math.max(1, ...serie.map((s) => s.inscricoes));
-  const pct = (n: number) => (atual.inscritos ? `${Math.round((100 * n) / atual.inscritos)}% dos inscritos` : undefined);
+  const pct = (n: number) => (atual.inscritos ? t("{p}% dos inscritos", { p: Math.round((100 * n) / atual.inscritos) }) : undefined);
   const lk = (status: string) => montarHref("/inscricoes", { l: atual.slug, status });
 
   return (
     <>
       <AutoAtualizar segundos={60} />
-      <CabecalhoPagina titulo="Visão geral" resumos={resumos} atual={atual} extras={extras}>{atual.ativo ? botao : null}</CabecalhoPagina>
+      <CabecalhoPagina titulo={t("Visão geral")} resumos={resumos} atual={atual} extras={extras}>{atual.ativo ? botao : null}</CabecalhoPagina>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi rotulo="Inscritos (únicos)" valor={numero(atual.inscritos)} detalhe={`${numero(atual.envios_total)} envios do formulário`} />
-        <Kpi rotulo="Inscritos no grupo" valor={numero(atual.no_grupo)} detalhe={atual.pct_inscritos_no_grupo != null ? `${atual.pct_inscritos_no_grupo}% dos inscritos` : undefined} destaque="verde" />
-        <Kpi rotulo={`Fora do grupo (> ${atual.minutos_reenvio} min)`} valor={numero(atual.fora_do_grupo)} detalhe={pct(atual.fora_do_grupo) ?? "candidatos a reenvio"} destaque="ambar" />
-        <Kpi rotulo="Mediana até entrar" valor={atual.mediana_minutos_ate_entrar != null ? `${Math.round(atual.mediana_minutos_ate_entrar)} min` : "—"} detalhe="da inscrição à entrada" />
+        <Kpi rotulo={t("Inscritos (únicos)")} valor={numero(atual.inscritos)} detalhe={t("{n} envios do formulário", { n: numero(atual.envios_total) })} />
+        <Kpi rotulo={t("Inscritos no grupo")} valor={numero(atual.no_grupo)} detalhe={atual.pct_inscritos_no_grupo != null ? t("{p}% dos inscritos", { p: atual.pct_inscritos_no_grupo }) : undefined} destaque="verde" />
+        <Kpi rotulo={t("Fora do grupo (> {n} min)", { n: atual.minutos_reenvio })} valor={numero(atual.fora_do_grupo)} detalhe={pct(atual.fora_do_grupo) ?? t("candidatos a reenvio")} destaque="ambar" />
+        <Kpi rotulo={t("Mediana até entrar")} valor={atual.mediana_minutos_ate_entrar != null ? `${Math.round(atual.mediana_minutos_ate_entrar)} min` : "—"} detalhe={t("da inscrição à entrada")} />
       </section>
 
       <section className="grid gap-3 md:grid-cols-2">
-        <StatusMonitor nome={`Monitor do lançamento`} s={situacao} />
-        <StatusMonitor nome="Monitor do grupo gratuito" s={situacaoGrupo} />
+        <StatusMonitor nome={t("Monitor do lançamento")} s={situacao} />
+        <StatusMonitor nome={t("Monitor do grupo gratuito")} s={situacaoGrupo} />
       </section>
 
-      <Cartao titulo="Inscrições x entradas por hora (últimas 24h, horário UY)">
+      <Cartao titulo={t("Inscrições x entradas por hora (últimas 24h, horário UY)")}>
         <div className="mb-2 flex gap-4 text-xs text-zinc-500">
-          <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-zinc-400" />Inscrições</span>
-          <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-emerald-500" />Entradas no grupo</span>
+          <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-zinc-400" />{t("Inscrições")}</span>
+          <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-emerald-500" />{t("Entradas no grupo")}</span>
         </div>
         <GraficoHoras serie={horas} />
       </Cartao>
@@ -95,24 +97,24 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
       <Captacao funis={funis} grupo={grupoGratuitoResumo} links={links} />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi rotulo={`Aguardando (< ${atual.minutos_reenvio} min)`} valor={numero(atual.aguardando)} />
-        <Kpi rotulo="Saíram do grupo" valor={numero(atual.saiu)} detalhe={pct(atual.saiu)} destaque="vermelho" />
-        <Kpi rotulo="Membros no grupo (total)" valor={numero(atual.membros_no_grupo)} detalhe="segundo o Sendflow" />
-        <Kpi rotulo="No grupo sem inscrição" valor={numero(atual.membros_sem_inscricao)} detalhe="entraram sem passar pela captura" />
+        <Kpi rotulo={t("Aguardando (< {n} min)", { n: atual.minutos_reenvio })} valor={numero(atual.aguardando)} />
+        <Kpi rotulo={t("Saíram do grupo")} valor={numero(atual.saiu)} detalhe={pct(atual.saiu)} destaque="vermelho" />
+        <Kpi rotulo={t("Membros no grupo (total)")} valor={numero(atual.membros_no_grupo)} detalhe={t("segundo o Sendflow")} />
+        <Kpi rotulo={t("No grupo sem inscrição")} valor={numero(atual.membros_sem_inscricao)} detalhe={t("entraram sem passar pela captura")} />
       </section>
 
       <CartaoPaginas linhas={paginas} slug={atual.slug} />
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Cartao titulo="Por dia — últimos 21 dias com movimento (horário UY)" className="lg:col-span-2">
+        <Cartao titulo={t("Por dia — últimos 21 dias com movimento (horário UY)")} className="lg:col-span-2">
           {serie.length === 0 ? (
-            <p className="py-6 text-center text-sm text-zinc-500">Sem movimento ainda.</p>
+            <p className="py-6 text-center text-sm text-zinc-500">{t("Sem movimento ainda.")}</p>
           ) : (
             <div className="space-y-2">
               <div className="flex gap-4 text-xs text-zinc-500">
-                <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-zinc-400" />Inscrições</span>
-                <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-emerald-500" />Desses, no grupo</span>
-                <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-rose-400" />Saídas do grupo</span>
+                <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-zinc-400" />{t("Inscrições")}</span>
+                <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-emerald-500" />{t("Desses, no grupo")}</span>
+                <span className="flex items-center gap-1.5"><i className="inline-block h-2 w-3 rounded-sm bg-rose-400" />{t("Saídas do grupo")}</span>
               </div>
               {serie.map((s) => (
                 <div key={s.dia} className="grid grid-cols-[3rem_1fr_7rem] items-center gap-3 text-xs">
@@ -129,17 +131,17 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
           )}
         </Cartao>
 
-        <Cartao titulo="Atalhos">
+        <Cartao titulo={t("Atalhos")}>
           <ul className="space-y-2 text-sm">
-            <li><Link className="text-emerald-700 hover:underline dark:text-emerald-400" href={lk("fora_do_grupo")}>Ver quem está fora do grupo →</Link></li>
-            <li><a className="text-emerald-700 hover:underline dark:text-emerald-400" href={`/api/exportar?l=${atual.slug}&status=fora_do_grupo`}>Baixar CSV de quem está fora do grupo</a></li>
-            <li><Link className="text-emerald-700 hover:underline dark:text-emerald-400" href={lk("saiu")}>Ver quem saiu →</Link></li>
-            <li><Link className="text-emerald-700 hover:underline dark:text-emerald-400" href={montarHref("/inscricoes", { l: atual.slug, filtro: "sem_inscricao" }) + "#membros"}>Membros sem inscrição →</Link></li>
+            <li><Link className="text-emerald-700 hover:underline dark:text-emerald-400" href={lk("fora_do_grupo")}>{t("Ver quem está fora do grupo")} →</Link></li>
+            <li><a className="text-emerald-700 hover:underline dark:text-emerald-400" href={`/api/exportar?l=${atual.slug}&status=fora_do_grupo`}>{t("Baixar CSV de quem está fora do grupo")}</a></li>
+            <li><Link className="text-emerald-700 hover:underline dark:text-emerald-400" href={lk("saiu")}>{t("Ver quem saiu")} →</Link></li>
+            <li><Link className="text-emerald-700 hover:underline dark:text-emerald-400" href={montarHref("/inscricoes", { l: atual.slug, filtro: "sem_inscricao" }) + "#membros"}>{t("Membros sem inscrição")} →</Link></li>
           </ul>
           <div className="mt-4 border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
-            <p>Link do grupo: {atual.link_grupo ? <a className="break-all text-zinc-700 underline dark:text-zinc-300" href={atual.link_grupo} target="_blank" rel="noreferrer">{atual.link_grupo}</a> : "não cadastrado"}</p>
-            <p className="mt-1">Referência Sendflow: {atual.sendflow_ref ?? "—"}</p>
-            {atual.telefone_invalido > 0 && <p className="mt-1 text-amber-700 dark:text-amber-400">{atual.telefone_invalido} inscrição(ões) com telefone inválido</p>}
+            <p>{t("Link do grupo:")} {atual.link_grupo ? <a className="break-all text-zinc-700 underline dark:text-zinc-300" href={atual.link_grupo} target="_blank" rel="noreferrer">{atual.link_grupo}</a> : t("não cadastrado")}</p>
+            <p className="mt-1">{t("Referência Sendflow:")} {atual.sendflow_ref ?? "—"}</p>
+            {atual.telefone_invalido > 0 && <p className="mt-1 text-amber-700 dark:text-amber-400">{t("{n} inscrição(ões) com telefone inválido", { n: atual.telefone_invalido })}</p>}
           </div>
         </Cartao>
       </div>

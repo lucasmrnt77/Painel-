@@ -4,6 +4,7 @@ import { dataHora, faixaBonita, generoBonito, investimentoBonito, linkWhatsapp, 
 import { Busca, Cartao, Chips, Kpi, Paginacao, Selo, Tabela, montarHref, td } from "@/components/ui";
 import { CabecalhoPagina, SemLancamento } from "@/components/cabecalho";
 import { FormImportar } from "@/components/formularios";
+import { tradutor } from "@/lib/i18n/servidor";
 
 const STATUS = ["fora_do_grupo", "aguardando", "no_grupo", "saiu", "telefone_invalido"] as const;
 const FILTROS = ["no_grupo", "saiu", "sem_inscricao"] as const;
@@ -17,8 +18,9 @@ const botaoCsv = "rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-med
  */
 export default async function InscritosXGrupo({ searchParams }: PageProps<"/inscricoes">) {
   const sp = await searchParams;
+  const t = await tradutor();
   const { resumos, atual } = await contexto(sp);
-  if (!atual) return (<><CabecalhoPagina titulo="Inscritos x grupo" resumos={resumos} atual={null} /><SemLancamento /></>);
+  if (!atual) return (<><CabecalhoPagina titulo={t("Inscritos x grupo")} resumos={resumos} atual={null} /><SemLancamento /></>);
 
   const statusParam = param(sp, "status");
   const status = STATUS.includes(statusParam as (typeof STATUS)[number]) ? statusParam : undefined;
@@ -40,44 +42,44 @@ export default async function InscritosXGrupo({ searchParams }: PageProps<"/insc
 
   // Nome/e-mail só aparecem se alguma linha tiver (as páginas atuais só pedem WhatsApp)
   const comContato = leads.linhas.some((l) => l.nome || l.email);
-  const pct = (n: number) => (atual.inscritos ? `${Math.round((100 * n) / atual.inscritos)}% dos inscritos` : undefined);
+  const pct = (n: number) => (atual.inscritos ? t("{p}% dos inscritos", { p: Math.round((100 * n) / atual.inscritos) }) : undefined);
 
   return (
     <>
-      <CabecalhoPagina titulo="Inscritos x grupo" resumos={resumos} atual={atual} />
+      <CabecalhoPagina titulo={t("Inscritos x grupo")} resumos={resumos} atual={atual} />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Kpi rotulo="Inscritos (únicos)" valor={numero(atual.inscritos)} detalhe={`${numero(atual.envios_total)} envios do formulário`} />
-        <Kpi rotulo="Inscritos que entraram" valor={numero(atual.no_grupo)} detalhe={atual.pct_inscritos_no_grupo != null ? `${atual.pct_inscritos_no_grupo}% dos inscritos` : undefined} destaque="verde" />
-        <Kpi rotulo="Inscritos fora do grupo" valor={numero(atual.fora_do_grupo)} detalhe={pct(atual.fora_do_grupo)} destaque="ambar" />
-        <Kpi rotulo="Membros no grupo" valor={numero(atual.membros_no_grupo)} detalhe="segundo o Sendflow" />
-        <Kpi rotulo="Membros sem inscrição" valor={numero(atual.membros_sem_inscricao)} detalhe="entraram sem passar pela página" />
+        <Kpi rotulo={t("Inscritos (únicos)")} valor={numero(atual.inscritos)} detalhe={t("{n} envios do formulário", { n: numero(atual.envios_total) })} />
+        <Kpi rotulo={t("Inscritos que entraram")} valor={numero(atual.no_grupo)} detalhe={atual.pct_inscritos_no_grupo != null ? t("{p}% dos inscritos", { p: atual.pct_inscritos_no_grupo }) : undefined} destaque="verde" />
+        <Kpi rotulo={t("Inscritos fora do grupo")} valor={numero(atual.fora_do_grupo)} detalhe={pct(atual.fora_do_grupo)} destaque="ambar" />
+        <Kpi rotulo={t("Membros no grupo")} valor={numero(atual.membros_no_grupo)} detalhe={t("segundo o Sendflow")} />
+        <Kpi rotulo={t("Membros sem inscrição")} valor={numero(atual.membros_sem_inscricao)} detalhe={t("entraram sem passar pela página")} />
       </section>
 
       <Cartao
-        titulo={`Inscrições — quem preencheu a página (${numero(leads.total)})`}
-        acao={<a href={montarHref("/api/exportar", { l: atual.slug, status })} className={botaoCsv}>Baixar CSV</a>}
+        titulo={t("Inscrições — quem preencheu a página ({n})", { n: numero(leads.total) })}
+        acao={<a href={montarHref("/api/exportar", { l: atual.slug, status })} className={botaoCsv}>{t("Baixar CSV")}</a>}
       >
         <div id="inscricoes" className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Chips
             ativo={status ?? "todos"}
             itens={[
-              { valor: "todos", rotulo: "Todos", qtd: atual.inscritos, href: href({ status: undefined, p: undefined }, "#inscricoes") },
-              { valor: "fora_do_grupo", rotulo: "Fora do grupo", qtd: atual.fora_do_grupo, href: href({ status: "fora_do_grupo", p: undefined }, "#inscricoes") },
-              { valor: "aguardando", rotulo: "Aguardando", qtd: atual.aguardando, href: href({ status: "aguardando", p: undefined }, "#inscricoes") },
-              { valor: "no_grupo", rotulo: "No grupo", qtd: atual.no_grupo, href: href({ status: "no_grupo", p: undefined }, "#inscricoes") },
-              { valor: "saiu", rotulo: "Saíram", qtd: atual.saiu, href: href({ status: "saiu", p: undefined }, "#inscricoes") },
-              ...(atual.telefone_invalido ? [{ valor: "telefone_invalido", rotulo: "Tel. inválido", qtd: atual.telefone_invalido, href: href({ status: "telefone_invalido", p: undefined }, "#inscricoes") }] : []),
+              { valor: "todos", rotulo: t("Todos"), qtd: atual.inscritos, href: href({ status: undefined, p: undefined }, "#inscricoes") },
+              { valor: "fora_do_grupo", rotulo: t("Fora do grupo"), qtd: atual.fora_do_grupo, href: href({ status: "fora_do_grupo", p: undefined }, "#inscricoes") },
+              { valor: "aguardando", rotulo: t("Aguardando"), qtd: atual.aguardando, href: href({ status: "aguardando", p: undefined }, "#inscricoes") },
+              { valor: "no_grupo", rotulo: t("No grupo"), qtd: atual.no_grupo, href: href({ status: "no_grupo", p: undefined }, "#inscricoes") },
+              { valor: "saiu", rotulo: t("Saíram"), qtd: atual.saiu, href: href({ status: "saiu", p: undefined }, "#inscricoes") },
+              ...(atual.telefone_invalido ? [{ valor: "telefone_invalido", rotulo: t("Tel. inválido"), qtd: atual.telefone_invalido, href: href({ status: "telefone_invalido", p: undefined }, "#inscricoes") }] : []),
             ]}
           />
-          <Busca acao="/inscricoes" valor={q} ocultos={{ l: atual.slug, status, filtro, mq, mp }} placeholder="Nome, e-mail ou telefone" />
+          <Busca acao="/inscricoes" valor={q} ocultos={{ l: atual.slug, status, filtro, mq, mp }} placeholder={t("Nome, e-mail ou telefone")} />
         </div>
         <Tabela
           cabecalho={[
-            "Inscrito em",
-            ...(comContato ? ["Nome", "E-mail"] : []),
-            "WhatsApp", "Página", "Idade", "Gênero", "Investimento",
-            "Status", "Entrou em", "Min. até entrar", "Envios", "Origem",
+            t("Inscrito em"),
+            ...(comContato ? [t("Nome"), t("E-mail")] : []),
+            "WhatsApp", t("Página"), t("Idade"), t("Gênero"), t("Investimento"),
+            t("Status"), t("Entrou em"), t("Min. até entrar"), t("Envios"), t("Origem"),
           ]}
           vazio={leads.linhas.length === 0}
         >
@@ -91,12 +93,12 @@ export default async function InscritosXGrupo({ searchParams }: PageProps<"/insc
                   ? <a className="hover:underline" href={linkWhatsapp(l.telefone)!} target="_blank" rel="noreferrer">{telefoneBonito(l.telefone, false)}</a>
                   : telefoneBonito(l.telefone, false)}
               </td>
-              <td className={`${td} whitespace-nowrap`} title={l.experiencia ? `Experiência: ${l.experiencia}` : undefined}>{paginaBonita(l.pagina_captura)}</td>
-              <td className={`${td} whitespace-nowrap text-zinc-600 dark:text-zinc-400`}>{faixaBonita(l.faixa_etaria)}</td>
-              <td className={`${td} whitespace-nowrap text-zinc-600 dark:text-zinc-400`}>{generoBonito(l.genero)}</td>
-              <td className={`${td} whitespace-nowrap text-zinc-600 dark:text-zinc-400`} title={l.resposta_dinheiro ?? undefined}>{investimentoBonito(l.resposta_dinheiro)}</td>
+              <td className={`${td} whitespace-nowrap`} title={l.experiencia ? t("Experiência: {x}", { x: l.experiencia }) : undefined}>{t(paginaBonita(l.pagina_captura))}</td>
+              <td className={`${td} whitespace-nowrap text-zinc-600 dark:text-zinc-400`}>{t(faixaBonita(l.faixa_etaria))}</td>
+              <td className={`${td} whitespace-nowrap text-zinc-600 dark:text-zinc-400`}>{t(generoBonito(l.genero))}</td>
+              <td className={`${td} whitespace-nowrap text-zinc-600 dark:text-zinc-400`} title={l.resposta_dinheiro ?? undefined}>{t(investimentoBonito(l.resposta_dinheiro))}</td>
               <td className={td}><Selo status={l.status} /></td>
-              <td className={`${td} tabular whitespace-nowrap text-zinc-500`}>{l.saiu_em && l.status === "saiu" ? `saiu ${dataHora(l.saiu_em)}` : dataHora(l.entrou_em)}</td>
+              <td className={`${td} tabular whitespace-nowrap text-zinc-500`}>{l.saiu_em && l.status === "saiu" ? t("saiu {d}", { d: dataHora(l.saiu_em) }) : dataHora(l.entrou_em)}</td>
               <td className={`${td} tabular text-zinc-500`}>{l.minutos_ate_entrar ?? "—"}</td>
               <td className={`${td} tabular text-zinc-500`}>{l.n_envios}</td>
               <td className={`${td} text-xs text-zinc-500`}>{[l.utm_source, l.utm_campaign].filter(Boolean).join(" / ") || "—"}</td>
@@ -108,32 +110,32 @@ export default async function InscritosXGrupo({ searchParams }: PageProps<"/insc
         </div>
       </Cartao>
 
-      <Cartao titulo={`Membros do grupo — quem de fato entrou (${numero(membros.total)})`}>
+      <Cartao titulo={t("Membros do grupo — quem de fato entrou ({n})", { n: numero(membros.total) })}>
         <div id="membros" className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <Chips
             ativo={filtro ?? "todos"}
             itens={[
-              { valor: "todos", rotulo: "Todos", href: href({ filtro: undefined, mp: undefined }, "#membros") },
-              { valor: "no_grupo", rotulo: "No grupo", qtd: atual.membros_no_grupo, href: href({ filtro: "no_grupo", mp: undefined }, "#membros") },
-              { valor: "saiu", rotulo: "Saíram", href: href({ filtro: "saiu", mp: undefined }, "#membros") },
-              { valor: "sem_inscricao", rotulo: "Sem inscrição", qtd: atual.membros_sem_inscricao, href: href({ filtro: "sem_inscricao", mp: undefined }, "#membros") },
+              { valor: "todos", rotulo: t("Todos"), href: href({ filtro: undefined, mp: undefined }, "#membros") },
+              { valor: "no_grupo", rotulo: t("No grupo"), qtd: atual.membros_no_grupo, href: href({ filtro: "no_grupo", mp: undefined }, "#membros") },
+              { valor: "saiu", rotulo: t("Saíram"), href: href({ filtro: "saiu", mp: undefined }, "#membros") },
+              { valor: "sem_inscricao", rotulo: t("Sem inscrição"), qtd: atual.membros_sem_inscricao, href: href({ filtro: "sem_inscricao", mp: undefined }, "#membros") },
             ]}
           />
-          <Busca acao="/inscricoes" nome="mq" valor={mq} ocultos={{ l: atual.slug, status, q, p, filtro }} placeholder="Telefone" />
+          <Busca acao="/inscricoes" nome="mq" valor={mq} ocultos={{ l: atual.slug, status, q, p, filtro }} placeholder={t("Telefone")} />
         </div>
-        <Tabela cabecalho={["WhatsApp", "No grupo", "Grupo", "Entrou em", "Saiu em", "Inscrito", "Nome (da inscrição)"]} vazio={membros.linhas.length === 0}>
+        <Tabela cabecalho={["WhatsApp", t("No grupo"), t("Grupo"), t("Entrou em"), t("Saiu em"), t("Inscrito"), t("Nome (da inscrição)")]} vazio={membros.linhas.length === 0}>
           {membros.linhas.map((m) => (
             <tr key={m.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
               <td className={`${td} tabular whitespace-nowrap`}>{telefoneBonito(m.telefone)}</td>
               <td className={td}>
                 {m.no_grupo
-                  ? <span className="text-emerald-700 dark:text-emerald-400">Sim</span>
-                  : <span className="text-rose-700 dark:text-rose-400">Não</span>}
+                  ? <span className="text-emerald-700 dark:text-emerald-400">{t("Sim")}</span>
+                  : <span className="text-rose-700 dark:text-rose-400">{t("Não")}</span>}
               </td>
               <td className={`${td} text-zinc-600 dark:text-zinc-400`}>{m.grupo_nome ?? (m.grupo_id || "—")}</td>
               <td className={`${td} tabular whitespace-nowrap text-zinc-500`}>{dataHora(m.primeira_entrada_em)}</td>
               <td className={`${td} tabular whitespace-nowrap text-zinc-500`}>{dataHora(m.saiu_em)}</td>
-              <td className={td}>{m.inscrito ? "Sim" : <span className="text-amber-700 dark:text-amber-400">Não</span>}</td>
+              <td className={td}>{m.inscrito ? t("Sim") : <span className="text-amber-700 dark:text-amber-400">{t("Não")}</span>}</td>
               <td className={td}>{m.nome ?? "—"}</td>
             </tr>
           ))}
@@ -143,7 +145,7 @@ export default async function InscritosXGrupo({ searchParams }: PageProps<"/insc
         </div>
       </Cartao>
 
-      <Cartao titulo="Importar números que já estão no grupo">
+      <Cartao titulo={t("Importar números que já estão no grupo")}>
         <FormImportar lancamentoId={atual.lancamento_id} />
       </Cartao>
     </>

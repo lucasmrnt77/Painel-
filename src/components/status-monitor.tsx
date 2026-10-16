@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { SituacaoMonitor } from "@/lib/dados";
 import { duracao } from "@/lib/mensagens";
+import { tradutor } from "@/lib/i18n/servidor";
 
 /** Linha compacta do monitor na Visão geral; o detalhe e a configuração ficam em Alertas. */
-export function StatusMonitor({ nome, s, porLeads = false }: { nome: string; s: SituacaoMonitor | null; porLeads?: boolean }) {
-  const termo = porLeads ? "lead" : "entrada";
+export async function StatusMonitor({ nome, s, porLeads = false }: { nome: string; s: SituacaoMonitor | null; porLeads?: boolean }) {
+  const t = await tradutor();
   const min = s?.minutos_desde_ultima_entrada ?? null;
   const alerta = !!s?.monitor_ativo && min != null && min >= s.alerta_minutos_sem_entrada;
   const cor = !s?.monitor_ativo ? "bg-zinc-600" : alerta ? "bg-rose-500" : "animate-pulse bg-emerald-500";
@@ -15,12 +16,12 @@ export function StatusMonitor({ nome, s, porLeads = false }: { nome: string; s: 
         <div>
           <div className="text-sm font-medium">{nome}</div>
           <div className="text-xs text-zinc-500">
-            {!s ? "ainda não configurado" : !s.monitor_ativo ? "desligado" : alerta ? `sem ${termo}s há ${duracao(min!)}` : `ligado · alerta após ${duracao(s.alerta_minutos_sem_entrada)}`}
-            {s?.ultima_entrada_em ? ` · últim${porLeads ? "o" : "a"} ${termo} ${min != null ? `há ${duracao(min)}` : ""}` : ""}
+            {!s ? t("ainda não configurado") : !s.monitor_ativo ? t("desligado") : alerta ? t(porLeads ? "sem leads há {d}" : "sem entradas há {d}", { d: t(duracao(min!)) }) : t("ligado · alerta após {d}", { d: t(duracao(s.alerta_minutos_sem_entrada)) })}
+            {s?.ultima_entrada_em ? ` · ${t(porLeads ? "último lead" : "última entrada")} ${min != null ? t("há {d}", { d: t(duracao(min)) }) : ""}` : ""}
           </div>
         </div>
       </div>
-      <span className="text-xs text-emerald-400">Alertas →</span>
+      <span className="text-xs text-emerald-400">{t("Alertas")} →</span>
     </Link>
   );
 }

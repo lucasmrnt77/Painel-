@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Resumo } from "@/lib/dados";
 import { SeletorLancamento } from "./navegacao";
+import { Tx } from "@/lib/i18n/cliente";
 
 type Opcao = { slug: string; nome: string; ativo: boolean };
 
@@ -17,7 +18,7 @@ export function CabecalhoPagina({ titulo, resumos, atual, children, extras = [],
         {!subtitulo && atual && (
           <p className="text-sm text-zinc-500">
             {atual.nome}
-            {atual.ativo && <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">ativo</span>}
+            {atual.ativo && <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"><Tx>ativo</Tx></span>}
           </p>
         )}
       </div>
@@ -32,10 +33,10 @@ export function CabecalhoPagina({ titulo, resumos, atual, children, extras = [],
 export function SemLancamento() {
   return (
     <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
-      <p className="font-medium">Nenhum lançamento cadastrado ainda</p>
-      <p className="mt-1 text-sm text-zinc-500">Crie o primeiro e marque como ativo para começar a receber inscrições.</p>
+      <p className="font-medium"><Tx>Nenhum lançamento cadastrado ainda</Tx></p>
+      <p className="mt-1 text-sm text-zinc-500"><Tx>Crie o primeiro e marque como ativo para começar a receber inscrições.</Tx></p>
       <Link href="/lancamentos" className="mt-4 inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">
-        Criar lançamento
+        <Tx>Criar lançamento</Tx>
       </Link>
     </div>
   );

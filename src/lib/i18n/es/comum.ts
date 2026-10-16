@@ -1,0 +1,61 @@
+import type { Dic, Padroes } from "./tipos";
+
+/** Menu, layout, componentes base (ui, cabeçalho), login e rótulos de lib/formato.ts. */
+export const ES_COMUM: Dic = {
+  // menu
+  "Visão geral": "Visión general",
+  "Alertas": "Alertas",
+  "Saúde na Meta": "Salud en Meta",
+  "Lançamento": "Lanzamiento",
+  "Inscritos x grupo": "Inscritos x grupo",
+  "Análise": "Análisis",
+  "Páginas": "Páginas",
+  "Captação": "Captación",
+  "Grupo gratuito": "Grupo gratuito",
+  "Redirecionador": "Redireccionador",
+  "Links": "Links",
+  "Dados": "Datos",
+  "Base de leads": "Base de leads",
+  "TPP → Expert Trader": "TPP → Expert Trader",
+  "Sendflow e importação": "Sendflow e importación",
+  "Lançamentos": "Lanzamientos",
+  "Outros painéis": "Otros paneles",
+  "Tráfego": "Tráfico",
+  "Pagamentos": "Pagos",
+  "Menu do painel": "Menú del panel",
+  "Abrir menu": "Abrir menú",
+  "Fechar menu": "Cerrar menú",
+  "{n} problema(s)": "{n} problema(s)",
+  "Idioma": "Idioma",
+  "Sair": "Salir",
+  "ativo": "activo",
+  // login
+  "Inscrições x membros do grupo": "Inscripciones x miembros del grupo",
+  // ui / cabeçalho
+  "Buscar": "Buscar",
+  "{n} registro(s)": "{n} registro(s)",
+  "{n} registros · página {p} de {de}": "{n} registros · página {p} de {de}",
+  "Anterior": "Anterior",
+  "Próxima": "Siguiente",
+  "Nada por aqui ainda.": "Nada por aquí todavía.",
+  "Nenhum lançamento cadastrado ainda": "Todavía no hay lanzamientos registrados",
+  "Crie o primeiro e marque como ativo para começar a receber inscrições.": "Creá el primero y marcalo como activo para empezar a recibir inscripciones.",
+  "Criar lançamento": "Crear lanzamiento",
+  // lib/formato.ts
+  "No grupo": "En el grupo",
+  "Aguardando": "Esperando",
+  "Fora do grupo": "Fuera del grupo",
+  "Saiu": "Salió",
+  "Telefone inválido": "Teléfono inválido",
+  "Trader": "Trader",
+  "Nunca operou": "Nunca operó",
+  "até 24": "hasta 24",
+  "Homem": "Hombre",
+  "Mulher": "Mujer",
+  "Outro": "Otro",
+  "Pode investir": "Puede invertir",
+  "Pode se organizar": "Puede organizarse",
+  "Não pode": "No puede",
+};
+
+export const PADROES_COMUM: Padroes = [];

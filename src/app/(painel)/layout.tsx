@@ -4,14 +4,16 @@ import { sair } from "@/lib/acoes";
 import { MenuLateral } from "@/components/navegacao";
 import { AvisoTestes } from "@/components/aviso-testes";
 import { problemasTestes } from "@/lib/testes-eventos";
+import { tradutor } from "@/lib/i18n/servidor";
 
 export default async function LayoutPainel({ children }: LayoutProps<"/">) {
   await exigirLogin();
   const problemas = await problemasTestes();
+  const t = await tradutor();
   const botaoSair = (
     <form action={sair}>
       <button className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-sm text-zinc-500 hover:text-zinc-100">
-        <span aria-hidden>⎋</span> Sair
+        <span aria-hidden>⎋</span> {t("Sair")}
       </button>
     </form>
   );

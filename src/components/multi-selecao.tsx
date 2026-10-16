@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n/cliente";
 
 const campo = "rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950";
 
@@ -8,6 +9,7 @@ const campo = "rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm da
 export function MultiSelecao({ nome, rotulo, vazio, opcoes }: {
   nome: string; rotulo: string; vazio: string; opcoes: { valor: string; rotulo: string }[];
 }) {
+  const t = useT();
   const [marcados, setMarcados] = useState<string[]>([]);
   const ref = useRef<HTMLDetailsElement>(null);
 
@@ -23,7 +25,7 @@ export function MultiSelecao({ nome, rotulo, vazio, opcoes }: {
     ? vazio
     : marcados.length <= 2
       ? opcoes.filter((o) => marcados.includes(o.valor)).map((o) => o.rotulo).join(", ")
-      : `${marcados.length} selecionados`;
+      : t("{n} selecionados", { n: marcados.length });
 
   return (
     <div className="space-y-1">
@@ -43,7 +45,7 @@ export function MultiSelecao({ nome, rotulo, vazio, opcoes }: {
           ))}
           {marcados.length > 0 && (
             <button type="button" onClick={() => setMarcados([])} className="mt-1 w-full rounded px-2 py-1 text-left text-xs text-zinc-500 hover:underline">
-              limpar
+              {t("limpar")}
             </button>
           )}
         </div>

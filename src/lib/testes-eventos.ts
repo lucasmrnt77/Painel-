@@ -224,7 +224,11 @@ export async function historicoTestes(limite = 14): Promise<Execucao[]> {
   return (data ?? []) as Execucao[];
 }
 
-export type ProblemaTeste = { origem: Execucao["origem"] | "meta"; texto: string; quando?: string };
+export type ProblemaTeste = {
+  origem: Execucao["origem"] | "meta"; texto: string; quando?: string;
+  /** Para exibir traduzido: texto-modelo em português + valores (os listados em `traduzir` também passam pelo tradutor). */
+  modelo?: { texto: string; vars: Record<string, string | number>; traduzir?: string[] };
+};
 
 /**
  * Problemas para sinalizar em todo o painel: última execução com falha, ou
@@ -242,16 +246,26 @@ export async function problemasTestes(): Promise<ProblemaTeste[]> {
       const nome = origem === "servidor" ? "servidor" : "navegador (pixel)";
       if (!e.ok) {
         const primeira = e.detalhes[0];
-        problemas.push({ origem, quando: e.criado_em, texto: `${e.falhas} de ${e.total} verificações falharam no ${nome}${primeira ? ` — ${primeira.teste}: ${primeira.motivo}` : ""}` });
+        problemas.push({
+          origem, quando: e.criado_em, texto: `${e.falhas} de ${e.total} verificações falharam no ${nome}${primeira ? ` — ${primeira.teste}: ${primeira.motivo}` : ""}`,
+          modelo: primeira
+            ? { texto: "{falhas} de {total} verificações falharam no {nome} — {teste}: {motivo}", vars: { falhas: e.falhas, total: e.total, nome, teste: primeira.teste, motivo: primeira.motivo }, traduzir: ["nome", "teste", "motivo"] }
+            : { texto: "{falhas} de {total} verificações falharam no {nome}", vars: { falhas: e.falhas, total: e.total, nome }, traduzir: ["nome"] },
+        });
       } else if (e.criado_em && Date.now() - new Date(e.criado_em).getTime() > 26 * 3_600_000) {
-        problemas.push({ origem, quando: e.criado_em, texto: `os testes do ${nome} não rodam há mais de 1 dia` });
+        problemas.push({ origem, quando: e.criado_em, texto: `os testes do ${nome} não rodam há mais de 1 dia`, modelo: { texto: "os testes do {nome} não rodam há mais de 1 dia", vars: { nome }, traduzir: ["nome"] } });
       }
     }
     // Saúde na Meta (dados da própria Meta): última consulta com problema
     const { data: m } = await db().from("meta_saude").select("ok, problemas, criado_em").order("criado_em", { ascending: false }).limit(1).maybeSingle();
     if (m && !m.ok) {
       const ps = (m.problemas as string[]) ?? [];
-      problemas.push({ origem: "meta", quando: m.criado_em as string, texto: `Meta: ${ps[0] ?? "problema na consulta"}${ps.length > 1 ? ` (+${ps.length - 1})` : ""}` });
+      problemas.push({
+        origem: "meta", quando: m.criado_em as string, texto: `Meta: ${ps[0] ?? "problema na consulta"}${ps.length > 1 ? ` (+${ps.length - 1})` : ""}`,
+        modelo: ps.length > 1
+          ? { texto: "Meta: {p} (+{n})", vars: { p: ps[0], n: ps.length - 1 }, traduzir: ["p"] }
+          : { texto: "Meta: {p}", vars: { p: ps[0] ?? "problema na consulta" }, traduzir: ["p"] },
+      });
     }
     return problemas;
   } catch {

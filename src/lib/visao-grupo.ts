@@ -4,6 +4,8 @@ import { rpcGrupo } from "./grupo";
 import { argsResumoGrupo, hojeUY, lerFiltrosGrupo, somarDias, diaCurto } from "./grupo-filtros";
 import type { Ponto } from "@/components/grafico-barras";
 import type { SituacaoMonitor } from "./dados";
+import { idiomaAtual } from "./i18n/servidor";
+import { localeDe } from "./i18n";
 
 /**
  * Campanha do grupo gratuito (OP Futuros) na Visão geral.
@@ -60,6 +62,7 @@ export async function captacaoIniciada(lancamentoId: number | null): Promise<boo
 export async function dadosCampanhaGrupo(lancamentoGrupoId: number | null): Promise<DadosCampanhaGrupo> {
   const desde7 = desdeDe("7d");
   const desdeHoje = desdeDe("hoje");
+  const locale = localeDe(await idiomaAtual());
   const [r7, r30, rTudo, cliques7, cliquesHoje, entradas7] = await Promise.all([
     rpcGrupo<ResumoG>("painel_resumo", argsResumoGrupo(lerFiltrosGrupo({ periodo: "7d" }))),
     rpcGrupo<ResumoG>("painel_resumo", argsResumoGrupo(lerFiltrosGrupo({ periodo: "30d" }))),
@@ -75,7 +78,7 @@ export async function dadosCampanhaGrupo(lancamentoGrupoId: number | null): Prom
   const m = new Map(r30.por_dia.map((d) => [d.dia, d.n]));
   const fim = hojeUY();
   const serie: Ponto[] = [];
-  for (let d = somarDias(fim, -29); d <= fim; d = somarDias(d, 1)) serie.push({ chave: d, rotulo: diaCurto(d), rotuloLongo: diaCurto(d, true), n: m.get(d) ?? 0 });
+  for (let d = somarDias(fim, -29); d <= fim; d = somarDias(d, 1)) serie.push({ chave: d, rotulo: diaCurto(d), rotuloLongo: diaCurto(d, true, locale), n: m.get(d) ?? 0 });
 
   return {
     hoje: r7.hoje,
