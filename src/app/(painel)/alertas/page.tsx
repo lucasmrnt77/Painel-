@@ -139,7 +139,9 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
   return (
     <>
       <AutoAtualizar segundos={60} />
-      <CabecalhoPagina titulo={t("Alertas")} resumos={resumos} atual={atual} />
+      <CabecalhoPagina titulo={t("Alertas")} resumos={resumos} atual={atual}>
+        <Link href="/alertas/catalogo" className="whitespace-nowrap rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">{t("Catálogo de alertas")} →</Link>
+      </CabecalhoPagina>
       <p className="-mt-2 text-sm text-zinc-500">
         {t("O grupo de alertas no WhatsApp só recebe problemas que precisam de ajuste: ninguém entrou no grupo do lançamento dentro do prazo, nenhum lead novo na página do grupo gratuito (OP Futuros) dentro do prazo (padrão 24 h), redirecionador sem grupo disponível ou falha ao pedir link novo, e testes dos eventos com erro.")}{" "}
         {t("Resumos, entradas retomadas e avisos de que voltou a funcionar ficam só aqui no painel. O monitor confere a cada 2 minutos.")}

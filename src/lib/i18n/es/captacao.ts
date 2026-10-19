@@ -2,6 +2,7 @@ import type { Dic, Padroes } from "./tipos";
 
 /** Captação, alertas, Saúde na Meta, grupo gratuito, redirecionador e links. */
 export const ES_CAPTACAO: Dic = {
+  "Catálogo de alertas": "Catálogo de alertas",
   // ---------------------------------------------------------------- Redirecionador: funis e grupos (out/2026)
   "Funis": "Embudos",
   "Grupos e importação": "Grupos e importación",
