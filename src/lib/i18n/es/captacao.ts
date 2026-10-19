@@ -4,7 +4,7 @@ import type { Dic, Padroes } from "./tipos";
 export const ES_CAPTACAO: Dic = {
   "Catálogo de alertas": "Catálogo de alertas",
   // ---------------------------------------------------------------- Base de leads: lançamento ativo (out/2026)
-  "Lançamento ativo: {nome}. Só ele recebe sozinho as inscrições novas do painel. Ao ativar outro, este deixa de receber.": "Lanzamiento activo: {nome}. Solo él recibe solo las inscripciones nuevas del panel. Al activar otro, este deja de recibir.",
+  "Lançamento ativo: {nome}. Só ele recebe sozinho as inscrições novas do painel. Ao ativar outro, este deixa de receber.": "Lanzamiento activo: {nome}. Es el único que recibe automáticamente las inscripciones nuevas del panel. Al activar otro, este deja de recibir.",
   "Nenhum lançamento ativo: as inscrições novas do painel não estão entrando na base. Ative o lançamento em andamento.": "Ningún lanzamiento activo: las inscripciones nuevas del panel no están entrando en la base. Activá el lanzamiento en curso.",
   "Situação": "Estado",
   "Ativo": "Activo",

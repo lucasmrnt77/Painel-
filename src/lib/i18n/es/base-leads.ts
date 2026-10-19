@@ -96,6 +96,10 @@ export const ES_BASE_LEADS: Dic = {
   "Só compradores (sem lista de inscritos).": "Solo compradores (sin lista de inscritos).",
   "Página ET (PaginaCapturaCelulares) + página TPP (DatosPagDeCaptura).": "Página ET (PaginaCapturaCelulares) + página TPP (DatosPagDeCaptura).",
   "Inscrições vêm do painel.": "Las inscripciones vienen del panel.",
+  "Lista do grupo (Leads Julio) + Leads.csv do Drive. Sem compradores.": "Lista del grupo (Leads Julio) + Leads.csv del Drive. Sin compradores.",
+  "Inscritos do Drive (LeadsOctubre.csv) + compradores.": "Inscritos del Drive (LeadsOctubre.csv) + compradores.",
+  "Página ET (PaginaCapturaCelulares) + página TPP (DatosPagDeCaptura) + LeadsDiciembre.csv do Drive.": "Página ET (PaginaCapturaCelulares) + página TPP (DatosPagDeCaptura) + LeadsDiciembre.csv del Drive.",
+  "Inscrições vieram do painel.": "Las inscripciones vinieron del panel.",
   "Lançamento atual: inscrições entram sozinhas. Ligar \"tem compras\" quando as vendas forem importadas.":
     "Lanzamiento actual: las inscripciones entran solas. Activar \"tem compras\" cuando se importen las ventas.",
   // motivos de telefone (tel_motivo / motivo, gerados pelo SQL)
