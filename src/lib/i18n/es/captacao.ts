@@ -3,6 +3,17 @@ import type { Dic, Padroes } from "./tipos";
 /** Captação, alertas, Saúde na Meta, grupo gratuito, redirecionador e links. */
 export const ES_CAPTACAO: Dic = {
   "Catálogo de alertas": "Catálogo de alertas",
+  // ---------------------------------------------------------------- Base de leads: lançamento ativo (out/2026)
+  "Lançamento ativo: {nome}. Só ele recebe sozinho as inscrições novas do painel. Ao ativar outro, este deixa de receber.": "Lanzamiento activo: {nome}. Solo él recibe solo las inscripciones nuevas del panel. Al activar otro, este deja de recibir.",
+  "Nenhum lançamento ativo: as inscrições novas do painel não estão entrando na base. Ative o lançamento em andamento.": "Ningún lanzamiento activo: las inscripciones nuevas del panel no están entrando en la base. Activá el lanzamiento en curso.",
+  "Situação": "Estado",
+  "Ativo": "Activo",
+  "recebe as inscrições do painel": "recibe las inscripciones del panel",
+  "Encerrar lançamento": "Dar por terminado",
+  "Encerrado em {d}": "Terminado el {d}",
+  "Inativo": "Inactivo",
+  "Importado": "Importado",
+  "lançamento do painel": "lanzamiento del panel",
   // ---------------------------------------------------------------- Redirecionador: funis e grupos (out/2026)
   "Funis": "Embudos",
   "Grupos e importação": "Grupos e importación",

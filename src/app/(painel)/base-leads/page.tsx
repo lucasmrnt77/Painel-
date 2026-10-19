@@ -2,11 +2,11 @@ import { exigirLogin } from "@/lib/sessao";
 import { MultiSelecao } from "@/components/multi-selecao";
 import { db } from "@/lib/supabase";
 import {
-  combinacoes, contagensPorEdicao, conversaoPorEdicao, repeticaoPorEdicao, conversaoPorParticipacao, conversaoPorTotal, edicoes,
+  contagensPorEdicao, conversaoPorEdicao, repeticaoPorEdicao, conversaoPorParticipacao, conversaoPorTotal, edicoes,
   FILTROS_COMPRA, telefonesParaRevisar,
 } from "@/lib/base-leads";
 import {
-  alternarEdicao, aprovarTelefone, aprovarTodasSugestoes, atualizarBase, criarEdicao, descartarTelefone,
+  alternarEdicao, aprovarTelefone, aprovarTodasSugestoes, ativarEdicao, atualizarBase, criarEdicao, descartarTelefone, encerrarEdicao,
 } from "@/lib/acoes-base-leads";
 import { dataHora, numero } from "@/lib/formato";
 import { Cartao, Kpi, Tabela, td } from "@/components/ui";
@@ -40,12 +40,13 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
   const sp = await searchParams;
   const revisarTodos = sp.revisar === "todos";
 
-  const [eds, porPart, porEdicao, porTotal, contagens, revisar, ultima, totais, combos, repeticao] = await Promise.all([
+  const [eds, porPart, porEdicao, porTotal, contagens, revisar, ultima, totais, repeticao, lancsPainel] = await Promise.all([
     edicoes(), conversaoPorParticipacao(), conversaoPorEdicao(), conversaoPorTotal(), contagensPorEdicao(),
     telefonesParaRevisar(100, revisarTodos ? "todos" : "compradores"),
     db().from("bd_atualizacoes").select("atualizado_em").order("id", { ascending: false }).limit(1).maybeSingle(),
     db().from("v_bd_revisar").select("telefone_original", { count: "exact", head: true }),
-    combinacoes(), repeticaoPorEdicao(),
+    repeticaoPorEdicao(),
+    db().from("lancamentos").select("id, nome").eq("tipo", "lancamento").order("id", { ascending: false }),
   ]);
   const cont = new Map(contagens.map((c) => [c.edicao_id, c]));
   const pessoas = porTotal.reduce((s, l) => s + l.pessoas, 0);
@@ -54,7 +55,9 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
   const totalRevisar = totais.count ?? 0;
   const emMaisDeUm = porTotal.filter((l) => l.lancamentos !== "1").reduce((s, l) => s + l.pessoas, 0);
   const nomeEdicao = new Map(eds.map((e) => [e.codigo, e.nome]));
-  const nomesCombo = (c: string) => c.split(", ").map((x) => nomeEdicao.get(x) ?? x).map((x) => t(x)).join(" + ");
+  const ligados = new Set(eds.map((e) => e.lancamento_id).filter(Boolean));
+  const livres = ((lancsPainel.data ?? []) as { id: number; nome: string }[]).filter((l) => !ligados.has(l.id));
+  const ativa = eds.find((e) => e.ativa);
   const edicoesTaxa = eds.filter((e) => e.tem_leads && e.tem_compras).map((e) => t(e.nome)).join(", ");
 
   return (
@@ -146,22 +149,6 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
             </tr>
           ))}
         </Tabela>
-        <h3 className="mt-5 mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">{t("Em quais lançamentos estiveram")}</h3>
-        <Tabela cabecalho={[t("Lançamentos"), t("Qtd."), t("Pessoas"), t("Compraram ET"), t("Compraram TPP"), t("% ET ou TPP"), ""]} vazio={combos.length === 0}>
-          {combos.map((c) => (
-            <tr key={c.lancamentos}>
-              <td className={td}>{nomesCombo(c.lancamentos)}</td>
-              <td className={`${td} tabular`}>{c.n_lancamentos}</td>
-              <td className={`${td} tabular font-medium`}>{numero(c.pessoas)}</td>
-              <td className={`${td} tabular`}>{numero(c.compraram_et)}</td>
-              <td className={`${td} tabular`}>{numero(c.compraram_tpp)}</td>
-              <td className={`${td} tabular`}>{pct(c.taxa_algum)}</td>
-              <td className={td}>
-                <a className="text-xs underline" href={`/api/base-leads/exportar?combo=${encodeURIComponent(c.lancamentos)}`}>{t("baixar CSV")}</a>
-              </td>
-            </tr>
-          ))}
-        </Tabela>
       </Cartao>
 
       <Cartao titulo={t("Exportar leads")}>
@@ -217,7 +204,12 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
       </Cartao>
 
       <Cartao titulo={t("Lançamentos na base")}>
-        <Tabela cabecalho={[t("Lançamento"), t("Início"), t("Inscritos"), t("Telefones ok"), t("Revisar"), t("Compras"), t("Compras sem telefone"), t("Usar nas taxas")]} vazio={eds.length === 0}>
+        <p className="mb-3 text-xs text-zinc-500">
+          {ativa
+            ? t("Lançamento ativo: {nome}. Só ele recebe sozinho as inscrições novas do painel. Ao ativar outro, este deixa de receber.", { nome: t(ativa.nome) })
+            : t("Nenhum lançamento ativo: as inscrições novas do painel não estão entrando na base. Ative o lançamento em andamento.")}
+        </p>
+        <Tabela cabecalho={[t("Lançamento"), t("Situação"), t("Início"), t("Inscritos"), t("Telefones ok"), t("Revisar"), t("Compras"), t("Compras sem telefone"), t("Usar nas taxas")]} vazio={eds.length === 0}>
           {eds.map((e) => {
             const c = cont.get(e.id);
             return (
@@ -225,7 +217,34 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
                 <td className={td}>
                   <div className="font-medium">{t(e.nome)} <span className="text-xs font-normal text-zinc-500">{e.codigo}</span></div>
                   {e.observacao && <div className="text-xs text-zinc-500">{t(e.observacao)}</div>}
-                  {e.lancamento_id && <div className="text-xs text-emerald-700 dark:text-emerald-400">{t("inscrições entram sozinhas pelo painel")}</div>}
+                </td>
+                <td className={`${td} text-xs`}>
+                  {e.ativa ? (
+                    <div className="space-y-1">
+                      <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">{t("Ativo")}</span>
+                      <div className="text-zinc-500">{t("recebe as inscrições do painel")}</div>
+                      <form action={encerrarEdicao}>
+                        <input type="hidden" name="id" value={e.id} />
+                        <button className={botao}>{t("Encerrar lançamento")}</button>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <span className="text-zinc-500">{e.encerrada_em ? t("Encerrado em {d}", { d: new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Montevideo", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(e.encerrada_em)) }) : e.lancamento_id ? t("Inativo") : t("Importado")}</span>
+                      {(e.lancamento_id || livres.length > 0) && (
+                        <form action={ativarEdicao} className="flex flex-wrap items-center gap-1">
+                          <input type="hidden" name="id" value={e.id} />
+                          {!e.lancamento_id && (
+                            <select name="lancamento_id" required defaultValue="" className={`${campo} py-1 text-xs`}>
+                              <option value="" disabled>{t("lançamento do painel")}</option>
+                              {livres.map((l) => <option key={l.id} value={l.id}>{t(l.nome)}</option>)}
+                            </select>
+                          )}
+                          <button className={botao}>{t("Ativar")}</button>
+                        </form>
+                      )}
+                    </div>
+                  )}
                 </td>
                 <td className={`${td} tabular`}>{e.inicio.split("-").reverse().join("/")}</td>
                 <td className={`${td} tabular`}>{numero(c?.leads ?? 0)}</td>

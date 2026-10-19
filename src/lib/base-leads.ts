@@ -4,6 +4,7 @@ import { db } from "./supabase";
 export type Edicao = {
   id: number; codigo: string; nome: string; inicio: string; lancamento_id: number | null;
   tem_leads: boolean; tem_compras: boolean; observacao: string | null;
+  ativa?: boolean; encerrada_em?: string | null;
 };
 
 export type LinhaConversao = {

@@ -42,6 +42,7 @@ export async function aprovarTodasSugestoes() {
 /** Recalcula as estatísticas (as revisões de telefone só entram nos números depois disso). */
 export async function atualizarBase() {
   await exigirLogin();
+  await cruzarTelefones();
   const { error } = await db().rpc("bd_atualizar_base");
   if (error) throw new Error(error.message);
   revalidatePath(CAMINHO);
@@ -67,6 +68,34 @@ export async function alternarEdicao(fd: FormData) {
   if (!Number.isInteger(id) || (campo !== "tem_leads" && campo !== "tem_compras")) return;
   const valor = texto(fd, "valor") === "1";
   const { error } = await db().from("bd_edicoes").update({ [campo]: valor }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(CAMINHO);
+}
+
+/** Telefones com erro que aparecem completos em outro registro da base viram correção (migração 027). */
+async function cruzarTelefones() {
+  const { error } = await db().rpc("bd_cruzar_telefones");
+  if (error && error.code !== "PGRST202") throw new Error(error.message); // PGRST202: antes da migração 027
+}
+
+/** Só um lançamento recebe as inscrições do painel por vez. */
+export async function ativarEdicao(fd: FormData) {
+  await exigirLogin();
+  const id = Number(fd.get("id"));
+  const lanc = Number(fd.get("lancamento_id"));
+  if (!Number.isInteger(id)) return;
+  const { error } = await db().rpc("bd_ativar_edicao", { p_id: id, p_lancamento_id: Number.isInteger(lanc) && lanc > 0 ? lanc : null });
+  if (error) throw new Error(error.message);
+  await db().rpc("bd_atualizar_base");
+  revalidatePath(CAMINHO);
+}
+
+/** Dá o lançamento por terminado: as inscrições novas deixam de entrar na base. */
+export async function encerrarEdicao(fd: FormData) {
+  await exigirLogin();
+  const id = Number(fd.get("id"));
+  if (!Number.isInteger(id)) return;
+  const { error } = await db().rpc("bd_encerrar_edicao", { p_id: id });
   if (error) throw new Error(error.message);
   revalidatePath(CAMINHO);
 }
