@@ -8,32 +8,71 @@ import { listarGruposCampanha } from "./sendflow-grupos";
 import { solicitarRedefinicao, verificarGrupo } from "./redirecionador";
 import type { EstadoForm } from "./acoes";
 import { tradutor } from "./i18n/servidor";
+import { SLUG_FUNIL, slugDoNome } from "./redir-status";
+import { dominioLinks } from "./links";
 
 const CAMINHO = "/redirecionador";
 const txt = (fd: FormData, k: string) => {
   const v = String(fd.get(k) ?? "").trim();
   return v === "" ? null : v;
 };
-const funilValido = (s: string | null): s is string => !!s && /^[a-z0-9-]{2,30}$/.test(s);
+const funilValido = (s: string | null): s is string => !!s && SLUG_FUNIL.test(s);
+
+type Tradutor = Awaited<ReturnType<typeof tradutor>>;
+
+/** Campos de configuração comuns ao criar e ao editar um funil. */
+function lerConfig(fd: FormData, t: Tradutor): { erro: string } | { config: Record<string, unknown> } {
+  const nome = txt(fd, "nome");
+  const limite = Number(txt(fd, "limite_cliques") ?? "600");
+  const cada = Number(txt(fd, "verificar_a_cada") ?? "20");
+  const reserva = txt(fd, "link_reserva");
+  if (!nome || nome.length < 2 || nome.length > 60) return { erro: t("Informe o nome do funil (2 a 60 caracteres)") };
+  if (!Number.isInteger(limite) || limite < 1 || limite > 100000) return { erro: t("Limite de cliques entre 1 e 100.000") };
+  if (!Number.isInteger(cada) || cada < 1 || cada > 10000) return { erro: t("Verificar a cada: entre 1 e 10.000 cliques") };
+  if (reserva && !/^https:\/\//.test(reserva)) return { erro: t("O link reserva deve começar com https://") };
+  return {
+    config: {
+      nome, limite_cliques: limite, verificar_a_cada: cada, link_reserva: reserva,
+      sendflow_release_id: txt(fd, "sendflow_release_id"), auto_redefinir: fd.get("auto_redefinir") === "on",
+    },
+  };
+}
+
+function revalidar() {
+  revalidatePath(CAMINHO, "layout");
+}
 
 export async function salvarFunil(_: EstadoForm, fd: FormData): Promise<EstadoForm> {
   await exigirLogin();
   const t = await tradutor();
   const slug = txt(fd, "slug");
   if (!funilValido(slug)) return { erro: t("Funil inválido") };
-  const limite = Number(txt(fd, "limite_cliques") ?? "600");
-  const cada = Number(txt(fd, "verificar_a_cada") ?? "20");
-  const reserva = txt(fd, "link_reserva");
-  if (!Number.isInteger(limite) || limite < 1 || limite > 100000) return { erro: t("Limite de cliques entre 1 e 100.000") };
-  if (!Number.isInteger(cada) || cada < 1 || cada > 10000) return { erro: t("Verificar a cada: entre 1 e 10.000 cliques") };
-  if (reserva && !/^https:\/\//.test(reserva)) return { erro: t("O link reserva deve começar com https://") };
-  const { error } = await db().from("redir_funis").update({
-    limite_cliques: limite, verificar_a_cada: cada, link_reserva: reserva,
-    sendflow_release_id: txt(fd, "sendflow_release_id"), auto_redefinir: fd.get("auto_redefinir") === "on",
-  }).eq("slug", slug);
+  const r = lerConfig(fd, t);
+  if ("erro" in r) return r;
+  const { error } = await db().from("redir_funis").update(r.config).eq("slug", slug);
   if (error) return { erro: error.message };
-  revalidatePath(CAMINHO);
+  revalidar();
   return { ok: t("Configuração salva") };
+}
+
+/** Funil novo: o final do link (slug) não muda depois de criado, porque é o link que vai nas páginas. */
+export async function criarFunil(_: EstadoForm, fd: FormData): Promise<EstadoForm> {
+  await exigirLogin();
+  const t = await tradutor();
+  const slug = (txt(fd, "slug") ?? slugDoNome(txt(fd, "nome") ?? "")).toLowerCase();
+  if (!funilValido(slug)) return { erro: t('O final do link deve ter de 2 a 30 caracteres: letras minúsculas, números e "-".') };
+  const r = lerConfig(fd, t);
+  if ("erro" in r) return r;
+  const [{ data: existe }, { data: link }] = await Promise.all([
+    db().from("redir_funis").select("slug").eq("slug", slug).maybeSingle(),
+    db().from("links").select("slug").ilike("slug", slug).maybeSingle(),
+  ]);
+  if (existe) return { erro: t('Já existe um funil com o link "{slug}".', { slug }) };
+  if (link) return { erro: t('"{slug}" já é um link curto da aba Links. Escolha outro final.', { slug }) };
+  const { error } = await db().from("redir_funis").insert({ slug, ...r.config });
+  if (error) return { erro: error.code === "23505" ? t('Já existe um funil com o link "{slug}".', { slug }) : error.message };
+  revalidar();
+  return { ok: t('Funil criado: {link}. Agora adicione ou importe os grupos.', { link: `${dominioLinks()}/${slug}` }) };
 }
 
 async function proximaOrdem(funil: string) {
@@ -63,7 +102,7 @@ export async function adicionarGrupos(_: EstadoForm, fd: FormData): Promise<Esta
   if (novos.length === 0) return { erro: t("Nenhum link válido do WhatsApp. Ex.: https://chat.whatsapp.com/AbC123…") };
   const { data, error } = await db().from("redir_grupos").upsert(novos, { onConflict: "funil,codigo", ignoreDuplicates: true }).select("id");
   if (error) return { erro: error.message };
-  revalidatePath(CAMINHO);
+  revalidar();
   const inseridos = data?.length ?? 0;
   return { ok: t("{n} grupo(s) adicionado(s)", { n: inseridos }) + (novos.length > inseridos ? t(", {n} já estavam na lista", { n: novos.length - inseridos }) : "") + (ruins.length ? t(". Ignorados (sem link válido): {l}", { l: ruins.join(", ") }) : "") };
 }
@@ -111,7 +150,7 @@ export async function importarDoSendflow(_: EstadoForm, fd: FormData): Promise<E
   }
   const semGid = r.grupos.filter((g) => !g.gid).length;
   await db().from("redir_eventos").insert({ funil, tipo: "importacao", detalhe: { grupos: r.grupos.length, novos, atualizados, sem_gid: semGid, campos: r.campos ?? [] } });
-  revalidatePath(CAMINHO);
+  revalidar();
   return { ok: t("Sendflow: {g} grupo(s) na campanha · {n} novo(s) · {a} atualizado(s)", { g: r.grupos.length, n: novos, a: atualizados }) + (semLink ? ` · ${t("{n} sem link", { n: semLink })}` : "") };
 }
 
@@ -124,7 +163,7 @@ export async function trocarLink(_: EstadoForm, fd: FormData): Promise<EstadoFor
   if (!codigo) return { erro: t("Link do WhatsApp inválido") };
   const { error } = await db().rpc("redir_trocar_codigo", { p_grupo_id: id, p_codigo: codigo, p_origem: "manual" });
   if (error) return { erro: error.code === "23505" ? t("Esse link já está em outro grupo do funil") : error.message };
-  revalidatePath(CAMINHO);
+  revalidar();
   return { ok: t("Link trocado") };
 }
 
@@ -146,7 +185,7 @@ export async function acaoGrupo(_: EstadoForm, fd: FormData): Promise<EstadoForm
     ok = r.ok ? `${t("Convite {r}", { r: "resultado" in r ? t(r.resultado) : "" })}${"titulo" in r && r.titulo ? ` · "${r.titulo}"` : ""}` : t("Não foi possível verificar");
   } else if (op === "redefinir") {
     const r = await solicitarRedefinicao(id, true);
-    revalidatePath(CAMINHO);
+    revalidar();
     return r.ok ? { ok: t(r.mensagem) } : { erro: t(r.mensagem) };
   } else if (op === "pausar") {
     await db().from("redir_grupos").update({ status: "pausado", atualizado_em: agora }).eq("id", id);
@@ -174,6 +213,6 @@ export async function acaoGrupo(_: EstadoForm, fd: FormData): Promise<EstadoForm
   } else {
     return { erro: t("Ação desconhecida") };
   }
-  revalidatePath(CAMINHO);
+  revalidar();
   return { ok };
 }

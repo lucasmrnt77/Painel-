@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { acaoGrupo, adicionarGrupos, importarDoSendflow, salvarFunil, trocarLink } from "@/lib/acoes-redirecionador";
+import { acaoGrupo, adicionarGrupos, criarFunil, importarDoSendflow, salvarFunil, trocarLink } from "@/lib/acoes-redirecionador";
+import { slugDoNome } from "@/lib/redir-status";
 import type { EstadoForm } from "@/lib/acoes";
 import { useT } from "@/lib/i18n/cliente";
 
@@ -33,7 +34,7 @@ export function CopiarLink({ url }: { url: string }) {
   );
 }
 
-type Funil = { slug: string; limite_cliques: number; verificar_a_cada: number; link_reserva: string | null; sendflow_release_id: string | null; auto_redefinir: boolean };
+type Funil = { slug: string; nome: string; limite_cliques: number; verificar_a_cada: number; link_reserva: string | null; sendflow_release_id: string | null; auto_redefinir: boolean };
 
 export function FormFunil({ funil }: { funil: Funil }) {
   const [estado, acao, pendente] = useActionState(salvarFunil, undefined);
@@ -41,26 +42,11 @@ export function FormFunil({ funil }: { funil: Funil }) {
   return (
     <form action={acao} className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="slug" value={funil.slug} />
-      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-        {t("Cliques para considerar o grupo cheio")}
-        <input name="limite_cliques" type="number" min={1} max={100000} defaultValue={funil.limite_cliques} className={campo} />
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 sm:col-span-2">
+        {t("Nome do funil")}
+        <input name="nome" required minLength={2} maxLength={60} defaultValue={funil.nome} className={campo} />
       </label>
-      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-        {t("Verificar o convite a cada quantos cliques")}
-        <input name="verificar_a_cada" type="number" min={1} max={10000} defaultValue={funil.verificar_a_cada} className={campo} />
-      </label>
-      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-        {t("ID da campanha no Sendflow (para importar grupos e pedir link novo)")}
-        <input name="sendflow_release_id" defaultValue={funil.sendflow_release_id ?? ""} placeholder={t("ex.: 6fJk2…")} className={campo} />
-      </label>
-      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-        {t("Link reserva (se todos os grupos acabarem)")}
-        <input name="link_reserva" defaultValue={funil.link_reserva ?? ""} placeholder={t("https://… (opcional)")} className={campo} />
-      </label>
-      <label className="flex items-center gap-2 text-sm sm:col-span-2">
-        <input type="checkbox" name="auto_redefinir" defaultChecked={funil.auto_redefinir} className="h-4 w-4" />
-        {t("Quando um convite deixar de funcionar, pedir link novo ao Sendflow automaticamente")}
-      </label>
+      <CamposConfig funil={funil} />
       <div className="flex items-center gap-3 sm:col-span-2">
         <button disabled={pendente} className={botao}>{pendente ? t("Salvando…") : t("Salvar configuração")}</button>
         <Mensagem estado={estado} />
@@ -69,12 +55,89 @@ export function FormFunil({ funil }: { funil: Funil }) {
   );
 }
 
-export function FormAdicionar({ funil }: { funil: string }) {
+/** Campos de configuração usados ao criar e ao editar um funil. */
+function CamposConfig({ funil }: { funil?: Partial<Funil> }) {
+  const t = useT();
+  return (
+    <>
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        {t("Cliques para considerar o grupo cheio")}
+        <input name="limite_cliques" type="number" min={1} max={100000} defaultValue={funil?.limite_cliques ?? 600} className={campo} />
+      </label>
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        {t("Verificar o convite a cada quantos cliques")}
+        <input name="verificar_a_cada" type="number" min={1} max={10000} defaultValue={funil?.verificar_a_cada ?? 20} className={campo} />
+      </label>
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        {t("ID da campanha no Sendflow (para importar grupos e pedir link novo)")}
+        <input name="sendflow_release_id" defaultValue={funil?.sendflow_release_id ?? ""} placeholder={t("ex.: 6fJk2…")} className={campo} />
+      </label>
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        {t("Link reserva (se todos os grupos acabarem)")}
+        <input name="link_reserva" defaultValue={funil?.link_reserva ?? ""} placeholder={t("https://… (opcional)")} className={campo} />
+      </label>
+      <label className="flex items-center gap-2 text-sm sm:col-span-2">
+        <input type="checkbox" name="auto_redefinir" defaultChecked={funil?.auto_redefinir ?? true} className="h-4 w-4" />
+        {t("Quando um convite deixar de funcionar, pedir link novo ao Sendflow automaticamente")}
+      </label>
+    </>
+  );
+}
+
+/** Cria um funil novo. O final do link sai do nome, mas pode ser trocado antes de criar. */
+export function FormNovoFunil({ dominio }: { dominio: string }) {
+  const [estado, acao, pendente] = useActionState(criarFunil, undefined);
+  const [nome, setNome] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugEditado, setSlugEditado] = useState(false);
+  const t = useT();
+  const final = slugEditado ? slug : slugDoNome(nome);
+  return (
+    <form action={acao} className="grid gap-3 sm:grid-cols-2">
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        {t("Nome do funil")}
+        <input name="nome" required minLength={2} maxLength={60} value={nome} onChange={(e) => setNome(e.target.value)} placeholder={t("ex.: Trader Dezembro")} className={campo} />
+      </label>
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        {t("Final do link (não muda depois de criado)")}
+        <div className="flex items-center gap-1">
+          <span className="shrink-0 text-xs text-zinc-500">{dominio}/</span>
+          <input name="slug" required pattern="[a-z0-9-]{2,30}" value={final}
+            onChange={(e) => { setSlugEditado(true); setSlug(e.target.value.toLowerCase()); }} placeholder="trader-dezembro" className={`${campo} min-w-0`} />
+        </div>
+      </label>
+      <CamposConfig />
+      <div className="flex items-center gap-3 sm:col-span-2">
+        <button disabled={pendente} className={botao}>{pendente ? t("Criando…") : t("Criar funil")}</button>
+        <Mensagem estado={estado} />
+      </div>
+    </form>
+  );
+}
+
+type OpcaoFunil = { slug: string; nome: string; temCampanha: boolean };
+
+/** Escolha do funil nos formulários da tela de grupos (só aparece quando a tela mostra todos os funis). */
+function EscolherFunil({ funis, atual }: { funis: OpcaoFunil[]; atual: string | null }) {
+  const t = useT();
+  if (atual) return <input type="hidden" name="funil" value={atual} />;
+  return (
+    <label className="block space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+      {t("Funil")}
+      <select name="funil" required defaultValue="" className={campo}>
+        <option value="" disabled>{t("Escolha o funil")}</option>
+        {funis.map((f) => <option key={f.slug} value={f.slug}>{f.nome}</option>)}
+      </select>
+    </label>
+  );
+}
+
+export function FormAdicionar({ funis, atual }: { funis: OpcaoFunil[]; atual: string | null }) {
   const [estado, acao, pendente] = useActionState(adicionarGrupos, undefined);
   const t = useT();
   return (
     <form action={acao} className="space-y-2">
-      <input type="hidden" name="funil" value={funil} />
+      <EscolherFunil funis={funis} atual={atual} />
       <textarea
         name="links"
         rows={4}
@@ -89,12 +152,13 @@ export function FormAdicionar({ funil }: { funil: string }) {
   );
 }
 
-export function FormImportar({ funil, temCampanha }: { funil: string; temCampanha: boolean }) {
+export function FormImportar({ funis, atual }: { funis: OpcaoFunil[]; atual: string | null }) {
   const [estado, acao, pendente] = useActionState(importarDoSendflow, undefined);
   const t = useT();
+  const temCampanha = atual ? !!funis.find((f) => f.slug === atual)?.temCampanha : true;
   return (
-    <form action={acao} className="flex flex-wrap items-center gap-3">
-      <input type="hidden" name="funil" value={funil} />
+    <form action={acao} className="flex flex-wrap items-end gap-3">
+      <EscolherFunil funis={funis} atual={atual} />
       <button disabled={pendente || !temCampanha} className={botao} title={temCampanha ? "" : t("Salve o ID da campanha primeiro")}>
         {pendente ? t("Buscando no Sendflow…") : t("Importar grupos do Sendflow")}
       </button>
