@@ -26,3 +26,8 @@ export function redirecionadorVaiProWhatsapp(tipo: string, temProximo: boolean):
 export function testesVaiProWhatsapp(ok: boolean): boolean {
   return !ok;
 }
+
+/** Campanhas na Meta (gasto parado, custo por lead alto, sincronização parada): sempre são problema. */
+export function metaAdsVaiProWhatsapp(tipo: string): boolean {
+  return tipo === "ads_sem_dados" || tipo === "ads_sem_gasto" || tipo === "ads_cpl_alto";
+}

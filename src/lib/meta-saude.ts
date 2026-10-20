@@ -2,6 +2,8 @@ import "server-only";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
 import { avaliarSaude, mensagemSaude, type RespostaSaude } from "./meta-saude-regras";
+import { divergenciaEventos } from "./meta-ads-regras";
+import { grupoConfigurado, rpcGrupo } from "./grupo";
 
 /**
  * "Saúde na Meta": o painel pede ao serviço de tracking (que guarda o token da Meta)
@@ -43,11 +45,35 @@ async function testes24h(): Promise<Record<string, number>> {
   return c;
 }
 
+/**
+ * Quantos eventos de lead NÓS registramos nas últimas 24 h (sem testes), para comparar com a Meta:
+ * eventos dos lançamentos enviados pelo painel + "Lead" = inscrições da página do grupo gratuito.
+ */
+async function nossos24h(): Promise<Record<string, number> | null> {
+  try {
+    const desde = new Date(Date.now() - 86_400_000).toISOString();
+    const { data, error } = await db().from("eventos_meta").select("event_name").eq("teste", false).eq("status", "enviado").gte("criado_em", desde).limit(20000);
+    if (error) throw error;
+    const c: Record<string, number> = {};
+    for (const x of (data ?? []) as { event_name: string }[]) c[x.event_name] = (c[x.event_name] ?? 0) + 1;
+    if (grupoConfigurado()) {
+      const g = await rpcGrupo<{ total: number }>("painel_resumo", { p_desde: desde, p_ate: null, p_pais: null, p_source: null, p_campaign: null, p_content: null });
+      c.Lead = (c.Lead ?? 0) + (Number(g.total) || 0);
+    }
+    return c;
+  } catch (e) {
+    console.error("[meta-saude] contagem própria", e);
+    return null;
+  }
+}
+
 export async function atualizarSaudeMeta(disparo: "agendado" | "manual"): Promise<RegistroSaude> {
-  const [{ r, erro }, testes] = await Promise.all([buscar(), testes24h()]);
+  const [{ r, erro }, testes, nossos] = await Promise.all([buscar(), testes24h(), nossos24h()]);
   const { problemas, avisos } = avaliarSaude(r, erro);
+  // Meta × nosso (margem de 20%)
+  if (r?.ok && r.volume_24h.ok && nossos) problemas.push(...divergenciaEventos(r.volume_24h.eventos, testes, nossos));
   const { data, error } = await db().from("meta_saude")
-    .insert({ disparo, ok: problemas.length === 0, problemas, avisos, dados: r ? { ...r, testes_24h: testes } : {} })
+    .insert({ disparo, ok: problemas.length === 0, problemas, avisos, dados: r ? { ...r, testes_24h: testes, nossos_24h: nossos } : {} })
     .select("*").single();
   if (error) throw new Error(`não consegui gravar a saúde na Meta: ${error.message}`);
   const salvo = data as RegistroSaude;

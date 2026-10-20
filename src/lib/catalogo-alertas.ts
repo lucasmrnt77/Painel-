@@ -8,12 +8,13 @@
  */
 import { mensagemAlerta, mensagemRedirecionador } from "./mensagens";
 import { mensagemSaude } from "./meta-saude-regras";
+import { mensagemAds } from "./meta-ads-regras";
 import { mensagemTestes, type Execucao } from "./testes-casos";
 
 type Texto = { pt: string; es: string };
 type Lista = { pt: string[]; es: string[] };
 
-export type Area = "lancamento" | "grupo" | "planilha" | "redirecionador" | "eventos" | "meta";
+export type Area = "lancamento" | "grupo" | "planilha" | "redirecionador" | "eventos" | "meta" | "ads";
 export type Envio = "whatsapp" | "condicional" | "painel" | "manual";
 
 export type ItemCatalogo = {
@@ -39,6 +40,7 @@ export const AREAS: Record<Area, Texto> = {
   redirecionador: { pt: "Redirecionador de grupos", es: "Redireccionador de grupos" },
   eventos: { pt: "Testes diários dos eventos Meta", es: "Pruebas diarias de los eventos Meta" },
   meta: { pt: "Saúde na Meta", es: "Salud en Meta" },
+  ads: { pt: "Campanhas na Meta (gasto e custo por lead)", es: "Campañas en Meta (gasto y costo por lead)" },
 };
 
 // Datas de exemplo fixas para a mensagem de amostra
@@ -281,13 +283,57 @@ export const CATALOGO: ItemCatalogo[] = [
     nome: { pt: "Problema nos eventos segundo a Meta", es: "Problema en los eventos según Meta" },
     envioDetalhe: { pt: "Só quando há problema (avisos ficam no painel).", es: "Solo cuando hay problema (los avisos quedan en el panel)." },
     quando: {
-      pt: "Todo dia às 07:47 (UY) o painel lê os dados de qualidade da própria Meta. Vira problema quando menos de 80% dos eventos de lead (pixel ou servidor) chegam com event_id — a Meta pode contar em dobro — ou quando não dá para consultar a Meta.",
-      es: "Todos los días a las 07:47 (UY) el panel lee los datos de calidad de la propia Meta. Es problema cuando menos del 80% de los eventos de lead (pixel o servidor) llegan con event_id — Meta puede contar doble — o cuando no se puede consultar a Meta.",
+      pt: "Todo dia às 07:47 (UY) o painel lê os dados de qualidade da própria Meta. Vira problema quando menos de 80% dos eventos de lead (pixel ou servidor) chegam com event_id — a Meta pode contar em dobro —, quando não dá para consultar a Meta, ou quando a quantidade de eventos de lead que a Meta recebeu nas últimas 24 h (sem os de teste) difere mais de 20% da que nós registramos (Lead = inscrições da página do grupo; Lead Qualificado, Lead General etc. = eventos enviados pelo painel). A comparação só vale a partir de 10 eventos.",
+      es: "Todos los días a las 07:47 (UY) el panel lee los datos de calidad de la propia Meta. Es problema cuando menos del 80% de los eventos de lead (pixel o servidor) llegan con event_id — Meta puede contar doble —, cuando no se puede consultar a Meta, o cuando la cantidad de eventos de lead que Meta recibió en las últimas 24 h (sin los de prueba) difiere más de 20% de la que registramos nosotros (Lead = inscripciones de la página del grupo; Lead Qualificado, Lead General etc. = eventos enviados por el panel). La comparación vale a partir de 10 eventos.",
     },
     repeticao: { pt: "Uma por dia enquanto o problema continuar.", es: "Una por día mientras el problema continúe." },
     diagnostico: { pt: "Os resultados das campanhas podem estar inflados (duplicados) ou a Meta está recebendo menos dados do que devia.", es: "Los resultados de las campañas pueden estar inflados (duplicados) o Meta está recibiendo menos datos de los que debería." },
-    verificar: { pt: ["Aba Saúde na Meta: qual evento e qual lado (pixel ou servidor) está sem event_id.", "Conferir se alguma página nova dispara o pixel sem passar pelo serviço de tracking.", "\"Não consegui consultar a Meta\": token da Meta ou TESTES_TOKEN do serviço de tracking."], es: ["Pestaña Salud en Meta: qué evento y qué lado (pixel o servidor) está sin event_id.", "Revisar si alguna página nueva dispara el pixel sin pasar por el servicio de tracking.", "\"No pude consultar a Meta\": token de Meta o TESTES_TOKEN del servicio de tracking."] },
-    exemplo: () => mensagemSaude(["Lead General: só 62% dos eventos do pixel (navegador) chegam com event_id — a Meta pode contar em dobro."]),
+    verificar: { pt: ["Aba Saúde na Meta: qual evento e qual lado (pixel ou servidor) está sem event_id.", "Conferir se alguma página nova dispara o pixel sem passar pelo serviço de tracking.", "\"Não consegui consultar a Meta\": token da Meta ou TESTES_TOKEN do serviço de tracking.", "Diferença Meta × nosso: se a Meta recebeu MENOS, o pixel/servidor está perdendo eventos (página nova sem tracking, bloqueio); se recebeu MAIS, há eventos duplicados ou disparados fora da inscrição."], es: ["Pestaña Salud en Meta: qué evento y qué lado (pixel o servidor) está sin event_id.", "Revisar si alguna página nueva dispara el pixel sin pasar por el servicio de tracking.", "\"No pude consultar a Meta\": token de Meta o TESTES_TOKEN del servicio de tracking.", "Diferencia Meta × nosotros: si Meta recibió MENOS, el pixel/servidor está perdiendo eventos (página nueva sin tracking, bloqueo); si recibió MÁS, hay eventos duplicados o disparados fuera de la inscripción."] },
+    exemplo: () => mensagemSaude(["Lead General: só 62% dos eventos do pixel (navegador) chegam com event_id — a Meta pode contar em dobro.", "Lead: a Meta recebeu 31 nas últimas 24 h e nós registramos 42 (26% de diferença, limite 20%)."]),
+  },
+
+  // ------------------------------------------------------------------ Campanhas na Meta
+  {
+    tipo: "ads_sem_gasto", area: "ads", envio: "whatsapp",
+    nome: { pt: "A Meta parou de gastar", es: "Meta dejó de gastar" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: {
+      pt: "Com os dados das campanhas que a Paola sincroniza (~2x por dia). (1) Dia de ontem fechado: gasto abaixo de 30% da média dos 3 dias anteriores, com anúncios ativos. (2) Parcial de hoje: só com dados sincronizados depois do meio-dia — nada gasto hoje, com anúncios ativos e gasto ontem. Só vale para campanhas que gastam pelo menos US$ 2/dia em média. A campanha de cada lançamento é configurada no banco (OP Futuros = \"Aquecimento de Conta\").",
+      es: "Con los datos de las campañas que Paola sincroniza (~2 veces por día). (1) Día de ayer cerrado: gasto debajo del 30% del promedio de los 3 días anteriores, con anuncios activos. (2) Parcial de hoy: solo con datos sincronizados después del mediodía — nada gastado hoy, con anuncios activos y gasto ayer. Solo vale para campañas que gastan al menos US$ 2/día en promedio. La campaña de cada lanzamiento se configura en la base (OP Futuros = \"Aquecimento de Conta\").",
+    },
+    repeticao: { pt: "No máximo uma por dia (se a parcial já avisou, o dia fechado não repete).", es: "Como máximo una por día (si la parcial ya avisó, el día cerrado no repite)." },
+    diagnostico: { pt: "A Meta não está entregando os anúncios: pagamento recusado ou sem saldo, anúncio reprovado/limitado, campanha pausada por engano ou limite de gasto da conta.", es: "Meta no está entregando los anuncios: pago rechazado o sin saldo, anuncio rechazado/limitado, campaña pausada por error o límite de gasto de la cuenta." },
+    verificar: {
+      pt: ["Gerenciador de Anúncios → Cobrança: pagamento e limite de gasto da conta.", "Status dos anúncios (reprovado, em análise, limitado).", "Se a campanha foi pausada de propósito, ignorar."],
+      es: ["Administrador de anuncios → Facturación: pago y límite de gasto de la cuenta.", "Estado de los anuncios (rechazado, en revisión, limitado).", "Si la campaña se pausó a propósito, ignorar."],
+    },
+    exemplo: () => mensagemAds("ads_sem_gasto", "OP Futuros (grupo gratuito)", { moeda: "USD", dia: "2026-12-06", investimento: 0.4, ativos: 4, media: 10.2 }),
+  },
+  {
+    tipo: "ads_cpl_alto", area: "ads", envio: "whatsapp",
+    nome: { pt: "Custo por lead acima do limite", es: "Costo por lead arriba del límite" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: {
+      pt: "Investimento do dia ÷ leads do dia acima do limite (padrão US$ 8, regra do Emi). Grupo gratuito: leads = inscrições da página do grupo; lançamento: leads qualificados. (1) Dia de ontem fechado. (2) Parcial de hoje: só com dados sincronizados depois do meio-dia e com pelo menos US$ 8 já gastos — assim o começo do dia não dá falso alarme.",
+      es: "Inversión del día ÷ leads del día arriba del límite (por defecto US$ 8, regla de Emi). Grupo gratuito: leads = inscripciones de la página del grupo; lanzamiento: leads calificados. (1) Día de ayer cerrado. (2) Parcial de hoy: solo con datos sincronizados después del mediodía y con al menos US$ 8 ya gastados — así el comienzo del día no da falsa alarma.",
+    },
+    repeticao: { pt: "No máximo uma por dia (se a parcial já avisou, o dia fechado não repete).", es: "Como máximo una por día (si la parcial ya avisó, el día cerrado no repite)." },
+    diagnostico: { pt: "A Meta está gastando mas os leads não estão entrando (ou não estão qualificando): página quebrada, link errado no anúncio, eventos sem chegar à Meta ou público/criativo cansado.", es: "Meta está gastando pero los leads no entran (o no califican): página rota, link equivocado en el anuncio, eventos que no llegan a Meta o público/creativo cansado." },
+    verificar: {
+      pt: ["Fazer uma inscrição de teste na página (?tde_teste=1).", "Conferir o link de destino dos anúncios.", "Alertas → Saúde na Meta e Testes diários.", "Se a página está ok: CPM/CTR no Gerenciador (público ou criativo cansado)."],
+      es: ["Hacer una inscripción de prueba en la página (?tde_teste=1).", "Revisar el link de destino de los anuncios.", "Alertas → Salud en Meta y Pruebas diarias.", "Si la página está ok: CPM/CTR en el Administrador (público o creativo cansado)."],
+    },
+    exemplo: () => mensagemAds("ads_cpl_alto", "OP Futuros (grupo gratuito)", { moeda: "USD", dia: "2026-12-06", investimento: 11.3, leads: 1, limite: 8 }),
+  },
+  {
+    tipo: "ads_sem_dados", area: "ads", envio: "whatsapp",
+    nome: { pt: "Dados das campanhas sem atualizar", es: "Datos de las campañas sin actualizar" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: { pt: "A sincronização das campanhas da Meta (feita pela Paola) não atualiza há 20 h ou mais. Enquanto isso as outras alertas de campanha ficam paradas.", es: "La sincronización de las campañas de Meta (hecha por Paola) no se actualiza hace 20 h o más. Mientras tanto las otras alertas de campaña quedan detenidas." },
+    repeticao: { pt: "Uma vez por parada.", es: "Una vez por parada." },
+    diagnostico: { pt: "A automação da Paola que copia os dados da Meta para o banco parou.", es: "La automatización de Paola que copia los datos de Meta a la base se detuvo." },
+    verificar: { pt: ["Avisar a Paola para conferir a sincronização (tabela pc_ads_meta_anuncio_dia)."], es: ["Avisar a Paola para revisar la sincronización (tabla pc_ads_meta_anuncio_dia)."] },
+    exemplo: () => mensagemAds("ads_sem_dados", "OP Futuros (grupo gratuito)", { ultima_sync: "2026-12-06T09:00:00Z", horas: 22 }),
   },
 ];
 

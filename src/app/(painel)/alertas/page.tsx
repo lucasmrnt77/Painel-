@@ -40,6 +40,9 @@ const ROTULO_TIPO: Record<string, { rotulo: string; cor: string }> = {
   redefinicao_falhou: { rotulo: "Sendflow recusou", cor: "text-amber-600 dark:text-amber-400" },
   testes_falharam: { rotulo: "Eventos Meta com erro", cor: "text-rose-600 dark:text-rose-400" },
   testes_voltaram: { rotulo: "Eventos Meta ok de novo", cor: "text-emerald-600 dark:text-emerald-400" },
+  ads_sem_gasto: { rotulo: "Meta sem gastar", cor: "text-rose-600 dark:text-rose-400" },
+  ads_cpl_alto: { rotulo: "Custo por lead alto", cor: "text-rose-600 dark:text-rose-400" },
+  ads_sem_dados: { rotulo: "Dados da Meta parados", cor: "text-amber-600 dark:text-amber-400" },
 };
 const ENVIO: Record<string, string> = { enviado: "enviado", parcial: "envio parcial", falhou: "falhou", sem_envio: "só no painel", pendente: "enviando" };
 

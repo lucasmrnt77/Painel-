@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { CATALOGO } from "../src/lib/catalogo-alertas";
-import { monitorVaiProWhatsapp, redirecionadorVaiProWhatsapp } from "../src/lib/politica-alertas";
+import { metaAdsVaiProWhatsapp, monitorVaiProWhatsapp, redirecionadorVaiProWhatsapp } from "../src/lib/politica-alertas";
 
 test("todo tipo do histórico de alertas está no catálogo", () => {
   const pagina = readFileSync(new URL("../src/app/(painel)/alertas/page.tsx", import.meta.url), "utf8");
@@ -34,4 +34,5 @@ test("o catálogo diz a verdade sobre o que vai para o WhatsApp", () => {
     const esperado = i.envio === "whatsapp" ? [true, true] : i.envio === "condicional" ? [false, true] : [false, false];
     assert.deepEqual([comProximo, semProximo], esperado, i.tipo);
   }
+  for (const i of CATALOGO.filter((x) => x.area === "ads")) assert.equal(metaAdsVaiProWhatsapp(i.tipo), i.envio === "whatsapp", i.tipo);
 });

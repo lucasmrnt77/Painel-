@@ -122,6 +122,9 @@ export const ES_CAPTACAO: Dic = {
   "Sendflow recusou": "Sendflow rechazó",
   "Eventos Meta com erro": "Eventos Meta con error",
   "Eventos Meta ok de novo": "Eventos Meta ok de nuevo",
+  "Meta sem gastar": "Meta sin gastar",
+  "Custo por lead alto": "Costo por lead alto",
+  "Dados da Meta parados": "Datos de Meta detenidos",
   // envio
   "enviado": "enviado",
   "envio parcial": "envío parcial",
