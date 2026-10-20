@@ -46,7 +46,8 @@ export function paginaPeloNome(nome: string): Site | null {
   return null;
 }
 
-export const VARIACAO = /^\/[A-Za-z0-9_-]{1,30}$/;
+/** Variação da página: "/" (principal), "/v1", "/v2"… */
+export const VARIACAO = /^\/([A-Za-z0-9_-]{1,30})?$/;
 
 // ── Ranking variação × país ─────────────────────────────────────────────────────────────────────
 

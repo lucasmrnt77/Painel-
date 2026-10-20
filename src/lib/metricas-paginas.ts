@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "./supabase";
 import { montarRanking } from "./criativos";
+import { montarDesempenho, type Registro } from "./anuncios";
 
 export type LinhaFunil = {
   site: string; // "General" | "Trader" | "Jubilar" | "—"
@@ -79,4 +80,32 @@ export async function rankingPaginas(lancamentoId: number) {
     ((criativos.data ?? []) as { nome: string; pagina: "general" | "trader" | "jubilar" | null; variacao: string | null }[]),
   );
   return { erro: null, ranking, comGasto: !!adsLanc && (gastos.data ?? []).length > 0 };
+}
+
+/** Anúncio × variação: registro (com histórico), base da Paola (investimento, cliques, visualizações) e leads do painel. */
+export async function desempenhoAnuncios(lancamentoId: number) {
+  const { data: lanc } = await db().from("lancamentos").select("ads_lancamento").eq("id", lancamentoId).maybeSingle();
+  const adsLanc = (lanc as { ads_lancamento?: string | null } | null)?.ads_lancamento ?? null;
+  const [reg, hist, leads, meta] = await Promise.all([
+    db().from("criativos").select("id, nome, pagina, variacao"),
+    db().from("criativos_historico").select("pagina, variacao, desde, criativos(nome)"),
+    db().from("v_leads_anuncio").select("anuncio, site, landing, leads, qualificados").eq("lancamento_id", lancamentoId),
+    adsLanc
+      ? db().from("pc_ads_meta_anuncio_dia").select("criativo, data, investimento, cliques, visitou_pagina").eq("lancamento", adsLanc).limit(50000)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const erro = reg.error ?? hist.error ?? leads.error;
+  if (erro) return { erro: erro.message, desempenho: null, registros: [] as Registro[], comMeta: false };
+  const n = (v: unknown) => Number(v ?? 0);
+  const registros = (reg.data ?? []) as Registro[];
+  const desempenho = montarDesempenho(
+    registros,
+    ((hist.data ?? []) as unknown as { pagina: Registro["pagina"]; variacao: string | null; desde: string; criativos: { nome: string } | null }[])
+      .filter((h) => h.criativos).map((h) => ({ nome: h.criativos!.nome, pagina: h.pagina, variacao: h.variacao, desde: h.desde })),
+    ((meta.data ?? []) as { criativo: string | null; data: string; investimento: unknown; cliques: unknown; visitou_pagina: unknown }[])
+      .filter((m) => m.criativo).map((m) => ({ criativo: m.criativo!, data: m.data, investimento: n(m.investimento), cliques: n(m.cliques), visualizacoes: n(m.visitou_pagina) })),
+    ((leads.data ?? []) as { anuncio: string | null; site: string; landing: string; leads: unknown; qualificados: unknown }[])
+      .filter((l) => l.anuncio).map((l) => ({ anuncio: l.anuncio!, site: l.site, landing: l.landing, leads: n(l.leads), qualificados: n(l.qualificados) })),
+  );
+  return { erro: null, desempenho, registros, comMeta: (meta.data ?? []).length > 0 };
 }
