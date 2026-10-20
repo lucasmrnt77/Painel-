@@ -42,7 +42,9 @@ const NOME_SITE: Record<Site, string> = { general: "General", trader: "Trader", 
 const chave = (s: string) => s.trim().toLowerCase();
 
 export function destino(site: string, variacao: string | null): string {
-  return `${site}${!variacao || variacao === "/" ? "" : variacao}`;
+  if (!variacao || variacao === "/") return site;
+  // Nomes antigos (Gen-Argentina, /pag1…) ficam separados do nome da página
+  return variacao.startsWith("/") ? `${site}${variacao}` : `${site} · ${variacao}`;
 }
 
 /** Dia (AAAA-MM-DD) no horário de Brasil/Uruguai. */

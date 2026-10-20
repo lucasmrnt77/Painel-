@@ -3,6 +3,22 @@ import { db } from "./supabase";
 import { montarRanking } from "./criativos";
 import { montarDesempenho, type Registro } from "./anuncios";
 
+/**
+ * O Supabase devolve no máximo 1000 linhas por consulta: busca tudo em páginas.
+ * `consulta(de, ate)` precisa ter ordem estável (order) para as páginas não se repetirem.
+ */
+async function todas<T>(consulta: (de: number, ate: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>) {
+  const PASSO = 1000;
+  const linhas: T[] = [];
+  for (let de = 0; de < 200_000; de += PASSO) {
+    const { data, error } = await consulta(de, de + PASSO - 1);
+    if (error) return { data: null, error };
+    linhas.push(...(data ?? []));
+    if (!data || data.length < PASSO) break;
+  }
+  return { data: linhas, error: null };
+}
+
 export type LinhaFunil = {
   site: string; // "General" | "Trader" | "Jubilar" | "—"
   chave: string;
@@ -65,10 +81,12 @@ export async function rankingPaginas(lancamentoId: number) {
   const { data: lanc } = await db().from("lancamentos").select("ads_lancamento").eq("id", lancamentoId).maybeSingle();
   const adsLanc = (lanc as { ads_lancamento?: string | null } | null)?.ads_lancamento ?? null;
   const [linhas, criativos, gastos] = await Promise.all([
-    db().from("v_metricas_landing_pais").select("site, landing, pais, visitas, leads, qualificados").eq("lancamento_id", lancamentoId),
+    todas((de, ate) => db().from("v_metricas_landing_pais").select("site, landing, pais, visitas, leads, qualificados").eq("lancamento_id", lancamentoId)
+      .order("site").order("landing").order("pais").range(de, ate)),
     db().from("criativos").select("nome, pagina, variacao"),
     adsLanc
-      ? db().from("pc_ads_meta_anuncio_dia").select("criativo, pais, investimento").eq("lancamento", adsLanc).gt("investimento", 0).limit(20000)
+      ? todas((de, ate) => db().from("pc_ads_meta_anuncio_dia").select("criativo, pais, investimento").eq("lancamento", adsLanc).gt("investimento", 0)
+          .order("data").order("ad_id").range(de, ate))
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (linhas.error) return { erro: linhas.error.message, ranking: [], comGasto: false };
@@ -89,9 +107,11 @@ export async function desempenhoAnuncios(lancamentoId: number) {
   const [reg, hist, leads, meta] = await Promise.all([
     db().from("criativos").select("id, nome, pagina, variacao"),
     db().from("criativos_historico").select("pagina, variacao, desde, criativos(nome)"),
-    db().from("v_leads_anuncio").select("anuncio, site, landing, leads, qualificados").eq("lancamento_id", lancamentoId),
+    todas((de, ate) => db().from("v_leads_anuncio").select("anuncio, site, landing, leads, qualificados").eq("lancamento_id", lancamentoId)
+      .order("anuncio").order("site").order("landing").range(de, ate)),
     adsLanc
-      ? db().from("pc_ads_meta_anuncio_dia").select("criativo, data, investimento, cliques, visitou_pagina").eq("lancamento", adsLanc).limit(50000)
+      ? todas((de, ate) => db().from("pc_ads_meta_anuncio_dia").select("criativo, data, investimento, cliques, visitou_pagina").eq("lancamento", adsLanc)
+          .order("data").order("ad_id").range(de, ate))
       : Promise.resolve({ data: [], error: null }),
   ]);
   const erro = reg.error ?? hist.error ?? leads.error;
