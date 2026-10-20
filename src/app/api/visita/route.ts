@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
+import { siteDaVisita } from "@/lib/criativos";
 
 /**
  * POST /api/visita — as landings avisam quando alguém abre a página (1 vez por sessão).
  * Corpo (text/plain ou JSON): { "landing": "/v1", "lancamento": "teste-paginas"?, "site": "trader"? }
- * Sem "site", o site (General/Trader) sai do domínio de origem (eventotrader.* = Trader).
+ * Sem "site", o site sai do domínio de origem (eventotrader.* = Trader, eventojubilar.* = Jubilar).
  * Público de propósito (o navegador chama direto, sem token): só soma +1 num
  * contador por dia × landing × país. O país vem do cabeçalho da Vercel, não do corpo.
  */
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
 
   // General e Trader usam os mesmos endereços (/v1, /v2…): o site vem do domínio que mandou a visita
   const origem = `${req.headers.get("origin") ?? ""} ${req.headers.get("referer") ?? ""}`.toLowerCase();
-  const site = b.site === "trader" || /eventotra|trader\./.test(origem) ? "trader" : "general";
+  const site = siteDaVisita(b.site, origem);
   const { error } = await db().rpc("registrar_visita", {
     p_lancamento_slug: lancamento,
     p_landing: landing,

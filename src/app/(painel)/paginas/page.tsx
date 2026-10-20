@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { contexto, param } from "@/lib/contexto";
 import { escolherLancamento } from "@/lib/dados";
-import { metricasPaginas, pct, pesoNome, type LinhaFunil } from "@/lib/metricas-paginas";
+import { metricasPaginas, pct, pesoNome, rankingPaginas, type LinhaFunil } from "@/lib/metricas-paginas";
+import { RankingPaginas } from "@/components/ranking-paginas";
 import { numero } from "@/lib/formato";
 import { Cartao, Kpi, Tabela, montarHref, td } from "@/components/ui";
 import { SemLancamento } from "@/components/cabecalho";
-import { tradutor } from "@/lib/i18n/servidor";
+import { idiomaAtual, tradutor } from "@/lib/i18n/servidor";
 
 export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
   const sp = await searchParams;
@@ -14,7 +15,7 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
   if (resumos.length === 0) return <SemLancamento />;
   const atual = escolherLancamento(resumos, param(sp, "l"));
   if (!atual) return <SemLancamento />;
-  const { landings, gracias, cruzado } = await metricasPaginas(atual.lancamento_id);
+  const [{ landings, gracias, cruzado }, rk, idioma] = await Promise.all([metricasPaginas(atual.lancamento_id), rankingPaginas(atual.lancamento_id), idiomaAtual()]);
 
   const soma = (k: keyof LinhaFunil, ls: LinhaFunil[]) => ls.reduce((t, l) => t + Number(l[k] ?? 0), 0);
   const visitas = soma("visitas", landings);
@@ -46,7 +47,8 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
           <h1 className="text-xl font-semibold">{t("Páginas")}</h1>
           <p className="text-sm text-zinc-500">{t(atual.nome)} · {t("funil por página de captura e de gracias")}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/paginas/criativos" className="rounded-lg border border-zinc-300 px-3 py-1 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">{t("Criativos → página")}</Link>
           {resumos.map((r) => (
             <Link key={r.slug} href={montarHref("/paginas", { l: r.slug })} className={`rounded-full border px-3 py-1 text-xs font-medium ${atual.slug === r.slug ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 dark:border-zinc-700"}`}>{t(r.nome)}</Link>
           ))}
@@ -109,6 +111,12 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
           </div>
         );
       })}
+
+      {rk.erro ? (
+        <Cartao titulo={t("Melhor variação por país")}><p className="text-sm text-rose-600">{t("Aplique a migração {m} no Supabase.", { m: "030-jubilar-criativos-ranking.sql" })}</p></Cartao>
+      ) : (
+        <RankingPaginas ranking={rk.ranking} comGasto={rk.comGasto} idioma={idioma === "es" ? "es" : "pt"} t={t} />
+      )}
 
       <p className="text-xs text-zinc-500">
         {t("A coluna \"% do total\" mostra a divisão real do tráfego dentro de cada página. Num teste de 3 páginas com 33% cada, cada uma deve ficar perto de 33%.")}{" "}

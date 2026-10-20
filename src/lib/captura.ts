@@ -116,6 +116,6 @@ export function extrairCaptura(bruto: unknown, query?: URLSearchParams): DadosCa
 export function normalizarPaginaCaptura(v: string): string {
   const t = v.trim().toLowerCase();
   if (/^(trader|trading|ja[_ -]?opera)/.test(t)) return "trader";
-  if (/^(nunca|gen|geral|iniciante)/.test(t)) return "nunca_operou"; // "Gen-Uruguay" = página geral
+  if (/^(nunca|gen|geral|iniciante|jub)/.test(t)) return "nunca_operou"; // "Gen-Uruguay" = página geral; "Jub-Uruguay" = Jubilar (cópia da geral)
   return v;
 }
