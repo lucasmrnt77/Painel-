@@ -20,8 +20,15 @@ export type LinhaTotal = {
 };
 
 export type ContagemEdicao = {
-  edicao_id: number; leads: number; leads_ok: number; leads_revisar: number; leads_invalidos: number;
+  edicao_id: number; leads: number; linhas_planilha: number; pessoas: number;
+  leads_ok: number; leads_revisar: number; leads_invalidos: number;
   compras: number; compras_validas: number; compras_sem_telefone: number;
+};
+
+/** Cada planilha/fonte de um lançamento: linhas que tinha e quantos números diferentes trouxe. */
+export type FonteEdicao = {
+  edicao_id: number; fonte: string; linhas_planilha: number; linhas_base: number; numeros: number; sem_telefone: number;
+  observacao: string | null;
 };
 
 export type Combinacao = {
@@ -85,6 +92,12 @@ export async function contagensPorEdicao(): Promise<ContagemEdicao[]> {
   const { data, error } = await db().rpc("bd_contagens");
   if (error) throw new Error(error.message);
   return (data ?? []) as ContagemEdicao[];
+}
+
+export async function fontesPorEdicao(): Promise<FonteEdicao[]> {
+  const { data, error } = await db().from("v_bd_fontes").select("*").order("fonte");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as FonteEdicao[];
 }
 
 export async function telefonesParaRevisar(limite = 100, so: "compradores" | "todos" = "compradores"): Promise<{ itens: Revisar[]; total: number }> {

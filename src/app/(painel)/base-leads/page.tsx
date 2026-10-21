@@ -3,7 +3,7 @@ import { MultiSelecao } from "@/components/multi-selecao";
 import { db } from "@/lib/supabase";
 import {
   contagensPorEdicao, conversaoPorEdicao, repeticaoPorEdicao, conversaoPorParticipacao, conversaoPorTotal, edicoes,
-  FILTROS_COMPRA, telefonesParaRevisar,
+  FILTROS_COMPRA, fontesPorEdicao, telefonesParaRevisar, type FonteEdicao,
 } from "@/lib/base-leads";
 import {
   alternarEdicao, aprovarTelefone, aprovarTodasSugestoes, ativarEdicao, atualizarBase, criarEdicao, descartarTelefone, encerrarEdicao,
@@ -40,15 +40,18 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
   const sp = await searchParams;
   const revisarTodos = sp.revisar === "todos";
 
-  const [eds, porPart, porEdicao, porTotal, contagens, revisar, ultima, totais, repeticao, lancsPainel] = await Promise.all([
+  const [eds, porPart, porEdicao, porTotal, contagens, revisar, ultima, totais, repeticao, lancsPainel, fontes] = await Promise.all([
     edicoes(), conversaoPorParticipacao(), conversaoPorEdicao(), conversaoPorTotal(), contagensPorEdicao(),
     telefonesParaRevisar(100, revisarTodos ? "todos" : "compradores"),
     db().from("bd_atualizacoes").select("atualizado_em").order("id", { ascending: false }).limit(1).maybeSingle(),
     db().from("v_bd_revisar").select("telefone_original", { count: "exact", head: true }),
     repeticaoPorEdicao(),
     db().from("lancamentos").select("id, nome").eq("tipo", "lancamento").order("id", { ascending: false }),
+    fontesPorEdicao(),
   ]);
   const cont = new Map(contagens.map((c) => [c.edicao_id, c]));
+  const fontesDe = new Map<number, FonteEdicao[]>();
+  for (const f of fontes) fontesDe.set(f.edicao_id, [...(fontesDe.get(f.edicao_id) ?? []), f]);
   const pessoas = porTotal.reduce((s, l) => s + l.pessoas, 0);
   const compraramEt = porTotal.reduce((s, l) => s + l.compraram_et, 0);
   const compraramTpp = porTotal.reduce((s, l) => s + l.compraram_tpp, 0);
@@ -209,7 +212,10 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
             ? t("Lançamento ativo: {nome}. Só ele recebe sozinho as inscrições novas do painel. Ao ativar outro, este deixa de receber.", { nome: t(ativa.nome) })
             : t("Nenhum lançamento ativo: as inscrições novas do painel não estão entrando na base. Ative o lançamento em andamento.")}
         </p>
-        <Tabela cabecalho={[t("Lançamento"), t("Situação"), t("Início"), t("Inscritos"), t("Telefones ok"), t("Revisar"), t("Compras"), t("Compras sem telefone"), t("Usar nas taxas")]} vazio={eds.length === 0}>
+        <p className="mb-3 text-xs text-zinc-500">
+          {t("Linhas nas planilhas = inscrições como estão nas planilhas (a mesma pessoa pode aparecer mais de uma vez). Pessoas únicas = números diferentes (mais as linhas sem telefone válido); é o que conta nas taxas.")}
+        </p>
+        <Tabela cabecalho={[t("Lançamento"), t("Situação"), t("Início"), t("Linhas nas planilhas"), t("Pessoas únicas"), t("Telefones ok"), t("Revisar"), t("Compras"), t("Compras sem telefone"), t("Usar nas taxas")]} vazio={eds.length === 0}>
           {eds.map((e) => {
             const c = cont.get(e.id);
             return (
@@ -217,6 +223,18 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
                 <td className={td}>
                   <div className="font-medium">{t(e.nome)} <span className="text-xs font-normal text-zinc-500">{e.codigo}</span></div>
                   {e.observacao && <div className="text-xs text-zinc-500">{t(e.observacao)}</div>}
+                  {(fontesDe.get(e.id) ?? []).length > 0 && (
+                    <ul className="mt-1 space-y-0.5 text-xs text-zinc-500">
+                      {(fontesDe.get(e.id) ?? []).map((f) => (
+                        <li key={f.fonte}>
+                          {f.linhas_planilha !== f.linhas_base
+                            ? t("{fonte}: {linhas} linhas na planilha → {base} entraram na base", { fonte: f.fonte, linhas: numero(f.linhas_planilha), base: numero(f.linhas_base) })
+                            : t("{fonte}: {linhas} linhas, {numeros} números diferentes", { fonte: f.fonte, linhas: numero(f.linhas_planilha), numeros: numero(f.numeros) })}
+                          {f.observacao && <> ({t(f.observacao)})</>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </td>
                 <td className={`${td} text-xs`}>
                   {e.ativa ? (
@@ -247,7 +265,8 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
                   )}
                 </td>
                 <td className={`${td} tabular`}>{e.inicio.split("-").reverse().join("/")}</td>
-                <td className={`${td} tabular`}>{numero(c?.leads ?? 0)}</td>
+                <td className={`${td} tabular`}>{numero(c?.linhas_planilha ?? 0)}</td>
+                <td className={`${td} tabular`}>{numero(c?.pessoas ?? 0)}</td>
                 <td className={`${td} tabular`}>{numero(c?.leads_ok ?? 0)}</td>
                 <td className={`${td} tabular`}>{numero(c?.leads_revisar ?? 0)}</td>
                 <td className={`${td} tabular`}>{numero(c?.compras_validas ?? 0)}</td>
