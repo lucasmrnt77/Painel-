@@ -5,6 +5,7 @@ import { listarGruposCampanha, pedirNovoConvite } from "./sendflow-grupos"
 import { enviarWhatsapp, envioConfigurado } from "./whatsapp"
 import { redirecionadorVaiProWhatsapp } from "./politica-alertas"
 import { mensagemRedirecionador } from "./mensagens"
+import { modelosAlertas } from "./textos-alertas"
 
 export type Funil = {
   slug: string; nome: string; limite_cliques: number; verificar_a_cada: number; link_reserva: string | null
@@ -177,6 +178,7 @@ export async function despacharAlertas() {
   const { data: grupos } = await db().from("redir_grupos").select("id, funil, nome, titulo_whatsapp, codigo, status, cliques, ordem").order("ordem").order("id")
   const lg = (grupos ?? []) as Pick<Grupo, "id" | "funil" | "nome" | "titulo_whatsapp" | "codigo" | "status" | "cliques" | "ordem">[]
   let enviados = 0
+  const modelos = await modelosAlertas()
   for (const e of eventos.filter((x) => meus.has(x.id))) {
     const f = (funis ?? []).find((x) => x.slug === e.funil) as { nome: string; link_reserva: string | null } | undefined
     const g = lg.find((x) => x.id === e.grupo_id)
@@ -188,7 +190,7 @@ export async function despacharAlertas() {
       proximo: proximo ? `${nomeG(proximo)} (${proximo.cliques} cliques)` : null,
       restantes: lg.filter((x) => x.funil === e.funil && x.status === "ativo").length,
       reserva: f?.link_reserva ?? null,
-    })
+    }, modelos)
     // Só o que precisa de ajuste vai para o WhatsApp (ex.: sem grupo na fila); o resto fica no painel
     if (texto && redirecionadorVaiProWhatsapp(e.tipo, !!proximo)) { await enviarWhatsapp([], texto, `redir_${e.tipo}`); enviados++ }
   }

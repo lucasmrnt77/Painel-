@@ -3,7 +3,10 @@ import { db } from "@/lib/supabase";
 import { modoEnvio } from "@/lib/whatsapp";
 import { duracao } from "@/lib/mensagens";
 import { Cartao } from "@/components/ui";
-import { AREAS, CATALOGO, type Area, type Envio, type ItemCatalogo } from "@/lib/catalogo-alertas";
+import { AREAS, CATALOGO, comTextos, type Area, type Envio, type ItemCatalogo } from "@/lib/catalogo-alertas";
+import { MODELOS_PADRAO, VARIAVEIS, variaveisDesconhecidas, type Modelos } from "@/lib/modelos-alertas";
+import { textosAlertas } from "@/lib/textos-alertas";
+import { restaurarTextosAlerta, salvarTextosAlerta } from "@/lib/acoes-catalogo-alertas";
 import { idiomaAtual, tradutor } from "@/lib/i18n/servidor";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +43,13 @@ export default async function CatalogoAlertas({ searchParams }: PageProps<"/aler
   const area = sp.area && sp.area in AREAS ? (sp.area as Area) : null;
   const L = (x: { pt: string; es: string }) => x[idioma];
 
-  const { data } = await db().from("lancamentos").select("nome, tipo, monitor_ativo, alerta_minutos_sem_entrada, resumo_minutos").order("id", { ascending: false });
+  const [{ data }, textos] = await Promise.all([
+    db().from("lancamentos").select("nome, tipo, monitor_ativo, alerta_minutos_sem_entrada, resumo_minutos").order("id", { ascending: false }),
+    textosAlertas(),
+  ]);
+  const editados = new Map(textos.map((x) => [x.tipo, x]));
+  const modelos: Modelos = {};
+  for (const x of textos) if (x.mensagem?.trim()) modelos[x.tipo] = x.mensagem;
   const lancs = (data ?? []) as Lanc[];
   const configAtual = (item: ItemCatalogo): string | null => {
     if (!item.config) return null;
@@ -50,7 +59,8 @@ export default async function CatalogoAlertas({ searchParams }: PageProps<"/aler
   };
 
   const modo = MODO[modoEnvio()] ?? MODO.nenhum;
-  const itens = area ? CATALOGO.filter((i) => i.area === area) : CATALOGO;
+  const todos = CATALOGO.map((i) => comTextos(i, editados.get(i.tipo)));
+  const itens = area ? todos.filter((i) => i.area === area) : todos;
   const areas = (Object.keys(AREAS) as Area[]).filter((a) => itens.some((i) => i.area === a));
   const vaoProWhats = CATALOGO.filter((i) => i.envio === "whatsapp" || i.envio === "condicional").length;
 
@@ -107,7 +117,12 @@ export default async function CatalogoAlertas({ searchParams }: PageProps<"/aler
                     <h3 className="font-semibold">{L(i.nome)}</h3>
                     <code className="text-[11px] text-zinc-500">{i.tipo}</code>
                   </div>
-                  <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${e.cor}`}>{L(e)}</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {(i.editado.mensagem || i.editado.diagnostico || i.editado.verificar) && (
+                      <span className="inline-flex rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/40 dark:text-violet-300">{idioma === "es" ? "Editado" : "Editado"}</span>
+                    )}
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${e.cor}`}>{L(e)}</span>
+                  </div>
                 </header>
                 <div className="grid gap-4 p-4 lg:grid-cols-[1fr_minmax(0,380px)]">
                   <dl className="min-w-0 space-y-3 text-sm">
@@ -139,14 +154,91 @@ export default async function CatalogoAlertas({ searchParams }: PageProps<"/aler
                   </dl>
                   <div className="min-w-0 space-y-1">
                     <div className="text-xs font-semibold text-zinc-500">{idioma === "es" ? "Mensaje actual (ejemplo)" : "Mensagem atual (exemplo)"}</div>
-                    <Mensagem texto={i.exemplo()} />
+                    <Mensagem texto={i.exemplo(modelos)} />
                   </div>
                 </div>
+                <Editor item={i} idioma={idioma} modelo={modelos[i.tipo] ?? MODELOS_PADRAO[i.tipo] ?? ""} editado={i.editado} />
               </article>
             );
           })}
         </section>
       ))}
     </>
+  );
+}
+
+const campoCls = "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950";
+const rotuloCls = "text-xs font-semibold text-zinc-500";
+
+/** Formulário para editar a mensagem, o diagnóstico e o "o que olhar" de um alerta. */
+function Editor({ item, idioma, modelo, editado }: {
+  item: ItemCatalogo; idioma: "pt" | "es"; modelo: string; editado: { mensagem: boolean; diagnostico: boolean; verificar: boolean };
+}) {
+  const es = idioma === "es";
+  const vars = VARIAVEIS[item.tipo] ?? [];
+  const desconhecidas = variaveisDesconhecidas(item.tipo, modelo);
+  const algum = editado.mensagem || editado.diagnostico || editado.verificar;
+  return (
+    <details className="border-t border-zinc-200 dark:border-zinc-800">
+      <summary className="cursor-pointer select-none px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+        ✏️ {es ? "Editar mensaje, diagnóstico y qué revisar" : "Editar mensagem, diagnóstico e o que olhar"}
+      </summary>
+      <form action={salvarTextosAlerta} className="space-y-4 px-4 pb-4">
+        <input type="hidden" name="tipo" value={item.tipo} />
+        <div className="space-y-1">
+          <label className={rotuloCls} htmlFor={`m-${item.tipo}`}>
+            {es ? "Mensaje (se envía en portugués)" : "Mensagem (enviada em português)"}{editado.mensagem && " · " + (es ? "editado" : "editada")}
+          </label>
+          <textarea id={`m-${item.tipo}`} name="mensagem" defaultValue={modelo} rows={Math.min(12, modelo.split("\n").length + 2)} className={`${campoCls} font-mono text-[13px]`} />
+          <p className="text-xs text-zinc-500">
+            {es
+              ? "Las palabras entre llaves se reemplazan por los datos reales. *texto* = negrita en WhatsApp. Una línea con variable que queda vacía desaparece."
+              : "As palavras entre chaves são trocadas pelos dados reais. *texto* = negrito no WhatsApp. Uma linha com variável que fica vazia some."}
+          </p>
+          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            {vars.map((x) => (
+              <li key={x.nome}><code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">{`{${x.nome}}`}</code> <span className="text-zinc-500">{x.desc[idioma]}</span></li>
+            ))}
+          </ul>
+          {desconhecidas.length > 0 && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {es ? "Variables que no existen para esta alerta (salen tal cual en el mensaje): " : "Variáveis que não existem para este alerta (saem do jeito que estão na mensagem): "}
+              {desconhecidas.map((n) => `{${n}}`).join(", ")}
+            </p>
+          )}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-1">
+            <label className={rotuloCls} htmlFor={`dp-${item.tipo}`}>Diagnóstico — português</label>
+            <textarea id={`dp-${item.tipo}`} name="diagnostico_pt" defaultValue={item.diagnostico.pt} rows={3} className={campoCls} />
+          </div>
+          <div className="space-y-1">
+            <label className={rotuloCls} htmlFor={`de-${item.tipo}`}>Diagnóstico — español</label>
+            <textarea id={`de-${item.tipo}`} name="diagnostico_es" defaultValue={item.diagnostico.es} rows={3} className={campoCls} />
+          </div>
+          <div className="space-y-1">
+            <label className={rotuloCls} htmlFor={`vp-${item.tipo}`}>{es ? "Qué revisar — portugués (uno por línea)" : "O que olhar — português (um por linha)"}</label>
+            <textarea id={`vp-${item.tipo}`} name="verificar_pt" defaultValue={item.verificar.pt.join("\n")} rows={Math.min(10, item.verificar.pt.length + 2)} className={campoCls} />
+          </div>
+          <div className="space-y-1">
+            <label className={rotuloCls} htmlFor={`ve-${item.tipo}`}>{es ? "Qué revisar — español (uno por línea)" : "O que olhar — espanhol (um por linha)"}</label>
+            <textarea id={`ve-${item.tipo}`} name="verificar_es" defaultValue={item.verificar.es.join("\n")} rows={Math.min(10, item.verificar.es.length + 2)} className={campoCls} />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300">
+            {es ? "Guardar" : "Salvar"}
+          </button>
+          {algum && (
+            <button formAction={restaurarTextosAlerta} className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">
+              {es ? "Volver al texto original" : "Voltar ao texto original"}
+            </button>
+          )}
+          <span className="text-xs text-zinc-500">
+            {es ? "El mensaje nuevo vale para las próximas alertas (hasta 1 min para aplicarse)." : "A mensagem nova vale para os próximos alertas (até 1 min para valer)."}
+          </span>
+        </div>
+      </form>
+    </details>
   );
 }

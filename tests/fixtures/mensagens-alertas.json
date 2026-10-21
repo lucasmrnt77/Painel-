@@ -1,0 +1,44 @@
+{
+ "alerta": [
+  "⚠️ *Lanç*\nSem entradas no grupo há *1 h 15 min*.\nÚltima entrada: 10:05.\n14 inscrição(ões) nesse período, mas ninguém entrou: confira a página de obrigado e o link do grupo.",
+  "⚠️ *Lanç*\nSem entradas no grupo há *3 h 20 min*.\nNenhuma entrada desde que o monitor foi ligado.\nNenhuma inscrição nesse período: o tráfego parece parado. Confira os anúncios.",
+  "⚠️ *OP*\nNenhum lead novo na página há *1 dia 1 h*.\nÚltimo lead: 07/12, 09:12 (horário UY).\nConfira os anúncios (pausados, sem saldo ou reprovados) e se a página está no ar.",
+  "⚠️ *OP*\nNenhum lead novo na página há *30 min*.\nNenhum lead desde que o monitor foi ligado.\nConfira os anúncios (pausados, sem saldo ou reprovados) e se a página está no ar.",
+  "⚠️ *Planilha X*\nA planilha não busca dados do painel há *22 min* (última busca: 07/12, 14:03, horário UY).\nOs leads continuam salvos no painel; quando a planilha voltar, ela recupera tudo sozinha.\nConfira na planilha: Extensões → Apps Script → Execuções (erros ou cota do Google).",
+  "✅ *OP*\nLeads retomados: novo lead em 07/12, 15:30, depois de 1 dia 4 h sem leads.",
+  "✅ *Lanç*\nEntradas retomadas às 12:40 depois de 2 h 35 min sem entradas.",
+  "📊 *Lanç* — 10:00 às 11:00\nInscrições: 52\nEntradas no grupo: 41 · Saídas: 3\nDos inscritos no período, 75% já estão no grupo.",
+  "📊 *Lanç* — 10:00 às 11:00\nInscrições: 0\nEntradas no grupo: 2",
+  "🔔 *Lanç*\nMensagem de teste do monitor do painel Sendflow.",
+  "Lanç: desconhecido"
+ ],
+ "redir": [
+  "📦 *Redirecionador Geral*\nO grupo *G36* chegou a 600 cliques e foi considerado cheio.\nAgora os cliques vão para *G37 (0 cliques)*.\nGrupos ativos na fila: 5.",
+  "📦 *Redirecionador Geral*\nO grupo *G36* chegou a 600 cliques e foi considerado cheio.\n⚠️ Não há outro grupo disponível na fila!",
+  "🚫 *Redirecionador Trader*\nO convite do grupo *G2* deixou de funcionar (link redefinido ou revogado).\n⚠️ Não há outro grupo disponível na fila!\nSe o grupo tiver o ID do Sendflow, já pedimos um link novo.\nGrupos ativos na fila: 0.",
+  "🔗 *Redirecionador Geral*\nO grupo *G38* recebeu link novo do Sendflow e voltou para a fila.",
+  "🔗 *Redirecionador Geral*\nO grupo *G38* recebeu link novo e voltou para a fila.",
+  "🆘 *Redirecionador Geral*\nNenhum grupo disponível! Os cliques estão indo para lugar nenhum (sem link reserva).\nAdicione ou reative grupos no painel.",
+  "🆘 *Redirecionador Geral*\nNenhum grupo disponível! Os cliques estão indo para o link reserva (https://x.y).\nAdicione ou reative grupos no painel.",
+  "⚠️ *Redirecionador Geral*\nPedimos link novo do grupo *G39* ao Sendflow há 31 min e ainda não chegou. Confira no Sendflow ou cole o link novo no painel.",
+  "⚠️ *Redirecionador Trader*\nO Sendflow recusou o pedido de link novo do grupo *G3* (429). Redefina pelo Sendflow e cole o link no painel.",
+  "⚠️ *Redirecionador Trader*\nO Sendflow recusou o pedido de link novo do grupo *G3* (erro de rede). Redefina pelo Sendflow e cole o link no painel."
+ ],
+ "ads": [
+  "🚨 *OP: dados da Meta sem atualizar*\nA última sincronização das campanhas foi em 06/12 às 06:00 (22 h atrás).\nSem esses dados o painel não consegue avisar se a Meta parar de gastar ou se o custo por lead subir.\n\nAvisar a Paola para conferir a sincronização.",
+  "🚨 *OP: dados da Meta sem atualizar*\nA última sincronização das campanhas foi — nunca (? h atrás).\nSem esses dados o painel não consegue avisar se a Meta parar de gastar ou se o custo por lead subir.\n\nAvisar a Paola para conferir a sincronização.",
+  "🚨 *OP: a Meta quase não gastou ontem*\n06/12: US$ 0.40 gastos com 4 anúncio(s) ativo(s) — média dos dias anteriores: US$ 10.20.\n\nConferir no Gerenciador de Anúncios: pagamento/saldo da conta, anúncios reprovados ou limitados e se a campanha está mesmo ativa.",
+  "🚨 *OP: a Meta não gastou nada hoje*\nAté 13:10: BRL 0.00 gastos com 2 anúncio(s) ativo(s) — média dos dias anteriores: BRL 9.00.\n\nConferir no Gerenciador de Anúncios: pagamento/saldo da conta, anúncios reprovados ou limitados e se a campanha está mesmo ativa.",
+  "🚨 *OP: custo por lead acima de US$ 8.00*\nDia 06/12: US$ 11.30 investidos ÷ 1 lead(s) = *US$ 11.30*.\nO normal é bem abaixo disso: algo está errado.\n\nConferir: página de captura funcionando (fazer uma inscrição de teste), anúncio levando para a página certa, eventos chegando à Meta (Alertas → Saúde na Meta) e público/criativo cansado.",
+  "🚨 *Dez: custo por lead acima de US$ 8.00*\nHoje até 13:10: US$ 20.00 investidos ÷ 0 lead(s) qualificado(s) = *sem leads*.\nO normal é bem abaixo disso: algo está errado.\n\nConferir: página de captura funcionando (fazer uma inscrição de teste), anúncio levando para a página certa, eventos chegando à Meta (Alertas → Saúde na Meta) e público/criativo cansado."
+ ],
+ "saude": [
+  "🚨 *Problema nos eventos da Meta (dados da própria Meta)*\n• p1\n• p2\n\nDetalhes no painel → Saúde na Meta.",
+  "🚨 *Problema nos eventos da Meta (dados da própria Meta)*\n• problema 0\n• problema 1\n• problema 2\n• problema 3\n• problema 4\n• problema 5\n• problema 6\n• problema 7\n… e mais 2\n\nDetalhes no painel → Saúde na Meta."
+ ],
+ "testes": [
+  "🚨 *Testes dos eventos Meta falharam* (servidor)\n2 de 42 verificações com problema:\n• caso 1: motivo 1\n• caso 2: motivo 2\n\nDetalhes no painel → Alertas.",
+  "🚨 *Testes dos eventos Meta falharam* (navegador (pixel))\n10 de 42 verificações com problema:\n• caso 1: motivo 1\n• caso 2: motivo 2\n• caso 3: motivo 3\n• caso 4: motivo 4\n• caso 5: motivo 5\n• caso 6: motivo 6\n• caso 7: motivo 7\n• caso 8: motivo 8\n… e mais 2\n\nDetalhes no painel → Alertas.",
+  "✅ *Testes dos eventos Meta voltaram a passar* (servidor)\n42 verificações, nenhuma falha."
+ ]
+}

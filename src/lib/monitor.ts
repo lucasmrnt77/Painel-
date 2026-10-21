@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
 import { mensagemAlerta } from "./mensagens";
+import { modelosAlertas } from "./textos-alertas";
 import { monitorVaiProWhatsapp } from "./politica-alertas";
 import { grupoConfigurado, rpcGrupo, ultimoLeadGrupo } from "./grupo";
 
@@ -69,7 +70,7 @@ async function comInscricoesDoGrupo(l: Lanc, dados: Record<string, unknown>) {
 
 async function criarEEnviar(l: Lanc, tipo: string, chave: string, dadosOriginais: Record<string, unknown>) {
   const dados = await comInscricoesDoGrupo(l, dadosOriginais);
-  const mensagem = mensagemAlerta(tipo, l.nome, dados);
+  const mensagem = mensagemAlerta(tipo, l.nome, dados, await modelosAlertas());
   const { data: id, error } = await db().rpc("monitor_registrar_alerta", {
     p_lancamento_id: l.id, p_tipo: tipo, p_chave: chave, p_mensagem: mensagem, p_dados: dados,
   });

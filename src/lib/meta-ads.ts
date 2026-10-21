@@ -2,7 +2,8 @@ import "server-only";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
 import { grupoConfigurado, rpcGrupo } from "./grupo";
-import { avaliarAds, diaLocal, inicioDia, somarDia, type DiaAds } from "./meta-ads-regras";
+import { avaliarAds, diaLocal, inicioDia, mensagemAds, somarDia, type DiaAds } from "./meta-ads-regras";
+import { modelosAlertas } from "./textos-alertas";
 
 /**
  * Alertas de gasto e custo por lead das campanhas na Meta.
@@ -83,6 +84,7 @@ export async function executarAlertasAds(agora = new Date()) {
   }
   const criados: unknown[] = [];
   const erros: string[] = [];
+  const modelos = await modelosAlertas();
   for (const l of (data ?? []) as Lanc[]) {
     let alertas;
     try {
@@ -91,7 +93,8 @@ export async function executarAlertasAds(agora = new Date()) {
       erros.push(`${l.nome}: ${e instanceof Error ? e.message : String(e)}`);
       continue;
     }
-    for (const a of alertas) {
+    for (const a0 of alertas) {
+      const a = { ...a0, mensagem: mensagemAds(a0.tipo, l.nome, a0.dados, modelos) };
       const { data: id, error: e2 } = await db().rpc("monitor_registrar_alerta", {
         p_lancamento_id: l.id, p_tipo: a.tipo, p_chave: a.chave, p_mensagem: a.mensagem, p_dados: a.dados,
       });

@@ -13,6 +13,7 @@
  * Lead — "Lead General" / "Lead Trader" para todos.
  */
 
+import { montar, type Modelos } from "./modelos-alertas";
 import type { T } from "./i18n";
 
 export type CorpoEvento = {
@@ -180,12 +181,12 @@ export type Execucao = {
   envio_status?: string | null;
 };
 
-export function mensagemTestes(e: Execucao, voltou: boolean): string {
+export function mensagemTestes(e: Execucao, voltou: boolean, modelos?: Modelos): string {
   const onde = e.origem === "servidor" ? "servidor" : "navegador (pixel)";
-  if (voltou) return `✅ *Testes dos eventos Meta voltaram a passar* (${onde})\n${e.total} verificações, nenhuma falha.`;
+  if (voltou) return montar("testes_voltaram", { onde, total: e.total }, modelos);
   const linhas = e.detalhes.slice(0, 8).map((f) => `• ${f.teste}: ${f.motivo}`);
   const resto = e.falhas > 8 ? `\n… e mais ${e.falhas - 8}` : "";
-  return `🚨 *Testes dos eventos Meta falharam* (${onde})\n${e.falhas} de ${e.total} verificações com problema:\n${linhas.join("\n")}${resto}\n\nDetalhes no painel → Alertas.`;
+  return montar("testes_falharam", { onde, falhas: e.falhas, total: e.total, detalhes: `${linhas.join("\n")}${resto}` }, modelos);
 }
 
 /** Valida o resultado enviado pelo teste do navegador (GitHub Actions). */

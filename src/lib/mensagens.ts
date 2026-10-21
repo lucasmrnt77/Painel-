@@ -1,4 +1,5 @@
-/** Textos dos alertas (puro — testável). */
+/** Textos dos alertas (puro — testável). Os textos vêm dos modelos em modelos-alertas.ts. */
+import { montar, type Modelos } from "./modelos-alertas";
 
 type Janela = { inscricoes: number; entradas: number; saidas: number; inscritos_no_grupo: number; de: string; ate: string };
 
@@ -20,83 +21,60 @@ export function duracao(minutos: number): string {
   return `${h} h${resto ? ` ${resto} min` : ""}`;
 }
 
-export function mensagemAlerta(tipo: string, lancamento: string, dados: Record<string, unknown>): string {
+export function mensagemAlerta(tipo: string, lancamento: string, dados: Record<string, unknown>, modelos?: Modelos): string {
   if (tipo === "sem_entradas") {
     const j = dados.janela as Janela;
-    const min = Number(dados.minutos_sem_entrada);
     const ultima = dados.ultima_entrada_em as string | null;
     const diagnostico =
       j.inscricoes === 0
         ? "Nenhuma inscrição nesse período: o tráfego parece parado. Confira os anúncios."
         : `${j.inscricoes} inscrição(ões) nesse período, mas ninguém entrou: confira a página de obrigado e o link do grupo.`;
-    return [
-      `⚠️ *${lancamento}*`,
-      `Sem entradas no grupo há *${duracao(min)}*.`,
-      ultima ? `Última entrada: ${hora(ultima)}.` : "Nenhuma entrada desde que o monitor foi ligado.",
-      diagnostico,
-    ].join("\n");
+    return montar(tipo, {
+      lancamento, tempo: duracao(Number(dados.minutos_sem_entrada)), ultima_entrada: hora(ultima), inscricoes: j.inscricoes, diagnostico,
+      linha_ultima_entrada: ultima ? `Última entrada: ${hora(ultima)}.` : "Nenhuma entrada desde que o monitor foi ligado.",
+    }, modelos);
   }
   if (tipo === "sem_leads") {
     const ultimo = dados.ultimo_lead_em as string | null;
-    return [
-      `⚠️ *${lancamento}*`,
-      `Nenhum lead novo na página há *${duracao(Number(dados.minutos_sem_lead))}*.`,
-      ultimo ? `Último lead: ${diaHora(ultimo)} (horário UY).` : "Nenhum lead desde que o monitor foi ligado.",
-      "Confira os anúncios (pausados, sem saldo ou reprovados) e se a página está no ar.",
-    ].join("\n");
+    return montar(tipo, {
+      lancamento, tempo: duracao(Number(dados.minutos_sem_lead)), ultimo_lead: diaHora(ultimo),
+      linha_ultimo_lead: ultimo ? `Último lead: ${diaHora(ultimo)} (horário UY).` : "Nenhum lead desde que o monitor foi ligado.",
+    }, modelos);
   }
   if (tipo === "planilha_parada") {
-    return [
-      `⚠️ *${lancamento}*`,
-      `A planilha não busca dados do painel há *${duracao(Number(dados.minutos_parada))}* (última busca: ${diaHora(dados.ultima_em as string)}, horário UY).`,
-      "Os leads continuam salvos no painel; quando a planilha voltar, ela recupera tudo sozinha.",
-      "Confira na planilha: Extensões → Apps Script → Execuções (erros ou cota do Google).",
-    ].join("\n");
+    return montar(tipo, { lancamento, tempo: duracao(Number(dados.minutos_parada)), ultima_busca: diaHora(dados.ultima_em as string) }, modelos);
   }
   if (tipo === "leads_retomados") {
-    return `✅ *${lancamento}*\nLeads retomados: novo lead em ${diaHora(dados.retomada_em as string)}, depois de ${duracao(Number(dados.minutos_sem_lead))} sem leads.`;
+    return montar(tipo, { lancamento, retomada_em: diaHora(dados.retomada_em as string), tempo: duracao(Number(dados.minutos_sem_lead)) }, modelos);
   }
   if (tipo === "entradas_retomadas") {
-    return `✅ *${lancamento}*\nEntradas retomadas às ${hora(dados.retomada_em as string)} depois de ${duracao(Number(dados.minutos_sem_entrada))} sem entradas.`;
+    return montar(tipo, { lancamento, retomada_em: hora(dados.retomada_em as string), tempo: duracao(Number(dados.minutos_sem_entrada)) }, modelos);
   }
   if (tipo === "resumo") {
     const j = dados.janela as Janela;
-    return [
-      `📊 *${lancamento}* — ${hora(j.de)} às ${hora(j.ate)}`,
-      `Inscrições: ${j.inscricoes}`,
-      `Entradas no grupo: ${j.entradas}` + (j.saidas ? ` · Saídas: ${j.saidas}` : ""),
-      dados.inscricoes_externas ? "" : `Dos inscritos no período, ${pct(j.inscritos_no_grupo, j.inscricoes)} já estão no grupo.`,
-    ].filter(Boolean).join("\n");
+    return montar(tipo, {
+      lancamento, de: hora(j.de), ate: hora(j.ate), inscricoes: j.inscricoes, entradas: j.entradas,
+      saidas: j.saidas ? ` · Saídas: ${j.saidas}` : "",
+      linha_no_grupo: dados.inscricoes_externas ? "" : `Dos inscritos no período, ${pct(j.inscritos_no_grupo, j.inscricoes)} já estão no grupo.`,
+    }, modelos);
   }
-  if (tipo === "teste") {
-    return `🔔 *${lancamento}*\nMensagem de teste do monitor do painel Sendflow.`;
-  }
+  if (tipo === "teste") return montar(tipo, { lancamento }, modelos);
   return `${lancamento}: ${tipo}`;
 }
 
 /** Alertas do redirecionador de grupos (puro — testável). */
-export function mensagemRedirecionador(tipo: string, funil: string, d: Record<string, unknown>): string | null {
-  const proximo = d.proximo ? `Agora os cliques vão para *${d.proximo}*.` : "⚠️ Não há outro grupo disponível na fila!"
-  const fila = typeof d.restantes === "number" ? `Grupos ativos na fila: ${d.restantes}.` : ""
-  if (tipo === "cheio") {
-    return [`📦 *Redirecionador ${funil}*`, `O grupo *${d.grupo}* chegou a ${d.cliques} cliques e foi considerado cheio.`, proximo, fila].filter(Boolean).join("\n")
+export function mensagemRedirecionador(tipo: string, funil: string, d: Record<string, unknown>, modelos?: Modelos): string | null {
+  const base = {
+    funil, grupo: d.grupo == null ? "" : String(d.grupo), cliques: d.cliques as number,
+    linha_proximo: d.proximo ? `Agora os cliques vão para *${d.proximo}*.` : "⚠️ Não há outro grupo disponível na fila!",
+    linha_fila: typeof d.restantes === "number" ? `Grupos ativos na fila: ${d.restantes}.` : "",
   }
-  if (tipo === "invalido") {
-    return [`🚫 *Redirecionador ${funil}*`, `O convite do grupo *${d.grupo}* deixou de funcionar (link redefinido ou revogado).`, proximo,
-      "Se o grupo tiver o ID do Sendflow, já pedimos um link novo.", fila].filter(Boolean).join("\n")
-  }
-  if (tipo === "link_novo") {
-    return [`🔗 *Redirecionador ${funil}*`, `O grupo *${d.grupo}* recebeu link novo${d.origem === "sendflow" ? " do Sendflow" : ""} e voltou para a fila.`].join("\n")
-  }
+  if (tipo === "cheio" || tipo === "invalido") return montar(tipo, base, modelos)
+  if (tipo === "link_novo") return montar(tipo, { ...base, do_sendflow: d.origem === "sendflow" ? " do Sendflow" : "" }, modelos)
   if (tipo === "sem_grupos") {
-    return [`🆘 *Redirecionador ${funil}*`, "Nenhum grupo disponível! Os cliques estão indo para " + (d.reserva ? `o link reserva (${d.reserva}).` : "lugar nenhum (sem link reserva)."),
-      "Adicione ou reative grupos no painel."].join("\n")
+    return montar(tipo, { funil, destino: d.reserva ? `o link reserva (${d.reserva}).` : "lugar nenhum (sem link reserva)." }, modelos)
   }
-  if (tipo === "redefinicao_sem_retorno") {
-    return `⚠️ *Redirecionador ${funil}*\nPedimos link novo do grupo *${d.grupo}* ao Sendflow há ${d.minutos} min e ainda não chegou. Confira no Sendflow ou cole o link novo no painel.`
-  }
-  if (tipo === "redefinicao_falhou") {
-    return `⚠️ *Redirecionador ${funil}*\nO Sendflow recusou o pedido de link novo do grupo *${d.grupo}* (${d.http ?? "erro de rede"}). Redefina pelo Sendflow e cole o link no painel.`
-  }
+  if (tipo === "redefinicao_sem_retorno") return montar(tipo, { ...base, minutos: d.minutos as number }, modelos)
+  if (tipo === "redefinicao_falhou") return montar(tipo, { ...base, erro: String(d.http ?? "erro de rede") }, modelos)
   return null
 }

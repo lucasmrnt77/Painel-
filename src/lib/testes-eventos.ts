@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
 import { testesVaiProWhatsapp } from "./politica-alertas";
+import { modelosAlertas } from "./textos-alertas";
 import {
   casosEventos, conferirRegistros, conferirResposta, mensagemTestes, MAX_DETALHES, TELEFONES_TESTE,
   type Etapa, type Execucao, type Falha, type RegistroEvento, type RespostaServico,
@@ -197,7 +198,7 @@ export async function registrarExecucao(exec: Execucao): Promise<Execucao> {
   // Só avisa no WhatsApp quando falha. Quando volta a funcionar, a volta aparece só no painel.
   const voltou = exec.ok && anterior && !anterior.ok;
   if (testesVaiProWhatsapp(exec.ok)) {
-    const envio = await enviarWhatsapp(await telefonesAlerta(), mensagemTestes(salvo, false), "teste_eventos");
+    const envio = await enviarWhatsapp(await telefonesAlerta(), mensagemTestes(salvo, false, await modelosAlertas()), "teste_eventos");
     await db().from("testes_execucoes").update({ envio_status: envio.status }).eq("id", salvo.id);
     salvo.envio_status = envio.status;
   } else if (voltou) {

@@ -10,6 +10,7 @@ import { mensagemAlerta, mensagemRedirecionador } from "./mensagens";
 import { mensagemSaude } from "./meta-saude-regras";
 import { mensagemAds } from "./meta-ads-regras";
 import { mensagemTestes, type Execucao } from "./testes-casos";
+import type { Modelos } from "./modelos-alertas";
 
 type Texto = { pt: string; es: string };
 type Lista = { pt: string[]; es: string[] };
@@ -30,7 +31,7 @@ export type ItemCatalogo = {
   verificar: Lista;
   /** Qual configuração do painel define o prazo (para mostrar o valor atual). */
   config?: "lancamento" | "grupo";
-  exemplo: () => string;
+  exemplo: (modelos?: Modelos) => string;
 };
 
 export const AREAS: Record<Area, Texto> = {
@@ -87,10 +88,10 @@ export const CATALOGO: ItemCatalogo[] = [
         "Si la gente entra pero el panel no lo ve: en Sendflow, revisar que el webhook de la campaña siga activo (la pestaña Eventos del panel muestra el último recibido).",
       ],
     },
-    exemplo: () => mensagemAlerta("sem_entradas", LANC, {
+    exemplo: (m?: Modelos) => mensagemAlerta("sem_entradas", LANC, {
       minutos_sem_entrada: 75, ultima_entrada_em: H(10, 5),
       janela: { inscricoes: 14, entradas: 0, saidas: 0, inscritos_no_grupo: 0, de: H(10, 5), ate: H(11, 20) },
-    }),
+    }, m),
   },
   {
     tipo: "entradas_retomadas", area: "lancamento", envio: "painel",
@@ -100,7 +101,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma vez por alerta de silêncio.", es: "Una vez por alerta de silencio." },
     diagnostico: { pt: "O problema anterior se resolveu (sozinho ou pelo ajuste feito).", es: "El problema anterior se resolvió (solo o por el ajuste hecho)." },
     verificar: { pt: ["Nada a fazer. Serve para saber quanto tempo o funil ficou parado."], es: ["Nada que hacer. Sirve para saber cuánto tiempo estuvo detenido el embudo."] },
-    exemplo: () => mensagemAlerta("entradas_retomadas", LANC, { retomada_em: H(12, 40), minutos_sem_entrada: 155 }),
+    exemplo: (m?: Modelos) => mensagemAlerta("entradas_retomadas", LANC, { retomada_em: H(12, 40), minutos_sem_entrada: 155 }, m),
   },
   {
     tipo: "resumo", area: "lancamento", envio: "painel",
@@ -110,7 +111,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Um por intervalo.", es: "Uno por intervalo." },
     diagnostico: { pt: "Informativo: inscrições, entradas e saídas do período.", es: "Informativo: inscripciones, entradas y salidas del período." },
     verificar: { pt: ["Comparar a % de inscritos que já estão no grupo com as horas anteriores."], es: ["Comparar el % de inscritos que ya están en el grupo con las horas anteriores."] },
-    exemplo: () => mensagemAlerta("resumo", LANC, { janela: { inscricoes: 52, entradas: 41, saidas: 3, inscritos_no_grupo: 39, de: H(10), ate: H(11) } }),
+    exemplo: (m?: Modelos) => mensagemAlerta("resumo", LANC, { janela: { inscricoes: 52, entradas: 41, saidas: 3, inscritos_no_grupo: 39, de: H(10), ate: H(11) } }, m),
   },
   {
     tipo: "teste", area: "lancamento", envio: "manual",
@@ -120,7 +121,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma por clique.", es: "Una por clic." },
     diagnostico: { pt: "Se não chegar no grupo de alertas, nenhuma outra alerta vai chegar.", es: "Si no llega al grupo de alertas, ninguna otra alerta va a llegar." },
     verificar: { pt: ["Se não chegou: card \"Envio dos alertas por WhatsApp\" na aba Alertas mostra o modo de envio e o erro.", "Conferir se a campanha de alertas do Sendflow tem o grupo da equipe."], es: ["Si no llegó: la tarjeta \"Envío de las alertas por WhatsApp\" en la pestaña Alertas muestra el modo de envío y el error.", "Revisar que la campaña de alertas de Sendflow tenga el grupo del equipo."] },
-    exemplo: () => mensagemAlerta("teste", LANC, {}),
+    exemplo: (m?: Modelos) => mensagemAlerta("teste", LANC, {}, m),
   },
 
   // ------------------------------------------------------------------ Grupo gratuito
@@ -146,7 +147,7 @@ export const CATALOGO: ItemCatalogo[] = [
         "Pestaña Grupo gratuito: revisar la hora del último lead y si el gráfico cayó de golpe (rotura) o de a poco (anuncio cansado).",
       ],
     },
-    exemplo: () => mensagemAlerta("sem_leads", "OP Futuros", { minutos_sem_lead: 1500, ultimo_lead_em: H(9, 12) }),
+    exemplo: (m?: Modelos) => mensagemAlerta("sem_leads", "OP Futuros", { minutos_sem_lead: 1500, ultimo_lead_em: H(9, 12) }, m),
   },
   {
     tipo: "leads_retomados", area: "grupo", envio: "painel",
@@ -156,7 +157,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma vez por alerta.", es: "Una vez por alerta." },
     diagnostico: { pt: "O problema anterior se resolveu.", es: "El problema anterior se resolvió." },
     verificar: { pt: ["Nada a fazer."], es: ["Nada que hacer."] },
-    exemplo: () => mensagemAlerta("leads_retomados", "OP Futuros", { retomada_em: H(15, 30), minutos_sem_lead: 1700 }),
+    exemplo: (m?: Modelos) => mensagemAlerta("leads_retomados", "OP Futuros", { retomada_em: H(15, 30), minutos_sem_lead: 1700 }, m),
   },
 
   // ------------------------------------------------------------------ Planilhas
@@ -184,7 +185,7 @@ export const CATALOGO: ItemCatalogo[] = [
         "Error de cuota/tiempo de Google: suele pasar solo; si se repite, avisar para revisar el script.",
       ],
     },
-    exemplo: () => mensagemAlerta("planilha_parada", "Planilha \"Leads Dezembro\"", { minutos_parada: 22, ultima_em: H(14, 3) }),
+    exemplo: (m?: Modelos) => mensagemAlerta("planilha_parada", "Planilha \"Leads Dezembro\"", { minutos_parada: 22, ultima_em: H(14, 3) }, m),
   },
 
   // ------------------------------------------------------------------ Redirecionador
@@ -199,7 +200,7 @@ export const CATALOGO: ItemCatalogo[] = [
       pt: ["Redirecionador → Grupos e importação: adicionar grupos novos ou importar do Sendflow.", "Se há grupos \"Convite inválido\": pedir link novo (Atualizar link) ou colar o link novo (Trocar link).", "Grupos \"Cheio\" com espaço real no WhatsApp: usar \"Zerar cliques\"."],
       es: ["Redireccionador → Grupos e importación: agregar grupos nuevos o importar de Sendflow.", "Si hay grupos \"Invitación inválida\": pedir link nuevo (Actualizar link) o pegar el link nuevo (Cambiar link).", "Grupos \"Lleno\" con lugar real en WhatsApp: usar \"Poner clics en cero\"."],
     },
-    exemplo: () => mensagemRedirecionador("sem_grupos", "Geral", { reserva: null }) ?? "",
+    exemplo: (m?: Modelos) => mensagemRedirecionador("sem_grupos", "Geral", { reserva: null }, m) ?? "",
   },
   {
     tipo: "cheio", area: "redirecionador", envio: "condicional",
@@ -209,7 +210,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma vez por grupo.", es: "Una vez por grupo." },
     diagnostico: { pt: "Normal durante o lançamento. Só é problema se a fila ficou vazia.", es: "Normal durante el lanzamiento. Solo es problema si la fila quedó vacía." },
     verificar: { pt: ["Conferir quantos grupos restam na fila e adicionar mais antes de acabar."], es: ["Revisar cuántos grupos quedan en la fila y agregar más antes de que se acaben."] },
-    exemplo: () => mensagemRedirecionador("cheio", "Geral", { grupo: "La Semana del Inversionista #36", cliques: 600, proximo: "La Semana del Inversionista #37 (0 cliques)", restantes: 5 }) ?? "",
+    exemplo: (m?: Modelos) => mensagemRedirecionador("cheio", "Geral", { grupo: "La Semana del Inversionista #36", cliques: 600, proximo: "La Semana del Inversionista #37 (0 cliques)", restantes: 5 }, m) ?? "",
   },
   {
     tipo: "invalido", area: "redirecionador", envio: "condicional",
@@ -219,7 +220,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma vez por queda do convite.", es: "Una vez por caída de la invitación." },
     diagnostico: { pt: "Alguém redefiniu ou revogou o link do grupo no WhatsApp/Sendflow. Com o ID do Sendflow, o painel já pede link novo sozinho.", es: "Alguien redefinió o revocó el link del grupo en WhatsApp/Sendflow. Con el ID de Sendflow, el panel ya pide link nuevo solo." },
     verificar: { pt: ["Esperar alguns minutos pelo link novo (status \"Aguardando Sendflow\").", "Se não voltar: copiar o link atual no WhatsApp/Sendflow e usar \"Trocar link\"."], es: ["Esperar unos minutos por el link nuevo (estado \"Esperando a Sendflow\").", "Si no vuelve: copiar el link actual en WhatsApp/Sendflow y usar \"Cambiar link\"."] },
-    exemplo: () => mensagemRedirecionador("invalido", "Trader", { grupo: "La Semana del Inversionista #2", proximo: null, restantes: 0 }) ?? "",
+    exemplo: (m?: Modelos) => mensagemRedirecionador("invalido", "Trader", { grupo: "La Semana del Inversionista #2", proximo: null, restantes: 0 }, m) ?? "",
   },
   {
     tipo: "link_novo", area: "redirecionador", envio: "painel",
@@ -229,7 +230,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma vez por troca.", es: "Una vez por cambio." },
     diagnostico: { pt: "Resolvido.", es: "Resuelto." },
     verificar: { pt: ["Nada a fazer."], es: ["Nada que hacer."] },
-    exemplo: () => mensagemRedirecionador("link_novo", "Geral", { grupo: "La Semana del Inversionista #38", origem: "sendflow" }) ?? "",
+    exemplo: (m?: Modelos) => mensagemRedirecionador("link_novo", "Geral", { grupo: "La Semana del Inversionista #38", origem: "sendflow" }, m) ?? "",
   },
   {
     tipo: "redefinicao_sem_retorno", area: "redirecionador", envio: "whatsapp",
@@ -239,7 +240,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma vez por pedido.", es: "Una vez por pedido." },
     diagnostico: { pt: "O grupo continua fora da fila. O Sendflow pode estar lento, com o número desconectado ou sem permissão no grupo.", es: "El grupo sigue fuera de la fila. Sendflow puede estar lento, con el número desconectado o sin permiso en el grupo." },
     verificar: { pt: ["No Sendflow: o número/conta está conectado e é admin do grupo?", "Redefinir o link pelo Sendflow ou pelo WhatsApp e colar no painel (Trocar link)."], es: ["En Sendflow: ¿el número/cuenta está conectado y es admin del grupo?", "Redefinir el link por Sendflow o por WhatsApp y pegarlo en el panel (Cambiar link)."] },
-    exemplo: () => mensagemRedirecionador("redefinicao_sem_retorno", "Geral", { grupo: "La Semana del Inversionista #39", minutos: 31 }) ?? "",
+    exemplo: (m?: Modelos) => mensagemRedirecionador("redefinicao_sem_retorno", "Geral", { grupo: "La Semana del Inversionista #39", minutos: 31 }, m) ?? "",
   },
   {
     tipo: "redefinicao_falhou", area: "redirecionador", envio: "whatsapp",
@@ -249,7 +250,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma vez por pedido recusado.", es: "Una vez por pedido rechazado." },
     diagnostico: { pt: "O link novo não vai chegar sozinho.", es: "El link nuevo no va a llegar solo." },
     verificar: { pt: ["Erro 401/403: token da API do Sendflow vencido ou trocado (variáveis da Vercel).", "Erro 429: muitos pedidos; o painel tenta de novo, mas dá para redefinir à mão.", "Redefinir pelo Sendflow e colar o link no painel."], es: ["Error 401/403: token de la API de Sendflow vencido o cambiado (variables de Vercel).", "Error 429: demasiados pedidos; el panel reintenta, pero se puede redefinir a mano.", "Redefinir por Sendflow y pegar el link en el panel."] },
-    exemplo: () => mensagemRedirecionador("redefinicao_falhou", "Trader", { grupo: "La Semana del Inversionista #3", http: 429 }) ?? "",
+    exemplo: (m?: Modelos) => mensagemRedirecionador("redefinicao_falhou", "Trader", { grupo: "La Semana del Inversionista #3", http: 429 }, m) ?? "",
   },
 
   // ------------------------------------------------------------------ Eventos Meta
@@ -264,7 +265,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma por execução com falha.", es: "Una por ejecución con falla." },
     diagnostico: { pt: "Algum evento deixou de chegar ou chega errado — a Meta otimiza as campanhas com dados ruins até corrigir.", es: "Algún evento dejó de llegar o llega mal — Meta optimiza las campañas con datos malos hasta que se corrija." },
     verificar: { pt: ["Aba Alertas → Testes diários: ver quais casos falharam e o motivo.", "Se alguém mudou uma página há pouco, conferir o formulário e a página de obrigado dela.", "Status 400/401 da Meta: token da API de Conversões no serviço de tracking."], es: ["Pestaña Alertas → Pruebas diarias: ver qué casos fallaron y el motivo.", "Si alguien cambió una página hace poco, revisar su formulario y su página de gracias.", "Status 400/401 de Meta: token de la API de Conversiones en el servicio de tracking."] },
-    exemplo: () => mensagemTestes(execucaoExemplo, false),
+    exemplo: (m?: Modelos) => mensagemTestes(execucaoExemplo, false, m),
   },
   {
     tipo: "testes_voltaram", area: "eventos", envio: "painel",
@@ -274,7 +275,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma vez.", es: "Una vez." },
     diagnostico: { pt: "Resolvido.", es: "Resuelto." },
     verificar: { pt: ["Nada a fazer."], es: ["Nada que hacer."] },
-    exemplo: () => mensagemTestes({ ...execucaoExemplo, ok: true, falhas: 0, detalhes: [] } as Execucao, true),
+    exemplo: (m?: Modelos) => mensagemTestes({ ...execucaoExemplo, ok: true, falhas: 0, detalhes: [] } as Execucao, true, m),
   },
 
   // ------------------------------------------------------------------ Saúde na Meta
@@ -289,7 +290,7 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma por dia enquanto o problema continuar.", es: "Una por día mientras el problema continúe." },
     diagnostico: { pt: "Os resultados das campanhas podem estar inflados (duplicados) ou a Meta está recebendo menos dados do que devia.", es: "Los resultados de las campañas pueden estar inflados (duplicados) o Meta está recibiendo menos datos de los que debería." },
     verificar: { pt: ["Aba Saúde na Meta: qual evento e qual lado (pixel ou servidor) está sem event_id.", "Conferir se alguma página nova dispara o pixel sem passar pelo serviço de tracking.", "\"Não consegui consultar a Meta\": token da Meta ou TESTES_TOKEN do serviço de tracking.", "Diferença Meta × nosso: se a Meta recebeu MENOS, o pixel/servidor está perdendo eventos (página nova sem tracking, bloqueio); se recebeu MAIS, há eventos duplicados ou disparados fora da inscrição."], es: ["Pestaña Salud en Meta: qué evento y qué lado (pixel o servidor) está sin event_id.", "Revisar si alguna página nueva dispara el pixel sin pasar por el servicio de tracking.", "\"No pude consultar a Meta\": token de Meta o TESTES_TOKEN del servicio de tracking.", "Diferencia Meta × nosotros: si Meta recibió MENOS, el pixel/servidor está perdiendo eventos (página nueva sin tracking, bloqueo); si recibió MÁS, hay eventos duplicados o disparados fuera de la inscripción."] },
-    exemplo: () => mensagemSaude(["Lead General: só 62% dos eventos do pixel (navegador) chegam com event_id — a Meta pode contar em dobro.", "Lead: a Meta recebeu 31 nas últimas 24 h e nós registramos 42 (26% de diferença, limite 20%)."]),
+    exemplo: (m?: Modelos) => mensagemSaude(["Lead General: só 62% dos eventos do pixel (navegador) chegam com event_id — a Meta pode contar em dobro.", "Lead: a Meta recebeu 31 nas últimas 24 h e nós registramos 42 (26% de diferença, limite 20%)."], m),
   },
 
   // ------------------------------------------------------------------ Campanhas na Meta
@@ -307,7 +308,7 @@ export const CATALOGO: ItemCatalogo[] = [
       pt: ["Gerenciador de Anúncios → Cobrança: pagamento e limite de gasto da conta.", "Status dos anúncios (reprovado, em análise, limitado).", "Se a campanha foi pausada de propósito, ignorar."],
       es: ["Administrador de anuncios → Facturación: pago y límite de gasto de la cuenta.", "Estado de los anuncios (rechazado, en revisión, limitado).", "Si la campaña se pausó a propósito, ignorar."],
     },
-    exemplo: () => mensagemAds("ads_sem_gasto", "OP Futuros (grupo gratuito)", { moeda: "USD", dia: "2026-12-06", investimento: 0.4, ativos: 4, media: 10.2 }),
+    exemplo: (m?: Modelos) => mensagemAds("ads_sem_gasto", "OP Futuros (grupo gratuito)", { moeda: "USD", dia: "2026-12-06", investimento: 0.4, ativos: 4, media: 10.2 }, m),
   },
   {
     tipo: "ads_cpl_alto", area: "ads", envio: "whatsapp",
@@ -323,7 +324,7 @@ export const CATALOGO: ItemCatalogo[] = [
       pt: ["Fazer uma inscrição de teste na página (?tde_teste=1).", "Conferir o link de destino dos anúncios.", "Alertas → Saúde na Meta e Testes diários.", "Se a página está ok: CPM/CTR no Gerenciador (público ou criativo cansado)."],
       es: ["Hacer una inscripción de prueba en la página (?tde_teste=1).", "Revisar el link de destino de los anuncios.", "Alertas → Salud en Meta y Pruebas diarias.", "Si la página está ok: CPM/CTR en el Administrador (público o creativo cansado)."],
     },
-    exemplo: () => mensagemAds("ads_cpl_alto", "OP Futuros (grupo gratuito)", { moeda: "USD", dia: "2026-12-06", investimento: 11.3, leads: 1, limite: 8 }),
+    exemplo: (m?: Modelos) => mensagemAds("ads_cpl_alto", "OP Futuros (grupo gratuito)", { moeda: "USD", dia: "2026-12-06", investimento: 11.3, leads: 1, limite: 8 }, m),
   },
   {
     tipo: "ads_sem_dados", area: "ads", envio: "whatsapp",
@@ -333,10 +334,57 @@ export const CATALOGO: ItemCatalogo[] = [
     repeticao: { pt: "Uma vez por parada.", es: "Una vez por parada." },
     diagnostico: { pt: "A automação da Paola que copia os dados da Meta para o banco parou.", es: "La automatización de Paola que copia los datos de Meta a la base se detuvo." },
     verificar: { pt: ["Avisar a Paola para conferir a sincronização (tabela pc_ads_meta_anuncio_dia)."], es: ["Avisar a Paola para revisar la sincronización (tabla pc_ads_meta_anuncio_dia)."] },
-    exemplo: () => mensagemAds("ads_sem_dados", "OP Futuros (grupo gratuito)", { ultima_sync: "2026-12-06T09:00:00Z", horas: 22 }),
+    exemplo: (m?: Modelos) => mensagemAds("ads_sem_dados", "OP Futuros (grupo gratuito)", { ultima_sync: "2026-12-06T09:00:00Z", horas: 22 }, m),
   },
 ];
 
 export function itemDoCatalogo(tipo: string): ItemCatalogo | undefined {
   return CATALOGO.find((i) => i.tipo === tipo);
+}
+
+/** Textos editados no painel (tabela alertas_textos); campo vazio = padrão. */
+export type TextosEditados = {
+  mensagem?: string | null;
+  diagnostico_pt?: string | null;
+  diagnostico_es?: string | null;
+  verificar_pt?: string[] | null;
+  verificar_es?: string[] | null;
+};
+
+const cheio = (s?: string | null) => (s && s.trim() ? s.trim() : null);
+const lista = (xs?: string[] | null) => (xs && xs.some((x) => x.trim()) ? xs.map((x) => x.trim()).filter(Boolean) : null);
+
+/** Item do catálogo com os textos editados aplicados, e o que foi editado. */
+export function comTextos(item: ItemCatalogo, ed?: TextosEditados | null) {
+  const diagnostico = { pt: cheio(ed?.diagnostico_pt) ?? item.diagnostico.pt, es: cheio(ed?.diagnostico_es) ?? item.diagnostico.es };
+  const verificar = { pt: lista(ed?.verificar_pt) ?? item.verificar.pt, es: lista(ed?.verificar_es) ?? item.verificar.es };
+  return {
+    ...item, diagnostico, verificar,
+    editado: {
+      mensagem: !!cheio(ed?.mensagem),
+      diagnostico: !!(cheio(ed?.diagnostico_pt) || cheio(ed?.diagnostico_es)),
+      verificar: !!(lista(ed?.verificar_pt) || lista(ed?.verificar_es)),
+    },
+  };
+}
+
+/**
+ * Normaliza o que veio do formulário de edição: o que for igual ao padrão (ou vazio) vira null,
+ * para que mudanças futuras no texto padrão continuem valendo onde ninguém editou.
+ */
+export function normalizarEdicao(item: ItemCatalogo, modeloPadrao: string, f: {
+  mensagem: string; diagnostico_pt: string; diagnostico_es: string; verificar_pt: string; verificar_es: string;
+}): Required<TextosEditados> {
+  const linhas = (s: string) => s.replace(/\r\n/g, "\n").split("\n").map((x) => x.replace(/^\s*[•\-*]\s+/, "").trim()).filter(Boolean);
+  const igual = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+  const msg = f.mensagem.replace(/\r\n/g, "\n").replace(/\s+$/, "");
+  const vpt = linhas(f.verificar_pt);
+  const ves = linhas(f.verificar_es);
+  return {
+    mensagem: !msg.trim() || msg === modeloPadrao ? null : msg,
+    diagnostico_pt: !f.diagnostico_pt.trim() || f.diagnostico_pt.trim() === item.diagnostico.pt ? null : f.diagnostico_pt.trim(),
+    diagnostico_es: !f.diagnostico_es.trim() || f.diagnostico_es.trim() === item.diagnostico.es ? null : f.diagnostico_es.trim(),
+    verificar_pt: vpt.length === 0 || igual(vpt, item.verificar.pt) ? null : vpt,
+    verificar_es: ves.length === 0 || igual(ves, item.verificar.es) ? null : ves,
+  };
 }

@@ -3,6 +3,7 @@ import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
 import { avaliarSaude, mensagemSaude, type RespostaSaude } from "./meta-saude-regras";
 import { divergenciaEventos } from "./meta-ads-regras";
+import { modelosAlertas } from "./textos-alertas";
 import { grupoConfigurado, rpcGrupo } from "./grupo";
 
 /**
@@ -79,7 +80,7 @@ export async function atualizarSaudeMeta(disparo: "agendado" | "manual"): Promis
   const salvo = data as RegistroSaude;
   if (problemas.length > 0) {
     const { data: g } = await db().from("lancamentos").select("alerta_telefones").eq("tipo", "grupo_gratuito").maybeSingle();
-    const envio = await enviarWhatsapp(((g?.alerta_telefones as string[] | null) ?? []).filter(Boolean), mensagemSaude(problemas), "meta_saude");
+    const envio = await enviarWhatsapp(((g?.alerta_telefones as string[] | null) ?? []).filter(Boolean), mensagemSaude(problemas, await modelosAlertas()), "meta_saude");
     await db().from("meta_saude").update({ envio_status: envio.status }).eq("id", salvo.id);
     salvo.envio_status = envio.status;
   }

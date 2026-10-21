@@ -11,6 +11,7 @@
  * sincronizados depois do meio-dia e com pelo menos 1 limite inteiro já gasto.
  */
 
+import { montar, type Modelos } from "./modelos-alertas";
 export const FUSO_ADS_OFFSET = "-03:00"; // Brasil/Uruguai, sem horário de verão
 export const HORAS_SEM_SYNC = 20;
 export const HORA_PARCIAL = 12;
@@ -55,18 +56,29 @@ const hhmm = (iso: string) => {
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 };
 
-export function mensagemAds(tipo: AlertaAds["tipo"], nome: string, d: Record<string, unknown>): string {
+export function mensagemAds(tipo: AlertaAds["tipo"], nome: string, d: Record<string, unknown>, modelos?: Modelos): string {
   const moeda = String(d.moeda ?? "USD");
+  const parcial = d.parcial === true;
   if (tipo === "ads_sem_dados") {
-    return `🚨 *${nome}: dados da Meta sem atualizar*\nA última sincronização das campanhas foi ${d.ultima_sync ? `em ${dataBr(diaLocal(new Date(String(d.ultima_sync))))} às ${hhmm(String(d.ultima_sync))}` : "— nunca"} (${d.horas ?? "?"} h atrás).\nSem esses dados o painel não consegue avisar se a Meta parar de gastar ou se o custo por lead subir.\n\nAvisar a Paola para conferir a sincronização.`;
+    return montar(tipo, {
+      nome, horas: String(d.horas ?? "?"),
+      ultima_sync: d.ultima_sync ? `em ${dataBr(diaLocal(new Date(String(d.ultima_sync))))} às ${hhmm(String(d.ultima_sync))}` : "— nunca",
+    }, modelos);
   }
   if (tipo === "ads_sem_gasto") {
-    const parcial = d.parcial === true;
-    return `🚨 *${nome}: a Meta ${parcial ? "não gastou nada hoje" : "quase não gastou ontem"}*\n${parcial ? `Até ${hhmm(String(d.ultima_sync))}: ${dinheiro(Number(d.investimento), moeda)} gastos` : `${dataBr(String(d.dia))}: ${dinheiro(Number(d.investimento), moeda)} gastos`} com ${d.ativos} anúncio(s) ativo(s) — média dos dias anteriores: ${dinheiro(Number(d.media), moeda)}.\n\nConferir no Gerenciador de Anúncios: pagamento/saldo da conta, anúncios reprovados ou limitados e se a campanha está mesmo ativa.`;
+    return montar(tipo, {
+      nome, titulo: parcial ? "não gastou nada hoje" : "quase não gastou ontem",
+      periodo: parcial ? `Até ${hhmm(String(d.ultima_sync))}` : dataBr(String(d.dia)),
+      investimento: dinheiro(Number(d.investimento), moeda), ativos: d.ativos as number, media: dinheiro(Number(d.media), moeda),
+    }, modelos);
   }
   const leads = Number(d.leads);
-  const cpl = leads > 0 ? dinheiro(Number(d.investimento) / leads, moeda) : "sem leads";
-  return `🚨 *${nome}: custo por lead acima de ${dinheiro(Number(d.limite), moeda)}*\n${d.parcial === true ? `Hoje até ${hhmm(String(d.ultima_sync))}` : `Dia ${dataBr(String(d.dia))}`}: ${dinheiro(Number(d.investimento), moeda)} investidos ÷ ${leads} lead(s)${d.qualificados ? " qualificado(s)" : ""} = *${cpl}*.\nO normal é bem abaixo disso: algo está errado.\n\nConferir: página de captura funcionando (fazer uma inscrição de teste), anúncio levando para a página certa, eventos chegando à Meta (Alertas → Saúde na Meta) e público/criativo cansado.`;
+  return montar("ads_cpl_alto", {
+    nome, limite: dinheiro(Number(d.limite), moeda),
+    periodo: parcial ? `Hoje até ${hhmm(String(d.ultima_sync))}` : `Dia ${dataBr(String(d.dia))}`,
+    investimento: dinheiro(Number(d.investimento), moeda), leads, qualificados: d.qualificados ? " qualificado(s)" : "",
+    cpl: leads > 0 ? dinheiro(Number(d.investimento) / leads, moeda) : "sem leads",
+  }, modelos);
 }
 
 function alerta(tipo: AlertaAds["tipo"], chave: string, nome: string, dados: Record<string, unknown>): AlertaAds {

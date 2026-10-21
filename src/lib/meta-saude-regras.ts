@@ -5,6 +5,7 @@
  * AVISO = só no painel: cobertura da API de Conversões abaixo da meta, sem dados ainda etc.
  */
 
+import { montar, type Modelos } from "./modelos-alertas";
 export const EVENTOS_MONITORADOS = ["Lead", "Lead General", "Lead Qualificado", "Lead Trader", "Lead Trader Qualificado"];
 /** % mínimo de eventos (navegador e servidor) com event_id para a deduplicação funcionar. */
 export const LIMITE_DEDUP = 80;
@@ -53,8 +54,8 @@ export function avaliarSaude(r: RespostaSaude | null, erroConsulta?: string): { 
   return { problemas, avisos };
 }
 
-export function mensagemSaude(problemas: string[]): string {
+export function mensagemSaude(problemas: string[], modelos?: Modelos): string {
   const linhas = problemas.slice(0, 8).map((p) => `• ${p}`);
   const resto = problemas.length > 8 ? `\n… e mais ${problemas.length - 8}` : "";
-  return `🚨 *Problema nos eventos da Meta (dados da própria Meta)*\n${linhas.join("\n")}${resto}\n\nDetalhes no painel → Saúde na Meta.`;
+  return montar("meta_saude", { problemas: `${linhas.join("\n")}${resto}` }, modelos);
 }
