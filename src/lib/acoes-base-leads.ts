@@ -15,7 +15,7 @@ export async function aprovarTelefone(fd: FormData) {
   await exigirLogin();
   const original = texto(fd, "original").replace(/\D/g, "");
   const telefone = texto(fd, "telefone").replace(/\D/g, "");
-  if (!original || telefone.length < 10 || telefone.length > 15) return;
+  if (!original || telefone.length < 10 || telefone.length > 15 || telefone === original) return;
   const { error } = await db().rpc("bd_decidir_telefone", { p_original: original, p_telefone: telefone, p_situacao: "aprovada" });
   if (error) throw new Error(error.message);
   revalidatePath(CAMINHO);
@@ -32,9 +32,10 @@ export async function descartarTelefone(fd: FormData) {
 }
 
 /** Aprova de uma vez todas as sugestões automáticas da regra (ex.: tirar o 15 na Argentina). */
-export async function aprovarTodasSugestoes() {
+export async function aprovarTodasSugestoes(fd?: FormData) {
   await exigirLogin();
-  const { error } = await db().rpc("bd_aprovar_sugestoes");
+  const motivo = fd ? texto(fd, "motivo") : "";
+  const { error } = await db().rpc("bd_aprovar_sugestoes", motivo ? { p_motivo: motivo } : {});
   if (error) throw new Error(error.message);
   revalidatePath(CAMINHO);
 }

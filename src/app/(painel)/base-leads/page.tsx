@@ -3,7 +3,7 @@ import { MultiSelecao } from "@/components/multi-selecao";
 import { db } from "@/lib/supabase";
 import {
   contagensPorEdicao, conversaoPorEdicao, repeticaoPorEdicao, conversaoPorParticipacao, conversaoPorTotal, edicoes,
-  FILTROS_COMPRA, fontesPorEdicao, telefonesParaRevisar, type FonteEdicao,
+  FILTROS_COMPRA, fontesPorEdicao, resumoProblemas, telefonesInvalidos, telefonesParaRevisar, type FonteEdicao, type ResumoProblema,
 } from "@/lib/base-leads";
 import {
   alternarEdicao, aprovarTelefone, aprovarTodasSugestoes, ativarEdicao, atualizarBase, criarEdicao, descartarTelefone, encerrarEdicao,
@@ -13,6 +13,7 @@ import { Cartao, Kpi, Tabela, td } from "@/components/ui";
 import { ImportadorBaseLeads } from "@/components/importador-base-leads";
 import { tradutor } from "@/lib/i18n/servidor";
 import type { T } from "@/lib/i18n";
+import { dicaDoMotivo } from "@/lib/telefone-dicas";
 
 export const dynamic = "force-dynamic";
 
@@ -38,16 +39,20 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
   await exigirLogin();
   const t = await tradutor();
   const sp = await searchParams;
-  const revisarTodos = sp.revisar === "todos";
+  const um = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) || undefined;
+  const motivoRevisar = um(sp.rmot);
+  const motivoInvalido = um(sp.imot);
 
-  const [eds, porPart, porEdicao, porTotal, contagens, revisar, ultima, totais, repeticao, lancsPainel, fontes] = await Promise.all([
+  const [eds, porPart, porEdicao, porTotal, contagens, revisar, ultima, totais, repeticao, lancsPainel, fontes, invalidos, problemas] = await Promise.all([
     edicoes(), conversaoPorParticipacao(), conversaoPorEdicao(), conversaoPorTotal(), contagensPorEdicao(),
-    telefonesParaRevisar(100, revisarTodos ? "todos" : "compradores"),
+    telefonesParaRevisar(100, "todos", motivoRevisar),
     db().from("bd_atualizacoes").select("atualizado_em").order("id", { ascending: false }).limit(1).maybeSingle(),
     db().from("v_bd_revisar").select("telefone_original", { count: "exact", head: true }),
     repeticaoPorEdicao(),
     db().from("lancamentos").select("id, nome").eq("tipo", "lancamento").order("id", { ascending: false }),
     fontesPorEdicao(),
+    telefonesInvalidos(100, motivoInvalido),
+    resumoProblemas(),
   ]);
   const cont = new Map(contagens.map((c) => [c.edicao_id, c]));
   const fontesDe = new Map<number, FonteEdicao[]>();
@@ -172,38 +177,38 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
       </Cartao>
 
       <Cartao titulo={t("Telefones para revisar ({n})", { n: numero(totalRevisar) })}
-        acao={revisar.itens.some((r) => r.sugestao) ? (
-          <form action={aprovarTodasSugestoes}><button className={botao}>{t("Aprovar todas as sugestões")}</button></form>
-        ) : undefined}>
+        acao={<form action={atualizarBase}><button className={botao}>{t("Recalcular agora")}</button></form>}>
         <p className="mb-3 text-xs text-zinc-500">
-          {t("Números que a regra não conseguiu corrigir com segurança. Ficam fora das estatísticas até alguém aprovar uma correção ou descartar.")}{" "}
-          {revisarTodos ? t("Mostrando todos (primeiro os compradores).") : t("Mostrando só os de compradores, que mais afetam as taxas.")}{" "}
-          <a className="underline" href={revisarTodos ? "/base-leads" : "/base-leads?revisar=todos"}>{revisarTodos ? t("Ver só compradores") : t("Ver todos")}</a>
-          {" "}{t("· Depois de revisar, clique em")} <b>{t("Recalcular agora")}</b>.
+          {t("Números que a regra não conseguiu corrigir com segurança. Ficam fora das estatísticas até alguém aprovar uma correção ou descartar. Os que aparecem completos em outro registro ou no grupo de WhatsApp são corrigidos sozinhos.")}
         </p>
-        <Tabela cabecalho={[t("Telefone como chegou"), t("Problema"), t("Correção"), "", t("Lançamentos"), t("Vezes")]} vazio={revisar.itens.length === 0}>
+        <ResumoMotivos t={t} itens={problemas.filter((p) => p.lista === "revisar")} param="rmot" atual={motivoRevisar} sp={sp} />
+        {motivoRevisar && dicaDoMotivo(motivoRevisar).sugestaoConfiavel && revisar.itens.some((r) => r.sugestao) && (
+          <form action={aprovarTodasSugestoes} className="mb-3">
+            <input type="hidden" name="motivo" value={motivoRevisar} />
+            <button className={botao}>{t("Aprovar as {n} sugestões deste tipo", { n: numero(revisar.total) })}</button>
+          </form>
+        )}
+        <Tabela cabecalho={[t("Telefone como chegou"), t("Causa provável"), t("Número certo"), "", t("Lançamentos"), t("Vezes")]} vazio={revisar.itens.length === 0}>
           {revisar.itens.map((r) => (
-            <tr key={r.telefone_original}>
-              <td className={`${td} font-mono text-xs`}>{r.telefone_original}{r.e_comprador && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{t("comprador")}</span>}</td>
-              <td className={`${td} text-xs`}>{traduzirMotivo(t, r.motivo_sugestao ?? r.motivo ?? "")}{r.origem_sugestao === "ia" && <span className="ml-1 text-[10px] text-zinc-500">{t("(sugestão da IA)")}</span>}</td>
-              <td className={td}>
-                <form action={aprovarTelefone} className="flex gap-1">
-                  <input type="hidden" name="original" value={r.telefone_original} />
-                  <input name="telefone" defaultValue={r.sugestao ?? ""} placeholder={t("número certo")} className={`${campo} w-40 font-mono text-xs`} />
-                  <button className={botao}>{t("Aprovar")}</button>
-                </form>
-              </td>
-              <td className={td}>
-                <form action={descartarTelefone}>
-                  <input type="hidden" name="original" value={r.telefone_original} />
-                  <button className="text-xs text-zinc-500 hover:text-rose-600 hover:underline">{t("descartar")}</button>
-                </form>
-              </td>
-              <td className={`${td} text-xs`}>{r.edicoes}</td>
-              <td className={`${td} tabular`}>{r.ocorrencias}</td>
-            </tr>
+            <LinhaTelefone key={r.telefone_original} t={t} original={r.telefone_original} motivo={r.motivo_sugestao ?? r.motivo}
+              ia={r.origem_sugestao === "ia"} sugestao={r.sugestao} comprador={r.e_comprador} edicoes={r.edicoes} vezes={r.ocorrencias} />
           ))}
         </Tabela>
+        {revisar.total > revisar.itens.length && <p className="mt-2 text-xs text-zinc-500">{t("Mostrando {a} de {b}. Corrija ou descarte para ver os próximos.", { a: numero(revisar.itens.length), b: numero(revisar.total) })}</p>}
+      </Cartao>
+
+      <Cartao titulo={t("Telefones inválidos ({n})", { n: numero(invalidos.total) })}>
+        <p className="mb-3 text-xs text-zinc-500">
+          {t("Números que não existem no formato do país e não apareceram completos em nenhum outro lugar. Ficam fora das estatísticas. Se souber o número certo, edite; se não der para recuperar, descarte para tirar da lista.")}
+        </p>
+        <ResumoMotivos t={t} itens={problemas.filter((p) => p.lista === "invalido")} param="imot" atual={motivoInvalido} sp={sp} />
+        <Tabela cabecalho={[t("Telefone como chegou"), t("Causa provável"), t("Número certo"), "", t("Lançamentos"), t("Vezes")]} vazio={invalidos.itens.length === 0}>
+          {invalidos.itens.map((r) => (
+            <LinhaTelefone key={r.telefone_original} t={t} original={r.telefone_original} motivo={r.motivo}
+              sugestao={null} comprador={r.e_comprador} edicoes={r.edicoes} vezes={r.ocorrencias} />
+          ))}
+        </Tabela>
+        {invalidos.total > invalidos.itens.length && <p className="mt-2 text-xs text-zinc-500">{t("Mostrando {a} de {b}. Corrija ou descarte para ver os próximos.", { a: numero(invalidos.itens.length), b: numero(invalidos.total) })}</p>}
       </Cartao>
 
       <Cartao titulo={t("Lançamentos na base")}>
@@ -304,5 +309,72 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
         <ImportadorBaseLeads edicoes={eds.map((e) => ({ codigo: e.codigo, nome: t(e.nome) }))} />
       </Cartao>
     </>
+  );
+}
+
+type Params = Record<string, string | string[] | undefined>;
+
+/** Filtro por tipo de problema (chips com a quantidade). */
+function ResumoMotivos({ t, itens, param, atual, sp }: { t: T; itens: ResumoProblema[]; param: string; atual?: string; sp: Params }) {
+  if (itens.length === 0) return null;
+  const link = (motivo?: string) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (k !== param && typeof v === "string") q.set(k, v);
+    if (motivo) q.set(param, motivo);
+    const s = q.toString();
+    return `/base-leads${s ? `?${s}` : ""}`;
+  };
+  const chip = (ativo: boolean) =>
+    `rounded-full border px-2 py-0.5 text-xs ${ativo ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"}`;
+  const dica = atual ? dicaDoMotivo(atual) : null;
+  return (
+    <div className="mb-3 space-y-2">
+      <div className="flex flex-wrap gap-1">
+        <a href={link()} className={chip(!atual)}>{t("Todos")}</a>
+        {itens.map((i) => (
+          <a key={i.motivo ?? ""} href={link(i.motivo ?? "")} className={chip(atual === i.motivo)}>
+            {traduzirMotivo(t, i.motivo ?? "")} · {numero(i.numeros)}
+          </a>
+        ))}
+      </div>
+      {dica && (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+          <b>{t("Causa:")}</b> {t(dica.causa)} <b>{t("Como corrigir:")}</b> {t(dica.comoCorrigir)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Uma linha de telefone com problema: causa provável, campo para editar o número e descartar. */
+function LinhaTelefone({ t, original, motivo, ia, sugestao, comprador, edicoes, vezes }: {
+  t: T; original: string; motivo: string | null; ia?: boolean; sugestao: string | null; comprador: boolean; edicoes: string; vezes: number;
+}) {
+  const dica = dicaDoMotivo(motivo);
+  return (
+    <tr>
+      <td className={`${td} font-mono text-xs`}>{original}{comprador && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{t("comprador")}</span>}</td>
+      <td className={`${td} max-w-xs text-xs`}>
+        <div>{traduzirMotivo(t, motivo ?? "")}{ia && <span className="ml-1 text-[10px] text-zinc-500">{t("(sugestão da IA)")}</span>}</div>
+        <div className="text-zinc-500">{t(dica.causa)}</div>
+      </td>
+      <td className={td}>
+        <form action={aprovarTelefone} className="flex gap-1">
+          <input type="hidden" name="original" value={original} />
+          <input name="telefone" defaultValue={sugestao ?? original} required inputMode="numeric" pattern="[0-9 +()-]{10,20}"
+            title={t("Número com código do país, ex.: 5491112345678 ou 59891234567")} className={`${campo} w-40 font-mono text-xs`} />
+          <button className={botao}>{sugestao ? t("Aprovar") : t("Salvar")}</button>
+        </form>
+        {sugestao && !dica.sugestaoConfiavel && <div className="mt-0.5 text-[10px] text-amber-700 dark:text-amber-400">{t("sugestão pouco confiável: confira antes")}</div>}
+      </td>
+      <td className={td}>
+        <form action={descartarTelefone}>
+          <input type="hidden" name="original" value={original} />
+          <button className="text-xs text-zinc-500 hover:text-rose-600 hover:underline">{t("descartar")}</button>
+        </form>
+      </td>
+      <td className={`${td} text-xs`}>{edicoes}</td>
+      <td className={`${td} tabular`}>{vezes}</td>
+    </tr>
   );
 }

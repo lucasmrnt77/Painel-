@@ -100,13 +100,34 @@ export async function fontesPorEdicao(): Promise<FonteEdicao[]> {
   return (data ?? []) as FonteEdicao[];
 }
 
-export async function telefonesParaRevisar(limite = 100, so: "compradores" | "todos" = "compradores"): Promise<{ itens: Revisar[]; total: number }> {
+export async function telefonesParaRevisar(limite = 100, so: "compradores" | "todos" = "todos", motivo?: string): Promise<{ itens: Revisar[]; total: number }> {
   let q = db().from("v_bd_revisar").select("*", { count: "exact" })
-    .order("e_comprador", { ascending: false }).order("ocorrencias", { ascending: false }).limit(limite);
+    .order("e_comprador", { ascending: false }).order("ocorrencias", { ascending: false }).order("telefone_original").limit(limite);
   if (so === "compradores") q = q.eq("e_comprador", true);
+  if (motivo) q = q.eq("motivo", motivo);
   const { data, error, count } = await q;
   if (error) throw new Error(error.message);
   return { itens: (data ?? []) as Revisar[], total: count ?? 0 };
+}
+
+export type Invalido = { telefone_original: string; motivo: string | null; ocorrencias: number; e_comprador: boolean; edicoes: string };
+
+/** Números inválidos ainda sem decisão (sem correção automática possível). */
+export async function telefonesInvalidos(limite = 100, motivo?: string): Promise<{ itens: Invalido[]; total: number }> {
+  let q = db().from("v_bd_invalidos").select("*", { count: "exact" })
+    .order("e_comprador", { ascending: false }).order("ocorrencias", { ascending: false }).order("telefone_original").limit(limite);
+  if (motivo) q = q.eq("motivo", motivo);
+  const { data, error, count } = await q;
+  if (error) throw new Error(error.message);
+  return { itens: (data ?? []) as Invalido[], total: count ?? 0 };
+}
+
+export type ResumoProblema = { lista: "revisar" | "invalido"; motivo: string | null; numeros: number; compradores: number };
+
+export async function resumoProblemas(): Promise<ResumoProblema[]> {
+  const { data, error } = await db().from("v_bd_problemas_resumo").select("*").order("numeros", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ResumoProblema[];
 }
 
 /** Filtro de exportação: quantos lançamentos a pessoa participou. */
