@@ -3,6 +3,7 @@ import { db } from "./supabase";
 import { montarRanking, type PaisGrupo } from "./criativos";
 import { montarDesempenho, type Registro } from "./anuncios";
 import { temPeriodo, type Periodo } from "./periodo";
+import { nomePagina } from "./teste-paginas";
 
 const SEM_PERIODO: Periodo = { de: null, ate: null };
 /** Parâmetros das funções *_periodo (migração 035). */
@@ -41,7 +42,7 @@ export type Cruzado = { site: string; landing: string; pagina_obrigado: string; 
  * Funil por página. Com período (testes A/B), conta só quem se inscreveu nesses dias e as visitas desses dias;
  * sem período, o lançamento inteiro (as mesmas views de sempre).
  */
-export async function metricasPaginas(lancamentoId: number, periodo: Periodo = SEM_PERIODO) {
+export async function metricasPaginas(lancamentoId: number, periodo: Periodo = SEM_PERIODO, paginas: string[] | null = null) {
   const comPeriodo = temPeriodo(periodo);
   const a = argsPeriodo(lancamentoId, periodo);
   const [l, g, c] = await Promise.all(comPeriodo
@@ -70,6 +71,26 @@ export async function metricasPaginas(lancamentoId: number, periodo: Periodo = S
   const ordemSite = (s: string) => (s === "General" ? 0 : s === "Jubilar" ? 1 : s === "Trader" ? 2 : 3);
   const ordem = (a: LinhaFunil, b: LinhaFunil) =>
     ordemSite(a.site) - ordemSite(b.site) || pesoNome(a.chave) - pesoNome(b.chave) || a.chave.localeCompare(b.chave, undefined, { numeric: true }) || b.leads - a.leads;
+  if (paginas) {
+    // Teste aberto: só as páginas do teste; as gracias contam só os leads que vieram delas (036)
+    const naPagina = (site: string | null, landing: string) => paginas.includes(nomePagina(site ?? "—", landing));
+    const gl = await db().rpc("metricas_gracias_landing_periodo", a);
+    if (gl.error) throw new Error(`gracias por landing: ${gl.error.message}`);
+    const porGracias = new Map<string, LinhaFunil>();
+    for (const r of (gl.data ?? []) as Linha[]) {
+      if (!naPagina(r.site, r.landing)) continue;
+      const k = `${r.site ?? "—"}|${r.pagina_obrigado}`;
+      const g = porGracias.get(k) ?? { site: r.site ?? "—", chave: r.pagina_obrigado, visitas: null, leads: 0, comecaram: 0, responderam: 0, qualificados: 0, nao_qualificados: 0, no_grupo: 0 };
+      g.leads += n(r.leads); g.comecaram += n(r.comecaram); g.responderam += n(r.responderam);
+      g.qualificados += n(r.qualificados); g.nao_qualificados += n(r.nao_qualificados); g.no_grupo += n(r.no_grupo);
+      porGracias.set(k, g);
+    }
+    return {
+      landings: landings.filter((l) => naPagina(l.site, l.chave)).sort(ordem),
+      gracias: [...porGracias.values()].sort(ordem),
+      cruzado: cruzado.filter((c) => naPagina(c.site, c.landing)),
+    };
+  }
   return { landings: landings.sort(ordem), gracias: gracias.sort(ordem), cruzado };
 }
 
@@ -93,7 +114,7 @@ export function pesoNome(nome: string): number {
  */
 type LinhaPaisBanco = { site: string | null; landing: string; pais: PaisGrupo; visitas: unknown; leads: unknown; qualificados: unknown };
 
-export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SEM_PERIODO) {
+export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SEM_PERIODO, paginas: string[] | null = null) {
   const comPeriodo = temPeriodo(periodo);
   const { data: lanc } = await db().from("lancamentos").select("ads_lancamento").eq("id", lancamentoId).maybeSingle();
   const adsLanc = (lanc as { ads_lancamento?: string | null } | null)?.ads_lancamento ?? null;
@@ -116,7 +137,7 @@ export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SE
   if (linhas.error) return { erro: linhas.error.message, ranking: [], comGasto: false };
   const n = (v: unknown) => Number(v ?? 0);
   const ranking = montarRanking(
-    (linhas.data ?? []).map((r) => ({ site: r.site ?? "—", landing: r.landing, pais: r.pais, visitas: n(r.visitas), leads: n(r.leads), qualificados: n(r.qualificados) })),
+    (linhas.data ?? []).filter((r) => !paginas || paginas.includes(nomePagina(r.site ?? "—", r.landing))).map((r) => ({ site: r.site ?? "—", landing: r.landing, pais: r.pais, visitas: n(r.visitas), leads: n(r.leads), qualificados: n(r.qualificados) })),
     ((gastos.data ?? []) as { criativo: string | null; pais: string | null; investimento: unknown }[])
       .filter((g) => g.criativo).map((g) => ({ criativo: g.criativo!, pais: g.pais ?? "", investimento: n(g.investimento) })),
     ((criativos.data ?? []) as { nome: string; pagina: "general" | "trader" | "jubilar" | null; variacao: string | null }[]),

@@ -3,7 +3,7 @@ import { contexto, param } from "@/lib/contexto";
 import { escolherLancamento } from "@/lib/dados";
 import { desempenhoAnuncios, metricasPaginas, pct, pesoNome, rankingPaginas, testesPaginas, type LinhaFunil } from "@/lib/metricas-paginas";
 import { lerPeriodo, rotuloPeriodo, temPeriodo, type Periodo } from "@/lib/periodo";
-import { nomePagina, resumoTeste, sitePagina } from "@/lib/teste-paginas";
+import { resumoTeste } from "@/lib/teste-paginas";
 import { ResultadoTeste, SeletorTestes } from "@/components/testes-paginas";
 import { RankingPaginas } from "@/components/ranking-paginas";
 import { numero } from "@/lib/formato";
@@ -23,18 +23,13 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
   const teste = testes.find((x) => x.id === Number(param(sp, "teste"))) ?? null;
   const periodo: Periodo = teste ? { de: teste.inicio, ate: teste.fim } : lerPeriodo(param(sp, "de"), param(sp, "ate"));
   const comPeriodo = temPeriodo(periodo);
-  const [funil, rkTudo, idioma, anuncios] = await Promise.all([
-    metricasPaginas(atual.lancamento_id, periodo), rankingPaginas(atual.lancamento_id, periodo), idiomaAtual(),
+  // Com teste, só as páginas do teste: funil, gracias (dos leads dessas páginas) e ranking por país
+  const paginasTeste = teste?.paginas ?? null;
+  const [{ landings, gracias, cruzado }, rk, idioma, anuncios] = await Promise.all([
+    metricasPaginas(atual.lancamento_id, periodo, paginasTeste), rankingPaginas(atual.lancamento_id, periodo, paginasTeste), idiomaAtual(),
     teste ? desempenhoAnuncios(atual.lancamento_id, periodo) : Promise.resolve(null),
   ]);
-  // Com teste, só as páginas do teste (e os sites delas)
-  const sitesTeste = teste ? new Set(teste.paginas.map(sitePagina)) : null;
-  const naPagina = (site: string, landing: string) => !teste || teste.paginas.includes(nomePagina(site, landing));
-  const landings = funil.landings.filter((l) => naPagina(l.site, l.chave));
-  const cruzado = funil.cruzado.filter((c) => naPagina(c.site, c.landing));
-  const gracias = funil.gracias.filter((g) => !sitesTeste || sitesTeste.has(g.site));
-  const rk = { ...rkTudo, ranking: rkTudo.ranking.filter((r) => !sitesTeste || sitesTeste.has(r.site)) };
-  const resultado = teste ? resumoTeste(teste.paginas, funil.landings, anuncios?.desempenho?.linhas ?? []) : null;
+  const resultado = teste ? resumoTeste(teste.paginas, landings, anuncios?.desempenho?.linhas ?? []) : null;
 
   const soma = (k: keyof LinhaFunil, ls: LinhaFunil[]) => ls.reduce((t, l) => t + Number(l[k] ?? 0), 0);
   const visitas = soma("visitas", landings);
