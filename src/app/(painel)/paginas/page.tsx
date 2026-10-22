@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { contexto, param } from "@/lib/contexto";
 import { escolherLancamento } from "@/lib/dados";
-import { metricasPaginas, pct, pesoNome, rankingPaginas, type LinhaFunil } from "@/lib/metricas-paginas";
+import { desempenhoAnuncios, metricasPaginas, pct, pesoNome, rankingPaginas, testesPaginas, type LinhaFunil } from "@/lib/metricas-paginas";
+import { lerPeriodo, rotuloPeriodo, temPeriodo, type Periodo } from "@/lib/periodo";
+import { nomePagina, resumoTeste, sitePagina } from "@/lib/teste-paginas";
+import { ResultadoTeste, SeletorTestes } from "@/components/testes-paginas";
 import { RankingPaginas } from "@/components/ranking-paginas";
 import { numero } from "@/lib/formato";
 import { Cartao, Kpi, Tabela, montarHref, td } from "@/components/ui";
@@ -15,7 +18,23 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
   if (resumos.length === 0) return <SemLancamento />;
   const atual = escolherLancamento(resumos, param(sp, "l"));
   if (!atual) return <SemLancamento />;
-  const [{ landings, gracias, cruzado }, rk, idioma] = await Promise.all([metricasPaginas(atual.lancamento_id), rankingPaginas(atual.lancamento_id), idiomaAtual()]);
+  // Teste salvo (?teste=id): páginas + período. Ou só período (?de=&ate=). Sem nada = lançamento inteiro.
+  const { testes, erro: erroTestes } = await testesPaginas(atual.lancamento_id);
+  const teste = testes.find((x) => x.id === Number(param(sp, "teste"))) ?? null;
+  const periodo: Periodo = teste ? { de: teste.inicio, ate: teste.fim } : lerPeriodo(param(sp, "de"), param(sp, "ate"));
+  const comPeriodo = temPeriodo(periodo);
+  const [funil, rkTudo, idioma, anuncios] = await Promise.all([
+    metricasPaginas(atual.lancamento_id, periodo), rankingPaginas(atual.lancamento_id, periodo), idiomaAtual(),
+    teste ? desempenhoAnuncios(atual.lancamento_id, periodo) : Promise.resolve(null),
+  ]);
+  // Com teste, só as páginas do teste (e os sites delas)
+  const sitesTeste = teste ? new Set(teste.paginas.map(sitePagina)) : null;
+  const naPagina = (site: string, landing: string) => !teste || teste.paginas.includes(nomePagina(site, landing));
+  const landings = funil.landings.filter((l) => naPagina(l.site, l.chave));
+  const cruzado = funil.cruzado.filter((c) => naPagina(c.site, c.landing));
+  const gracias = funil.gracias.filter((g) => !sitesTeste || sitesTeste.has(g.site));
+  const rk = { ...rkTudo, ranking: rkTudo.ranking.filter((r) => !sitesTeste || sitesTeste.has(r.site)) };
+  const resultado = teste ? resumoTeste(teste.paginas, funil.landings, anuncios?.desempenho?.linhas ?? []) : null;
 
   const soma = (k: keyof LinhaFunil, ls: LinhaFunil[]) => ls.reduce((t, l) => t + Number(l[k] ?? 0), 0);
   const visitas = soma("visitas", landings);
@@ -45,7 +64,10 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">{t("Páginas")}</h1>
-          <p className="text-sm text-zinc-500">{t(atual.nome)} · {t("funil por página de captura e de gracias")}</p>
+          <p className="text-sm text-zinc-500">
+            {t(atual.nome)} · {t("funil por página de captura e de gracias")}
+            {comPeriodo && <> · <span className="font-medium text-zinc-900 dark:text-zinc-100">{teste ? `${teste.nome} · ` : ""}{rotuloPeriodo(periodo, t)}</span></>}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/paginas/criativos" className="rounded-lg border border-zinc-300 px-3 py-1 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800">{t("Anúncios × páginas")}</Link>
@@ -54,6 +76,10 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
           ))}
         </div>
       </div>
+
+      <SeletorTestes lancamentoId={atual.lancamento_id} slug={atual.slug} testes={testes} teste={teste} periodo={periodo} comPeriodo={comPeriodo} erro={erroTestes} t={t} />
+
+      {teste && resultado && <ResultadoTeste teste={teste} linhas={resultado} comMeta={!!anuncios?.comMeta} t={t} />}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Kpi rotulo={t("Visitas")} valor={numero(visitas)} detalhe={t("páginas com o aviso de visita")} />

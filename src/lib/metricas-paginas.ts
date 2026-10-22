@@ -1,7 +1,12 @@
 import "server-only";
 import { db } from "./supabase";
-import { montarRanking } from "./criativos";
+import { montarRanking, type PaisGrupo } from "./criativos";
 import { montarDesempenho, type Registro } from "./anuncios";
+import { temPeriodo, type Periodo } from "./periodo";
+
+const SEM_PERIODO: Periodo = { de: null, ate: null };
+/** Parâmetros das funções *_periodo (migração 035). */
+const argsPeriodo = (lancamentoId: number, p: Periodo) => ({ p_lancamento: lancamentoId, p_de: p.de, p_ate: p.ate });
 
 /**
  * O Supabase devolve no máximo 1000 linhas por consulta: busca tudo em páginas.
@@ -32,24 +37,33 @@ export type LinhaFunil = {
 };
 export type Cruzado = { site: string; landing: string; pagina_obrigado: string; leads: number; qualificados: number; no_grupo: number };
 
-export async function metricasPaginas(lancamentoId: number) {
-  const [l, g, c] = await Promise.all([
-    db().from("v_metricas_landing").select("*").eq("lancamento_id", lancamentoId),
-    db().from("v_metricas_gracias").select("*").eq("lancamento_id", lancamentoId),
-    db().from("v_metricas_cruzado").select("*").eq("lancamento_id", lancamentoId),
-  ]);
+/**
+ * Funil por página. Com período (testes A/B), conta só quem se inscreveu nesses dias e as visitas desses dias;
+ * sem período, o lançamento inteiro (as mesmas views de sempre).
+ */
+export async function metricasPaginas(lancamentoId: number, periodo: Periodo = SEM_PERIODO) {
+  const comPeriodo = temPeriodo(periodo);
+  const a = argsPeriodo(lancamentoId, periodo);
+  const [l, g, c] = await Promise.all(comPeriodo
+    ? [db().rpc("metricas_landing_periodo", a), db().rpc("metricas_gracias_periodo", a), db().rpc("metricas_cruzado_periodo", a)]
+    : [
+        db().from("v_metricas_landing").select("*").eq("lancamento_id", lancamentoId),
+        db().from("v_metricas_gracias").select("*").eq("lancamento_id", lancamentoId),
+        db().from("v_metricas_cruzado").select("*").eq("lancamento_id", lancamentoId),
+      ]);
   const erro = l.error ?? g.error ?? c.error;
   if (erro) throw new Error(`métricas das páginas: ${erro.message}`);
+  type Linha = Record<string, unknown> & { site: string | null; landing: string; pagina_obrigado: string };
   const n = (v: unknown) => Number(v ?? 0);
-  const landings: LinhaFunil[] = (l.data ?? []).map((r) => ({
+  const landings: LinhaFunil[] = ((l.data ?? []) as Linha[]).map((r) => ({
     site: r.site ?? "—", chave: r.landing, visitas: n(r.visitas), leads: n(r.leads), comecaram: n(r.comecaram), responderam: n(r.responderam),
     qualificados: n(r.qualificados), nao_qualificados: n(r.nao_qualificados), no_grupo: n(r.no_grupo),
   }));
-  const gracias: LinhaFunil[] = (g.data ?? []).map((r) => ({
+  const gracias: LinhaFunil[] = ((g.data ?? []) as Linha[]).map((r) => ({
     site: r.site ?? "—", chave: r.pagina_obrigado, visitas: null, leads: n(r.leads), comecaram: n(r.comecaram), responderam: n(r.responderam),
     qualificados: n(r.qualificados), nao_qualificados: n(r.nao_qualificados), no_grupo: n(r.no_grupo),
   }));
-  const cruzado: Cruzado[] = (c.data ?? []).map((r) => ({
+  const cruzado: Cruzado[] = ((c.data ?? []) as Linha[]).map((r) => ({
     site: r.site ?? "—", landing: r.landing, pagina_obrigado: r.pagina_obrigado, leads: n(r.leads), qualificados: n(r.qualificados), no_grupo: n(r.no_grupo),
   }));
   // General antes de Trader; dentro de cada site, na ordem do nome (/v1, /v2, /v3…), com os sem padrão no fim
@@ -77,16 +91,26 @@ export function pesoNome(nome: string): number {
  * Ranking variação × país (Trader, General e Jubilar): visitas/leads/qualificados do painel e o investimento da
  * base da Paola (pc_ads_meta_anuncio_dia) ligado à página pela aba Criativos (ou pelo prefixo [T]/[G]/[JG] do anúncio).
  */
-export async function rankingPaginas(lancamentoId: number) {
+type LinhaPaisBanco = { site: string | null; landing: string; pais: PaisGrupo; visitas: unknown; leads: unknown; qualificados: unknown };
+
+export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SEM_PERIODO) {
+  const comPeriodo = temPeriodo(periodo);
   const { data: lanc } = await db().from("lancamentos").select("ads_lancamento").eq("id", lancamentoId).maybeSingle();
   const adsLanc = (lanc as { ads_lancamento?: string | null } | null)?.ads_lancamento ?? null;
   const [linhas, criativos, gastos] = await Promise.all([
-    todas((de, ate) => db().from("v_metricas_landing_pais").select("site, landing, pais, visitas, leads, qualificados").eq("lancamento_id", lancamentoId)
-      .order("site").order("landing").order("pais").range(de, ate)),
+    comPeriodo
+      ? todas<LinhaPaisBanco>((de, ate) => db().rpc("metricas_landing_pais_periodo", argsPeriodo(lancamentoId, periodo)).select("site, landing, pais, visitas, leads, qualificados")
+          .order("site").order("landing").order("pais").range(de, ate) as unknown as PromiseLike<{ data: LinhaPaisBanco[] | null; error: { message: string } | null }>)
+      : todas<LinhaPaisBanco>((de, ate) => db().from("v_metricas_landing_pais").select("site, landing, pais, visitas, leads, qualificados").eq("lancamento_id", lancamentoId)
+          .order("site").order("landing").order("pais").range(de, ate)),
     db().from("criativos").select("nome, pagina, variacao"),
     adsLanc
-      ? todas((de, ate) => db().from("pc_ads_meta_anuncio_dia").select("criativo, pais, investimento").eq("lancamento", adsLanc).gt("investimento", 0)
-          .order("data").order("ad_id").range(de, ate))
+      ? todas((de, ate) => {
+          let q = db().from("pc_ads_meta_anuncio_dia").select("criativo, pais, investimento").eq("lancamento", adsLanc).gt("investimento", 0);
+          if (periodo.de) q = q.gte("data", periodo.de);
+          if (periodo.ate) q = q.lte("data", periodo.ate);
+          return q.order("data").order("ad_id").range(de, ate);
+        })
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (linhas.error) return { erro: linhas.error.message, ranking: [], comGasto: false };
@@ -100,18 +124,36 @@ export async function rankingPaginas(lancamentoId: number) {
   return { erro: null, ranking, comGasto: !!adsLanc && (gastos.data ?? []).length > 0 };
 }
 
+export type TestePagina = { id: number; nome: string; paginas: string[]; inicio: string; fim: string };
+
+/** Períodos de teste salvos do lançamento (migração 035). Sem a tabela, devolve lista vazia e o erro. */
+export async function testesPaginas(lancamentoId: number): Promise<{ testes: TestePagina[]; erro: string | null }> {
+  const { data, error } = await db().from("testes_paginas").select("id, nome, paginas, inicio, fim").eq("lancamento_id", lancamentoId).order("inicio").order("id");
+  if (error) return { testes: [], erro: error.message };
+  return { testes: (data ?? []) as TestePagina[], erro: null };
+}
+
 /** Anúncio × variação: registro (com histórico), base da Paola (investimento, cliques, visualizações) e leads do painel. */
-export async function desempenhoAnuncios(lancamentoId: number) {
+export async function desempenhoAnuncios(lancamentoId: number, periodo: Periodo = SEM_PERIODO) {
+  const comPeriodo = temPeriodo(periodo);
+  type LeadsBanco = { anuncio: string | null; site: string; landing: string; leads: unknown; qualificados: unknown };
   const { data: lanc } = await db().from("lancamentos").select("ads_lancamento").eq("id", lancamentoId).maybeSingle();
   const adsLanc = (lanc as { ads_lancamento?: string | null } | null)?.ads_lancamento ?? null;
   const [reg, hist, leads, meta] = await Promise.all([
     db().from("criativos").select("id, nome, pagina, variacao"),
     db().from("criativos_historico").select("pagina, variacao, desde, criativos(nome)"),
-    todas((de, ate) => db().from("v_leads_anuncio").select("anuncio, site, landing, leads, qualificados").eq("lancamento_id", lancamentoId)
-      .order("anuncio").order("site").order("landing").range(de, ate)),
+    comPeriodo
+      ? todas<LeadsBanco>((de, ate) => db().rpc("leads_anuncio_periodo", argsPeriodo(lancamentoId, periodo)).select("anuncio, site, landing, leads, qualificados")
+          .order("anuncio").order("site").order("landing").range(de, ate) as unknown as PromiseLike<{ data: LeadsBanco[] | null; error: { message: string } | null }>)
+      : todas<LeadsBanco>((de, ate) => db().from("v_leads_anuncio").select("anuncio, site, landing, leads, qualificados").eq("lancamento_id", lancamentoId)
+          .order("anuncio").order("site").order("landing").range(de, ate)),
     adsLanc
-      ? todas((de, ate) => db().from("pc_ads_meta_anuncio_dia").select("criativo, data, investimento, cliques, visitou_pagina").eq("lancamento", adsLanc)
-          .order("data").order("ad_id").range(de, ate))
+      ? todas((de, ate) => {
+          let q = db().from("pc_ads_meta_anuncio_dia").select("criativo, data, investimento, cliques, visitou_pagina").eq("lancamento", adsLanc);
+          if (periodo.de) q = q.gte("data", periodo.de);
+          if (periodo.ate) q = q.lte("data", periodo.ate);
+          return q.order("data").order("ad_id").range(de, ate);
+        })
       : Promise.resolve({ data: [], error: null }),
   ]);
   const erro = reg.error ?? hist.error ?? leads.error;
