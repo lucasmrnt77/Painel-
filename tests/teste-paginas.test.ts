@@ -16,16 +16,23 @@ test("páginas do teste: valida, tira repetidas e ordena", () => {
   assert.equal(nomePagina("Trader", "/v2"), "Trader/v2");
 });
 
-test("resumo: junta página e Meta, só das páginas do teste, com ★ por site", () => {
+test("resumo: as 7 métricas por página, só das páginas do teste, com ★ por site", () => {
+  const c = (site: string, landing: string, inscritos: number, leads: number, leadsQualificados: number) => ({ site, landing, inscritos, leads, leadsQualificados });
   const r = resumoTeste(
     ["Trader/v1", "Trader/v2", "General/v1"],
-    [funil("Trader", "/v1", 200, 20, 10), funil("Trader", "/v2", 200, 30, 6), funil("General", "/v1", 50, 2), funil("Trader", "/v3", 999, 99)],
-    [anuncio("Trader/v1", 100, 40, 180), anuncio("Trader/v2", 90), anuncio("Trader/v3", 500)],
+    [funil("Trader", "/v1", 200, 25), funil("Trader", "/v2", 200, 35), funil("General", "/v1", 50, 3), funil("Trader", "/v3", 999, 99)],
+    [c("Trader", "/v1", 25, 20, 10), c("Trader", "/v2", 35, 30, 6), c("General", "/v1", 3, 2, 1), c("Trader", "/v3", 99, 99, 99)],
+    [anuncio("Trader/v1", 100, 250), anuncio("Trader/v2", 90, 400), anuncio("Trader/v3", 500, 9999)],
   );
-  assert.deepEqual(r.map((l) => [l.pagina, l.visitas, l.leads, l.investimento]), [["Trader/v1", 200, 20, 100], ["Trader/v2", 200, 30, 90], ["General/v1", 50, 2, 0]]);
-  assert.equal(r[0].cpl, 5);
-  assert.equal(r[1].cpl, 3);
-  assert.deepEqual(r[0].melhor, { conversao: false, qualificados: true, cpl: false });
-  assert.deepEqual(r[1].melhor, { conversao: true, qualificados: false, cpl: true });
-  assert.deepEqual(r[2].melhor, { conversao: false, qualificados: false, cpl: false }); // sozinho e com poucos dados
+  assert.deepEqual(r.map((l) => [l.pagina, l.visitas, l.leads, l.leadsQualificados, l.cliques]),
+    [["Trader/v1", 200, 20, 10, 250], ["Trader/v2", 200, 30, 6, 400], ["General/v1", 50, 2, 1, 0]]);
+  const v1 = r[0];
+  assert.equal(v1.connectRate, 200 / 250);
+  assert.equal(v1.conversao, 20 / 200);
+  assert.equal(v1.conversaoQualificados, 10 / 200);
+  assert.equal(v1.qualificacao, 10 / 20);
+  assert.equal(r[2].connectRate, null); // sem cliques da Meta
+  assert.deepEqual(r[0].melhor, { conversao: false, conversaoQualificados: true, qualificacao: true });
+  assert.deepEqual(r[1].melhor, { conversao: true, conversaoQualificados: false, qualificacao: false });
+  assert.deepEqual(r[2].melhor, { conversao: false, conversaoQualificados: false, qualificacao: false }); // sozinho e com poucos dados
 });

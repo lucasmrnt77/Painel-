@@ -3,7 +3,7 @@ import { db } from "./supabase";
 import { montarRanking, type PaisGrupo } from "./criativos";
 import { montarDesempenho, type Registro } from "./anuncios";
 import { temPeriodo, type Periodo } from "./periodo";
-import { nomePagina } from "./teste-paginas";
+import { nomePagina, type ContagemTeste } from "./teste-paginas";
 
 const SEM_PERIODO: Periodo = { de: null, ate: null };
 /** Parâmetros das funções *_periodo (migração 035). */
@@ -143,6 +143,15 @@ export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SE
     ((criativos.data ?? []) as { nome: string; pagina: "general" | "trader" | "jubilar" | null; variacao: string | null }[]),
   );
   return { erro: null, ranking, comGasto: !!adsLanc && (gastos.data ?? []).length > 0 };
+}
+
+/** Cadastros, leads (clicaram no grupo) e leads calificados por página no período (037). */
+export async function contagensTeste(lancamentoId: number, periodo: Periodo): Promise<ContagemTeste[]> {
+  const { data, error } = await db().rpc("metricas_teste_periodo", argsPeriodo(lancamentoId, periodo));
+  if (error) throw new Error(`métricas do teste: ${error.message}`);
+  const n = (v: unknown) => Number(v ?? 0);
+  return ((data ?? []) as { site: string | null; landing: string; inscritos: unknown; leads: unknown; leads_qualificados: unknown }[])
+    .map((r) => ({ site: r.site ?? "—", landing: r.landing, inscritos: n(r.inscritos), leads: n(r.leads), leadsQualificados: n(r.leads_qualificados) }));
 }
 
 export type TestePagina = { id: number; nome: string; paginas: string[]; inicio: string; fim: string };

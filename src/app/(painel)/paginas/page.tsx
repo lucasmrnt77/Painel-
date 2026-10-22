@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { contexto, param } from "@/lib/contexto";
 import { escolherLancamento } from "@/lib/dados";
-import { desempenhoAnuncios, metricasPaginas, pct, pesoNome, rankingPaginas, testesPaginas, type LinhaFunil } from "@/lib/metricas-paginas";
+import { contagensTeste, desempenhoAnuncios, metricasPaginas, pct, pesoNome, rankingPaginas, testesPaginas, type LinhaFunil } from "@/lib/metricas-paginas";
 import { lerPeriodo, rotuloPeriodo, temPeriodo, type Periodo } from "@/lib/periodo";
 import { resumoTeste } from "@/lib/teste-paginas";
 import { ResultadoTeste, SeletorTestes } from "@/components/testes-paginas";
@@ -25,11 +25,12 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
   const comPeriodo = temPeriodo(periodo);
   // Com teste, só as páginas do teste: funil, gracias (dos leads dessas páginas) e ranking por país
   const paginasTeste = teste?.paginas ?? null;
-  const [{ landings, gracias, cruzado }, rk, idioma, anuncios] = await Promise.all([
+  const [{ landings, gracias, cruzado }, rk, idioma, anuncios, contagens] = await Promise.all([
     metricasPaginas(atual.lancamento_id, periodo, paginasTeste), rankingPaginas(atual.lancamento_id, periodo, paginasTeste), idiomaAtual(),
     teste ? desempenhoAnuncios(atual.lancamento_id, periodo) : Promise.resolve(null),
+    teste ? contagensTeste(atual.lancamento_id, periodo) : Promise.resolve([]),
   ]);
-  const resultado = teste ? resumoTeste(teste.paginas, landings, anuncios?.desempenho?.linhas ?? []) : null;
+  const resultado = teste ? resumoTeste(teste.paginas, landings, contagens, anuncios?.desempenho?.linhas ?? []) : null;
 
   const soma = (k: keyof LinhaFunil, ls: LinhaFunil[]) => ls.reduce((t, l) => t + Number(l[k] ?? 0), 0);
   const visitas = soma("visitas", landings);

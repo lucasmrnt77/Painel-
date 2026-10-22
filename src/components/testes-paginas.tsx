@@ -12,7 +12,6 @@ const campo = "rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm da
 const chip = (ativo: boolean) =>
   `rounded-full border px-3 py-1 text-xs font-medium ${ativo ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 dark:border-zinc-700"}`;
 const pctN = (v: number | null) => (v == null ? "—" : `${(100 * v).toFixed(1)}%`);
-const usd = (v: number | null) => (v == null ? "—" : `US$ ${v.toFixed(2)}`);
 
 function Estrela() {
   return <span className="ml-1 rounded bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">★</span>;
@@ -115,33 +114,37 @@ export function SeletorTestes({ lancamentoId, slug, testes, teste, periodo, comP
   );
 }
 
-/** Página × página do teste: dados da página e da Meta lado a lado. */
+/** Página × página do teste: as 7 métricas (página + Meta) lado a lado. */
 export function ResultadoTeste({ teste, linhas, comMeta, t }: { teste: TestePagina; linhas: LinhaTeste[]; comMeta: boolean; t: T }) {
+  const num = `${td} tabular text-right`;
   return (
     <Cartao titulo={t("Resultado · {n}", { n: teste.nome })}>
-      <Tabela cabecalho={[t("Página"), t("Visitas"), t("Leads"), t("Conversão"), t("Calificados"), t("No grupo"), t("Investimento"), t("Cliques"), t("Visualizações (Meta)"), t("CPL"), t("CPL calificado")]} vazio={linhas.length === 0}>
+      <Tabela
+        cabecalho={[t("Página"), t("Visitas (page view)"), t("Leads"), t("Leads calificados"), t("Connect rate"), t("Conversão da página"), t("Conversão calificados"), t("Qualificação"), t("Cliques (Meta)")]}
+        vazio={linhas.length === 0}
+      >
         {linhas.map((l) => (
           <tr key={l.pagina}>
             <td className={`${td} font-medium`}>{l.pagina}</td>
-            <td className={`${td} tabular text-right`}>{numero(l.visitas)}</td>
-            <td className={`${td} tabular text-right`}>{numero(l.leads)}</td>
-            <td className={`${td} tabular text-right`}>{pctN(l.conversao)}{l.melhor.conversao && <Estrela />}</td>
-            <td className={`${td} tabular text-right`}>{numero(l.qualificados)} <span className="text-xs text-zinc-500">({pctN(l.taxaQualificados)})</span>{l.melhor.qualificados && <Estrela />}</td>
-            <td className={`${td} tabular text-right`}>{numero(l.noGrupo)} <span className="text-xs text-zinc-500">({pctN(l.taxaGrupo)})</span></td>
-            <td className={`${td} tabular text-right`}>{comMeta ? usd(l.investimento) : "—"}</td>
-            <td className={`${td} tabular text-right`}>{comMeta ? numero(l.cliques) : "—"}</td>
-            <td className={`${td} tabular text-right`}>{comMeta ? numero(l.visualizacoes) : "—"}</td>
-            <td className={`${td} tabular text-right`}>{usd(l.cpl)}{l.melhor.cpl && <Estrela />}</td>
-            <td className={`${td} tabular text-right`}>{usd(l.cplQualificado)}</td>
+            <td className={num}>{numero(l.visitas)}</td>
+            <td className={num}>{numero(l.leads)}</td>
+            <td className={num}>{numero(l.leadsQualificados)}</td>
+            <td className={num}>{comMeta ? pctN(l.connectRate) : "—"}</td>
+            <td className={num}>{pctN(l.conversao)}{l.melhor.conversao && <Estrela />}</td>
+            <td className={num}>{pctN(l.conversaoQualificados)}{l.melhor.conversaoQualificados && <Estrela />}</td>
+            <td className={num}>{pctN(l.qualificacao)}{l.melhor.qualificacao && <Estrela />}</td>
+            <td className={`${num} text-zinc-500`}>{comMeta ? numero(l.cliques) : "—"}</td>
           </tr>
         ))}
       </Tabela>
-      <p className="mt-2 text-xs text-zinc-500">
-        {t("Conversão = leads ÷ visitas da página. Calificados: % de quem respondeu. ★ = melhor do mesmo site (General, Trader ou Jubilar), só entre páginas com pelo menos {v} visitas e {l} leads.", { v: MIN_VISITAS_TESTE, l: MIN_LEADS_TESTE })}{" "}
-        {comMeta
-          ? t("Investimento, cliques e visualizações vêm da Meta, pelos anúncios registrados em \"Anúncios × páginas\" (cada dia vai para a página em que o anúncio estava).")
-          : t("Sem dados da Meta neste período: confira se o lançamento está ligado à base de anúncios e se os anúncios estão registrados em \"Anúncios × páginas\".")}
-      </p>
+      <ul className="mt-2 space-y-0.5 text-xs text-zinc-500">
+        <li>{t("Leads = pessoas que fizeram o cadastro e clicaram em \"unirme al grupo\" na página de gracias. Leads calificados = os mesmos, só os calificados.")}</li>
+        <li>{t("Connect rate = visitas ÷ cliques da Meta · Conversão da página = leads ÷ visitas · Conversão calificados = leads calificados ÷ visitas · Qualificação = leads calificados ÷ leads.")}</li>
+        <li>{t("★ = melhor do mesmo site (General, Trader ou Jubilar), só entre páginas com pelo menos {v} visitas e {l} leads.", { v: MIN_VISITAS_TESTE, l: MIN_LEADS_TESTE })}</li>
+        <li>{comMeta
+          ? t("Cliques vêm da Meta, pelos anúncios registrados em \"Anúncios × páginas\" (cada dia vai para a página em que o anúncio estava).")
+          : t("Sem dados da Meta neste período: confira se os anúncios estão registrados em \"Anúncios × páginas\".")}</li>
+      </ul>
     </Cartao>
   );
 }

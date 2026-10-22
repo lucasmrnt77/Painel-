@@ -34,61 +34,62 @@ function ordemPagina(a: string, b: string): number {
   return s(a) - s(b) || v(a) - v(b);
 }
 
+/** Por página no período (metricas_teste_periodo, 037): cadastros, leads (clicaram no grupo) e leads calificados. */
+export type ContagemTeste = { site: string; landing: string; inscritos: number; leads: number; leadsQualificados: number };
+
+/**
+ * As 7 métricas dos testes de dezembro, por página:
+ *  1) visitas (page view)  2) leads = clicaram em "unirme al grupo"  3) leads calificados
+ *  4) connect rate = visitas ÷ cliques da Meta  5) conversão = leads ÷ visitas
+ *  6) conversão calificados = leads calificados ÷ visitas  7) qualificação = leads calificados ÷ leads
+ */
 export type LinhaTeste = {
   pagina: string;
   site: string;
   visitas: number;
   leads: number;
-  conversao: number | null; // leads ÷ visitas da página
-  responderam: number;
-  qualificados: number;
-  taxaQualificados: number | null; // calificados ÷ quem respondeu
-  noGrupo: number;
-  taxaGrupo: number | null; // no grupo ÷ leads
-  investimento: number;
-  cliques: number;
-  visualizacoes: number; // visualizações da página segundo a Meta
-  cpl: number | null;
-  cplQualificado: number | null;
-  melhor: { conversao: boolean; qualificados: boolean; cpl: boolean };
+  leadsQualificados: number;
+  cliques: number; // cliques da Meta (base do connect rate)
+  inscritos: number; // fizeram o cadastro (com ou sem clique no grupo), só como referência
+  connectRate: number | null;
+  conversao: number | null;
+  conversaoQualificados: number | null;
+  qualificacao: number | null;
+  melhor: { conversao: boolean; conversaoQualificados: boolean; qualificacao: boolean };
 };
 
-export function resumoTeste(paginas: string[], landings: LinhaFunil[], anuncios: LinhaAnuncio[]): LinhaTeste[] {
+const razao = (a: number, b: number) => (b > 0 ? a / b : null);
+
+export function resumoTeste(paginas: string[], landings: LinhaFunil[], contagens: ContagemTeste[], anuncios: LinhaAnuncio[]): LinhaTeste[] {
   const linhas = paginas.map((pagina): LinhaTeste => {
     const site = sitePagina(pagina);
-    const l = landings.filter((x) => nomePagina(x.site, x.chave) === pagina);
-    const a = anuncios.filter((x) => x.destino === pagina);
     const soma = <T,>(xs: T[], f: (x: T) => number) => xs.reduce((t, x) => t + f(x), 0);
+    const l = landings.filter((x) => nomePagina(x.site, x.chave) === pagina);
+    const c = contagens.filter((x) => nomePagina(x.site, x.landing) === pagina);
+    const a = anuncios.filter((x) => x.destino === pagina);
     const visitas = soma(l, (x) => x.visitas ?? 0);
-    const leads = soma(l, (x) => x.leads);
-    const responderam = soma(l, (x) => x.responderam);
-    const qualificados = soma(l, (x) => x.qualificados);
-    const noGrupo = soma(l, (x) => x.no_grupo);
-    const investimento = soma(a, (x) => x.investimento);
+    const leads = soma(c, (x) => x.leads);
+    const leadsQualificados = soma(c, (x) => x.leadsQualificados);
+    const cliques = soma(a, (x) => x.cliques);
     return {
-      pagina, site, visitas, leads, responderam, qualificados, noGrupo,
-      conversao: visitas > 0 ? leads / visitas : null,
-      taxaQualificados: responderam > 0 ? qualificados / responderam : null,
-      taxaGrupo: leads > 0 ? noGrupo / leads : null,
-      investimento, cliques: soma(a, (x) => x.cliques), visualizacoes: soma(a, (x) => x.visualizacoes),
-      cpl: investimento > 0 && leads > 0 ? investimento / leads : null,
-      cplQualificado: investimento > 0 && qualificados > 0 ? investimento / qualificados : null,
-      melhor: { conversao: false, qualificados: false, cpl: false },
+      pagina, site, visitas, leads, leadsQualificados, cliques, inscritos: soma(c, (x) => x.inscritos),
+      connectRate: razao(visitas, cliques),
+      conversao: razao(leads, visitas),
+      conversaoQualificados: razao(leadsQualificados, visitas),
+      qualificacao: razao(leadsQualificados, leads),
+      melhor: { conversao: false, conversaoQualificados: false, qualificacao: false },
     };
   });
   // ★ dentro de cada site (General/v1 × General/v2…), só entre páginas com dados suficientes
   for (const site of new Set(linhas.map((l) => l.site))) {
     const ls = linhas.filter((l) => l.site === site && l.visitas >= MIN_VISITAS_TESTE && l.leads >= MIN_LEADS_TESTE);
     if (ls.length < 2) continue;
-    const marcar = (k: keyof LinhaTeste["melhor"], v: (l: LinhaTeste) => number | null, menor = false) => {
-      const cs = ls.filter((l) => v(l) != null);
-      if (cs.length < 2) return;
-      const alvo = menor ? Math.min(...cs.map((l) => v(l)!)) : Math.max(...cs.map((l) => v(l)!));
-      for (const l of cs) if (v(l) === alvo) l.melhor[k] = true;
-    };
-    marcar("conversao", (l) => l.conversao);
-    marcar("qualificados", (l) => (l.visitas > 0 ? l.qualificados / l.visitas : null));
-    marcar("cpl", (l) => l.cpl, true);
+    for (const k of ["conversao", "conversaoQualificados", "qualificacao"] as const) {
+      const cs = ls.filter((l) => l[k] != null);
+      if (cs.length < 2) continue;
+      const alvo = Math.max(...cs.map((l) => l[k]!));
+      for (const l of cs) if (l[k] === alvo) l.melhor[k] = true;
+    }
   }
   return linhas;
 }

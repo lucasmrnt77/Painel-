@@ -11,7 +11,8 @@ import { extrairCaptura } from "@/lib/captura";
  * capacidade de investimento. Grava na inscrição mais recente do telefone
  * no lançamento indicado (ou no ativo). Campos aceitos: telefono/telefone,
  * age_range/edad, gender/genero, respuesta/capital_amount/respuesta_dinero e
- * qualificado (true/false, decisão do serviço de tracking).
+ * qualificado (true/false, decisão do serviço de tracking) e clique_grupo (true = clicou em
+ * "unirme al grupo" na gracias; vira clicou_grupo_em, a definição de lead dos testes de dezembro).
  */
 const STATUS_ERRO: Record<string, number> = {
   telefone_invalido: 400,
@@ -37,7 +38,9 @@ export async function POST(req: Request) {
   // Decisão do serviço de tracking (Lead Qualificado sim/não), vinda da página de gracias
   const q = (bruto as Record<string, unknown> | null)?.qualificado;
   const qualificado = q === true || q === "true" ? true : q === false || q === "false" ? false : null;
-  if (!d.faixa_etaria && !d.genero && !d.resposta_dinheiro && qualificado === null) {
+  const c = (bruto as Record<string, unknown> | null)?.clique_grupo;
+  const clicou = c === true || c === "true";
+  if (!d.faixa_etaria && !d.genero && !d.resposta_dinheiro && qualificado === null && !clicou) {
     return NextResponse.json({ ok: false, erro: "sem_respostas" }, { status: 400 });
   }
 
@@ -48,6 +51,7 @@ export async function POST(req: Request) {
     p_genero: d.genero,
     p_resposta_dinheiro: d.resposta_dinheiro,
     p_qualificado: qualificado,
+    p_clicou: clicou,
   });
   if (error) {
     console.error("[captura/perfil] erro no banco", error);
