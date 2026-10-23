@@ -60,17 +60,33 @@ export type LinhaTeste = {
 
 const razao = (a: number, b: number) => (b > 0 ? a / b : null);
 
+/** Site de um destino de anúncio ("General/v2", "General", "General · Gen-Argentina" → "General"). */
+const siteDestino = (d: string) => d.split(/[/ ]/)[0];
+
+const soma = <T,>(xs: T[], f: (x: T) => number) => xs.reduce((t, x) => t + f(x), 0);
+
+/**
+ * Link único (dezembro em diante): todos os anúncios de um site levam ao domínio puro e a Vercel
+ * divide entre as variações. Os cliques da Meta são do site inteiro, então cada página do teste recebe
+ * a parte proporcional às suas visitas — o connect rate fica o mesmo para as páginas do site
+ * (visitas do site ÷ cliques do site), e é o número real.
+ */
 export function resumoTeste(paginas: string[], landings: LinhaFunil[], contagens: ContagemTeste[], anuncios: LinhaAnuncio[]): LinhaTeste[] {
+  const visitasDe = (pagina: string) => soma(landings.filter((x) => nomePagina(x.site, x.chave) === pagina), (x) => x.visitas ?? 0);
+  const cliquesSite = new Map<string, number>();
+  const visitasSite = new Map<string, number>();
+  for (const site of new Set(paginas.map(sitePagina))) {
+    cliquesSite.set(site, soma(anuncios.filter((x) => siteDestino(x.destino) === site), (x) => x.cliques));
+    visitasSite.set(site, soma(paginas.filter((p) => sitePagina(p) === site), visitasDe));
+  }
   const linhas = paginas.map((pagina): LinhaTeste => {
     const site = sitePagina(pagina);
-    const soma = <T,>(xs: T[], f: (x: T) => number) => xs.reduce((t, x) => t + f(x), 0);
-    const l = landings.filter((x) => nomePagina(x.site, x.chave) === pagina);
     const c = contagens.filter((x) => nomePagina(x.site, x.landing) === pagina);
-    const a = anuncios.filter((x) => x.destino === pagina);
-    const visitas = soma(l, (x) => x.visitas ?? 0);
+    const visitas = visitasDe(pagina);
     const leads = soma(c, (x) => x.leads);
     const leadsQualificados = soma(c, (x) => x.leadsQualificados);
-    const cliques = soma(a, (x) => x.cliques);
+    const vs = visitasSite.get(site) ?? 0;
+    const cliques = vs > 0 ? Math.round(((cliquesSite.get(site) ?? 0) * visitas) / vs) : 0;
     return {
       pagina, site, visitas, leads, leadsQualificados, cliques, inscritos: soma(c, (x) => x.inscritos),
       connectRate: razao(visitas, cliques),
