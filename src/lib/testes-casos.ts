@@ -1,15 +1,17 @@
 /**
  * Casos dos testes automáticos dos eventos da Meta (puro — sem servidor).
  *
- * A regra esperada é escrita de novo aqui, direto da especificação do Emiliano
- * (02/10/2026), sem importar o código do serviço de tracking. Assim, se alguém
- * mudar a regra lá sem querer, o teste diário pega.
+ * A regra esperada é escrita de novo aqui, direto do mapa do funil (22/10/2026),
+ * sem importar o código do serviço de tracking. Assim, se alguém mudar a regra
+ * lá sem querer, o teste diário pega.
  *
  * General — "Lead Qualificado":
- *   • Argentina: "Sí" qualifica todos; "No hoy" só homens de 35 a 64.
+ *   • Argentina: "Sí" qualifica todos; "No hoy" qualifica homens até 64 anos
+ *     (menor de 25 a 55–64) e mulheres de 35 a 44.
  *   • Outros países: "Sí" ou "No hoy" qualificam todos.
  *   • "Imposible" ou sem resposta nunca qualifica.
- * Trader — toda qualificação gera "Lead Trader Qualificado".
+ * Trader — "Lead Trader Qualificado" para quem já opera (inclusive menos de 3 meses);
+ *   "Nunca hice" não; sem a experiência informada, qualifica.
  * Lead — "Lead General" / "Lead Trader" para todos.
  */
 
@@ -25,6 +27,7 @@ export type CorpoEvento = {
   genero?: string | null;
   resposta?: string | null;
   email?: string;
+  experiencia?: string;
 };
 
 export type Caso = {
@@ -47,6 +50,17 @@ export const TELEFONES_TESTE: Record<string, string> = {
 const SI = ["si_puedo", "Sí, podría hacerlo sin problema"];
 const NO_HOY = ["no_pero_podria", "No hoy, pero podría organizarme para conseguirlo"];
 const HOMEM = ["hombre", "Masculino"];
+const MULHER = ["mujer", "Femenino"];
+
+/** Faixa pelo início do texto ("35_44", "35 a 44 años", "+65"…). */
+function faixaDe(f: string | null | undefined): string | null {
+  const t = (f ?? "").trim().toLowerCase();
+  if (!t) return null;
+  if (t.startsWith("menor")) return "menor_25";
+  if (t.startsWith("mayor") || t.startsWith("+65") || t.startsWith("65")) return "mayor_65";
+  for (const k of ["25_34", "35_44", "45_54", "55_64"]) if (t.startsWith(k.slice(0, 2))) return k;
+  return null;
+}
 
 function resposta(r: string | null | undefined): "si" | "no_hoy" | "outra" {
   if (r && SI.includes(r)) return "si";
@@ -60,8 +74,11 @@ export function qualificaEsperado(pais: string | null, r: string | null | undefi
   if (x === "si") return true;
   if (x !== "no_hoy") return false;
   if (pais !== "AR") return true;
-  const faixaOk = !!faixa && ["35", "45", "55"].some((p) => faixa.startsWith(p));
-  return !!genero && HOMEM.includes(genero) && faixaOk;
+  const f = faixaDe(faixa);
+  if (!f || !genero) return false;
+  if (HOMEM.includes(genero)) return ["menor_25", "25_34", "35_44", "45_54", "55_64"].includes(f);
+  if (MULHER.includes(genero)) return f === "35_44";
+  return false;
 }
 
 const RESPOSTAS = ["si_puedo", "no_pero_podria", "no_imposible", null];
@@ -74,7 +91,7 @@ function qualificacao(grupo: string, nome: string, pais: string | null, corpo: O
   return { grupo, nome, corpo: { landing: "general", acao: "qualificacao", ...corpo }, http: 200, evento: q ? "Lead Qualificado" : null, qualificado: q };
 }
 
-/** Todos os casos: 149 no total. */
+/** Todos os casos: 150 (mais 1 verificação de envio duplicado = 151). */
 export function casosEventos(): Caso[] {
   const casos: Caso[] = [];
 
@@ -111,6 +128,8 @@ export function casosEventos(): Caso[] {
   // Trader e eventos de Lead
   casos.push({ grupo: "Trader e Lead", nome: "trader: qualificação com Imposible", corpo: { landing: "trader", acao: "qualificacao", telefone: TELEFONES_TESTE.AR, resposta: "no_imposible", genero: "mujer" }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
   casos.push({ grupo: "Trader e Lead", nome: "trader: qualificação sem dados", corpo: { landing: "trader", acao: "qualificacao", telefone: TELEFONES_TESTE.BR }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
+  casos.push({ grupo: "Trader e Lead", nome: "trader: menos de 3 meses", corpo: { landing: "trader", acao: "qualificacao", telefone: TELEFONES_TESTE.UY, experiencia: "menos-3-meses" }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
+  casos.push({ grupo: "Trader e Lead", nome: "trader: nunca operou", corpo: { landing: "trader", acao: "qualificacao", telefone: TELEFONES_TESTE.AR, experiencia: "nunca" }, http: 200, evento: null, qualificado: false });
   casos.push({ grupo: "Trader e Lead", nome: "Lead General", corpo: { landing: "general", acao: "lead", telefone: TELEFONES_TESTE.UY, email: "qa@teste.com" }, http: 200, evento: "Lead General", qualificado: null });
   casos.push({ grupo: "Trader e Lead", nome: "Lead Trader", corpo: { landing: "trader", acao: "lead", telefone: TELEFONES_TESTE.MX }, http: 200, evento: "Lead Trader", qualificado: null });
 

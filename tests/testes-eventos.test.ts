@@ -5,19 +5,20 @@ import {
   type Execucao,
 } from "../src/lib/testes-casos";
 
-test("casos: cobrem a matriz inteira (148 + duplicado = 149 verificações)", () => {
+test("casos: cobrem a matriz inteira (150 + duplicado = 151 verificações)", () => {
   const c = casosEventos();
-  assert.equal(c.length, 148);
+  assert.equal(c.length, 150);
   assert.equal(c.filter((x) => x.grupo === "Argentina").length, 84);
-  assert.equal(c.filter((x) => x.evento === "Lead Qualificado").length, 54);
+  assert.equal(c.filter((x) => x.evento === "Lead Qualificado").length, 57);
 });
 
 test("regra esperada: Argentina", () => {
   assert.equal(qualificaEsperado("AR", "si_puedo", "mujer", "menor_25"), true);
   assert.equal(qualificaEsperado("AR", "si_puedo", null, null), true);
-  for (const f of ["35_44", "45_54", "55_64"]) assert.equal(qualificaEsperado("AR", "no_pero_podria", "hombre", f), true);
-  for (const f of ["menor_25", "25_34", "mayor_65", null]) assert.equal(qualificaEsperado("AR", "no_pero_podria", "hombre", f), false);
-  assert.equal(qualificaEsperado("AR", "no_pero_podria", "mujer", "45_54"), false);
+  for (const f of ["menor_25", "25_34", "35_44", "45_54", "55_64"]) assert.equal(qualificaEsperado("AR", "no_pero_podria", "hombre", f), true);
+  for (const f of ["mayor_65", null]) assert.equal(qualificaEsperado("AR", "no_pero_podria", "hombre", f), false);
+  assert.equal(qualificaEsperado("AR", "no_pero_podria", "mujer", "35_44"), true);
+  for (const f of ["menor_25", "25_34", "45_54", "55_64", "mayor_65"]) assert.equal(qualificaEsperado("AR", "no_pero_podria", "mujer", f), false);
   assert.equal(qualificaEsperado("AR", "no_pero_podria", null, "45_54"), false);
   assert.equal(qualificaEsperado("AR", "no_imposible", "hombre", "45_54"), false);
   assert.equal(qualificaEsperado("AR", null, "hombre", "45_54"), false);
