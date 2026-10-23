@@ -38,7 +38,7 @@ export type Desempenho = {
 export const MIN_VISUALIZACOES = 100;
 export const MIN_LEADS = 5;
 
-const NOME_SITE: Record<Site, string> = { general: "General", trader: "Trader", jubilar: "Jubilar" };
+const NOME_SITE: Record<Site, string> = { general: "General", trader: "Trader", jubilar: "Jubilar", genjub: "Gen-Jubilados" };
 const chave = (s: string) => s.trim().toLowerCase();
 
 export function destino(site: string, variacao: string | null): string {

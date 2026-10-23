@@ -6,14 +6,14 @@
 import type { LinhaFunil } from "./metricas-paginas";
 import type { Linha as LinhaAnuncio } from "./anuncios";
 
-export const SITES_TESTE = ["General", "Trader", "Jubilar"] as const;
+export const SITES_TESTE = ["General", "Trader", "Jubilar", "Gen-Jubilados"] as const;
 export const VARIACOES_TESTE = ["/", "/v1", "/v2", "/v3", "/v4", "/v5", "/v6"] as const;
 
 /** Mínimos para ganhar a ★ (evita vencer com poucos dados). */
 export const MIN_VISITAS_TESTE = 100;
 export const MIN_LEADS_TESTE = 5;
 
-const PAGINA = /^(General|Trader|Jubilar)(\/v\d{1,2})?$/;
+const PAGINA = /^(General|Trader|Jubilar|Gen-Jubilados)(\/v\d{1,2})?$/;
 
 /** "Trader/v1", "General" (página principal)… — o mesmo formato do destino dos anúncios. */
 export const nomePagina = (site: string, variacao: string) => (variacao === "/" ? site : `${site}${variacao}`);

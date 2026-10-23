@@ -13,7 +13,7 @@ import { tradutor } from "@/lib/i18n/servidor";
 
 export const dynamic = "force-dynamic";
 
-type SiteC = { site: "general" | "trader" | "jubilar"; nome: string; url_base: string };
+type SiteC = { site: "general" | "trader" | "jubilar" | "genjub"; nome: string; url_base: string };
 type Hist = { criativo_id: number; desde: string };
 
 const VARIACOES = ["/", "/v1", "/v2", "/v3", "/v4", "/v5"];

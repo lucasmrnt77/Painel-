@@ -7,7 +7,7 @@ import { VARIACAO, type Site } from "./criativos";
 import { lerLinkAnuncio } from "./anuncios";
 
 const CAMINHO = "/paginas/criativos";
-const PAGINAS = new Set(["general", "trader", "jubilar"]);
+const PAGINAS = new Set(["general", "trader", "jubilar", "genjub"]);
 
 /** Página e variação: do link colado do anúncio (se vier) ou dos seletores. */
 async function lerCampos(fd: FormData) {

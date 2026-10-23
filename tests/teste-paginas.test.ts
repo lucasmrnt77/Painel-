@@ -50,3 +50,10 @@ test("link único: cliques do site repartidos pelas visitas de cada variação",
   assert.equal(r[1].connectRate, 0.5);
   assert.equal(r[2].connectRate, null);
 });
+
+test("Gen-Jubilados: site próprio nos testes", () => {
+  assert.deepEqual(lerPaginasTeste(["Gen-Jubilados/v1", "General/v1", "Gen-Jubilados"]), ["General/v1", "Gen-Jubilados", "Gen-Jubilados/v1"]);
+  const r = resumoTeste(["General/v1", "Gen-Jubilados/v1"], [funil("General", "/v1", 100, 0), funil("Gen-Jubilados", "/v1", 50, 0)], [],
+    [anuncio("General", 1, 200), anuncio("Gen-Jubilados", 1, 100)]);
+  assert.deepEqual(r.map((l) => l.cliques), [200, 100]);
+});

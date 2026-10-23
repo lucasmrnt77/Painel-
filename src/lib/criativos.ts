@@ -3,10 +3,11 @@
  * Funções puras (sem banco) — testadas em tests/criativos.test.ts.
  */
 
-export type Site = "general" | "trader" | "jubilar";
+export type Site = "general" | "trader" | "jubilar" | "genjub";
 export const SITES: { site: Site; nome: string }[] = [
   { site: "general", nome: "General" },
   { site: "jubilar", nome: "Jubilar" },
+  { site: "genjub", nome: "Gen-Jubilados" },
   { site: "trader", nome: "Trader" },
 ];
 export const PAISES = ["AR", "UY", "CL", "Outros"] as const;
@@ -16,6 +17,7 @@ export const NOME_PAIS: Record<PaisGrupo, string> = { AR: "Argentina", UY: "Urug
 /** Site da visita: o que a página informou ou, sem isso, o domínio de origem. */
 export function siteDaVisita(informado: unknown, origem: string): Site {
   const s = typeof informado === "string" ? informado.toLowerCase() : "";
+  if (s === "genjub" || /eventogeneraljub|generaljubilados\./.test(origem)) return "genjub";
   if (s === "jubilar" || /eventojub|jubilar\./.test(origem)) return "jubilar";
   if (s === "trader" || /eventotra|trader\./.test(origem)) return "trader";
   return "general";
@@ -40,6 +42,7 @@ export function chavesDoClique(p: URLSearchParams): string[] {
 
 /** Página pelo prefixo do nome do anúncio — igual à função pagina_do_criativo do banco. */
 export function paginaPeloNome(nome: string): Site | null {
+  if (/^\s*\[gj\]/i.test(nome)) return "genjub";
   if (/^\s*\[(jg|jub[a-z]*)\]/i.test(nome)) return "jubilar";
   if (/^\s*\[t\]/i.test(nome)) return "trader";
   if (/^\s*\[g\]/i.test(nome)) return "general";
@@ -83,7 +86,7 @@ export function paisDoGasto(p: string): PaisGrupo {
   return t === "AR" || t === "UY" || t === "CL" ? t : "Outros";
 }
 
-const NOME_SITE: Record<Site, string> = { general: "General", trader: "Trader", jubilar: "Jubilar" };
+const NOME_SITE: Record<Site, string> = { general: "General", trader: "Trader", jubilar: "Jubilar", genjub: "Gen-Jubilados" };
 
 /** Variações no padrão (/, /v1, /v2…) primeiro, na ordem do número. */
 function ordemVariacao(a: string, b: string) {
@@ -158,7 +161,7 @@ export function montarRanking(linhas: LinhaPais[], gastos: Gasto[], criativos: C
     const resumo = [...porVariacao.entries()].map(([variacao, paises]) => ({ variacao, paises })).sort((a, b) => ordemVariacao(a.variacao, b.variacao));
     saida.push({ site, variacoes, celulas, melhor, resumo, gastoSemVariacao });
   }
-  const ordemSite = (s: string) => (s === "General" ? 0 : s === "Jubilar" ? 1 : s === "Trader" ? 2 : 3);
+  const ordemSite = (s: string) => (s === "General" ? 0 : s === "Jubilar" ? 1 : s === "Gen-Jubilados" ? 2 : s === "Trader" ? 3 : 4);
   return saida.sort((a, b) => ordemSite(a.site) - ordemSite(b.site));
 }
 

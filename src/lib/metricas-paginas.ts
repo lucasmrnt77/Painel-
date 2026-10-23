@@ -68,7 +68,7 @@ export async function metricasPaginas(lancamentoId: number, periodo: Periodo = S
     site: r.site ?? "—", landing: r.landing, pagina_obrigado: r.pagina_obrigado, leads: n(r.leads), qualificados: n(r.qualificados), no_grupo: n(r.no_grupo),
   }));
   // General antes de Trader; dentro de cada site, na ordem do nome (/v1, /v2, /v3…), com os sem padrão no fim
-  const ordemSite = (s: string) => (s === "General" ? 0 : s === "Jubilar" ? 1 : s === "Trader" ? 2 : 3);
+  const ordemSite = (s: string) => (s === "General" ? 0 : s === "Jubilar" ? 1 : s === "Gen-Jubilados" ? 2 : s === "Trader" ? 3 : 4);
   const ordem = (a: LinhaFunil, b: LinhaFunil) =>
     ordemSite(a.site) - ordemSite(b.site) || pesoNome(a.chave) - pesoNome(b.chave) || a.chave.localeCompare(b.chave, undefined, { numeric: true }) || b.leads - a.leads;
   if (paginas) {
@@ -140,7 +140,7 @@ export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SE
     (linhas.data ?? []).filter((r) => !paginas || paginas.includes(nomePagina(r.site ?? "—", r.landing))).map((r) => ({ site: r.site ?? "—", landing: r.landing, pais: r.pais, visitas: n(r.visitas), leads: n(r.leads), qualificados: n(r.qualificados) })),
     ((gastos.data ?? []) as { criativo: string | null; pais: string | null; investimento: unknown }[])
       .filter((g) => g.criativo).map((g) => ({ criativo: g.criativo!, pais: g.pais ?? "", investimento: n(g.investimento) })),
-    ((criativos.data ?? []) as { nome: string; pagina: "general" | "trader" | "jubilar" | null; variacao: string | null }[]),
+    ((criativos.data ?? []) as { nome: string; pagina: "general" | "trader" | "jubilar" | "genjub" | null; variacao: string | null }[]),
   );
   return { erro: null, ranking, comGasto: !!adsLanc && (gastos.data ?? []).length > 0 };
 }

@@ -140,7 +140,7 @@ export function ResultadoTeste({ teste, linhas, comMeta, t }: { teste: TestePagi
       <ul className="mt-2 space-y-0.5 text-xs text-zinc-500">
         <li>{t("Leads = pessoas que fizeram o cadastro e clicaram em \"unirme al grupo\" na página de gracias. Leads calificados = os mesmos, só os calificados.")}</li>
         <li>{t("Connect rate = visitas ÷ cliques da Meta · Conversão da página = leads ÷ visitas · Conversão calificados = leads calificados ÷ visitas · Qualificação = leads calificados ÷ leads.")}</li>
-        <li>{t("★ = melhor do mesmo site (General, Trader ou Jubilar), só entre páginas com pelo menos {v} visitas e {l} leads.", { v: MIN_VISITAS_TESTE, l: MIN_LEADS_TESTE })}</li>
+        <li>{t("★ = melhor do mesmo site (General, Trader, Jubilar ou Gen-Jubilados), só entre páginas com pelo menos {v} visitas e {l} leads.", { v: MIN_VISITAS_TESTE, l: MIN_LEADS_TESTE })}</li>
         <li>{comMeta
           ? t("Cliques vêm da Meta. Com o link único (a Vercel divide as variações), os cliques são do site inteiro e cada página recebe a parte proporcional às suas visitas: o connect rate é o do site.")
           : t("Sem dados da Meta neste período: confira se os anúncios estão registrados em \"Anúncios × páginas\".")}</li>
