@@ -37,11 +37,11 @@ test("regra esperada: outros países e textos", () => {
 
 test("conferirResposta: aponta o que veio errado", () => {
   const caso = casosEventos().find((c) => c.nome === "AR · no_pero_podria · mujer · 45_54")!;
-  assert.equal(caso.evento, "Lead Desqualificado");
-  assert.equal(conferirResposta(caso, "e1", { http: 200, corpo: { ok: true, evento: "Lead Desqualificado", qualificado: false, event_id: "e1" } }), null);
-  assert.match(conferirResposta(caso, "e1", { http: 200, corpo: { ok: true, evento: "Lead Qualificado", qualificado: true, event_id: "e1" } })!, /esperado "Lead Desqualificado"/);
+  assert.equal(caso.evento, "Lead General Desqualificado");
+  assert.equal(conferirResposta(caso, "e1", { http: 200, corpo: { ok: true, evento: "Lead General Desqualificado", qualificado: false, event_id: "e1" } }), null);
+  assert.match(conferirResposta(caso, "e1", { http: 200, corpo: { ok: true, evento: "Lead Qualificado", qualificado: true, event_id: "e1" } })!, /esperado "Lead General Desqualificado"/);
   assert.match(conferirResposta(caso, "e1", { http: 500, corpo: null })!, /HTTP 500/);
-  assert.match(conferirResposta(caso, "e1", { http: 200, corpo: { ok: true, evento: "Lead Desqualificado", qualificado: false, event_id: "outro" } })!, /event_id/);
+  assert.match(conferirResposta(caso, "e1", { http: 200, corpo: { ok: true, evento: "Lead General Desqualificado", qualificado: false, event_id: "outro" } })!, /event_id/);
   const invalido = casosEventos().find((c) => c.nome === "landing inválida")!;
   assert.equal(conferirResposta(invalido, "e2", { http: 400, corpo: { ok: false, erro: "x" } }), null);
   assert.match(conferirResposta(invalido, "e2", { http: 200, corpo: { ok: true } })!, /HTTP 200/);

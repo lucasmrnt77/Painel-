@@ -101,7 +101,7 @@ const rotulo = (v: string | null | undefined) => v ?? "vazio";
 
 function qualificacao(grupo: string, nome: string, pais: string | null, corpo: Omit<CorpoEvento, "landing" | "acao">): Caso {
   const q = qualificaEsperado(pais, corpo.resposta, corpo.genero, corpo.idade);
-  return { grupo, nome, corpo: { landing: "general", acao: "qualificacao", ...corpo }, http: 200, evento: q ? "Lead Qualificado" : "Lead Desqualificado", qualificado: q };
+  return { grupo, nome, corpo: { landing: "general", acao: "qualificacao", ...corpo }, http: 200, evento: q ? "Lead Qualificado" : "Lead General Desqualificado", qualificado: q };
 }
 
 /** Todos os casos: 157 (mais 1 verificação de envio duplicado = 158). */
