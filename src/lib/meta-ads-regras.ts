@@ -147,27 +147,31 @@ export function avaliarAds(e: EntradaAds, qualificados: boolean): AlertaAds[] {
 }
 
 /**
- * Meta × nosso: quantos eventos a Meta diz ter recebido nas últimas 24 h (sem os de teste)
- * contra quantos nós registramos. Diferença acima de 20% vira problema na "Saúde na Meta".
- * Só compara a partir de 10 eventos (abaixo disso a diferença é ruído).
+ * Meta × nosso: o perigo real é a Meta receber MENOS do que nós enviamos (evento perdido).
+ * O volume da Meta (/stats) conta navegador + servidor antes de juntar os repetidos (cada lead
+ * aparece ~2×) e parte dos eventos de teste — então a Meta ter MAIS é normal e não é problema.
+ * Só vira problema quando a Meta tem menos de 80% do que nós registramos (a partir de 10 eventos).
+ * `testes` fica só como referência: a Meta não conta a maioria dos eventos com código de teste,
+ * e descontá-los zerava o número (ex.: 155 testes × 86 na Meta → "0").
  */
 export const MARGEM_DIVERGENCIA = 0.2;
 export const MINIMO_DIVERGENCIA = 10;
 
 export function divergenciaEventos(
   meta: { evento: string; total: number }[],
-  testes: Record<string, number>,
+  _testes: Record<string, number>,
   nossos: Record<string, number>,
 ): string[] {
   const problemas: string[] = [];
   for (const [evento, nosso] of Object.entries(nossos)) {
-    const bruto = meta.find((m) => m.evento === evento)?.total ?? 0;
-    const naMeta = Math.max(0, bruto - (testes[evento] ?? 0));
-    if (Math.max(naMeta, nosso) < MINIMO_DIVERGENCIA) continue;
-    const dif = Math.abs(naMeta - nosso) / Math.max(nosso, 1);
-    if (dif > MARGEM_DIVERGENCIA) {
-      problemas.push(`${evento}: a Meta recebeu ${naMeta} nas últimas 24 h e nós registramos ${nosso} (${Math.round(dif * 100)}% de diferença, limite 20%).`);
-    }
+    if (nosso < MINIMO_DIVERGENCIA) continue;
+    const naMeta = meta.find((m) => m.evento === evento)?.total ?? 0;
+    if (naMeta >= nosso * (1 - MARGEM_DIVERGENCIA)) continue;
+    const falta = Math.round(((nosso - naMeta) / nosso) * 100);
+    problemas.push(`${evento}: nós enviamos ${nosso} nas últimas 24 h e a Meta só registrou ${naMeta} (faltam ${falta}%, limite 20%).`);
   }
   return problemas;
 }
+
+/** O que vai para o WhatsApp: hoje é o mesmo critério (só a Meta recebendo MENOS do que enviamos). */
+export const divergenciaCritica = divergenciaEventos;

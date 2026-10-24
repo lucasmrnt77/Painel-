@@ -47,3 +47,15 @@ test("saúde: evento personalizado (sem cálculo da Meta) não vira aviso; padr�
 test("saúde: mensagem", () => {
   assert.match(mensagemSaude(["a", "b"]), /Problema nos eventos da Meta[\s\S]*• a\n• b/);
 });
+
+test("divergência: só vai para o WhatsApp quando a Meta recebe MENOS do que enviamos (10+ eventos, >20%)", async () => {
+  const { divergenciaCritica } = await import("../src/lib/meta-ads-regras");
+  // Meta com mais (contagem em dobro / testes): não é crítico
+  assert.deepEqual(divergenciaCritica([{ evento: "Lead General", total: 28 }], { "Lead General": 5 }, { "Lead General": 5 }), []);
+  assert.deepEqual(divergenciaCritica([{ evento: "Lead General", total: 80 }], {}, { "Lead General": 40 }), []);
+  // Poucos eventos: não é crítico
+  assert.deepEqual(divergenciaCritica([{ evento: "Lead Qualificado", total: 0 }], {}, { "Lead Qualificado": 9 }), []);
+  // Meta recebendo bem menos: crítico
+  assert.equal(divergenciaCritica([{ evento: "Lead Qualificado", total: 10 }], {}, { "Lead Qualificado": 30 }).length, 1);
+  assert.deepEqual(divergenciaCritica([{ evento: "Lead Qualificado", total: 25 }], {}, { "Lead Qualificado": 30 }), []);
+});

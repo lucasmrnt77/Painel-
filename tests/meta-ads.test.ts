@@ -62,10 +62,18 @@ test("custo por lead acima de US$ 8", () => {
   assert.deepEqual(q, []);
 });
 
-test("Meta × nosso: margem de 20% e mínimo de 10 eventos", () => {
-  const meta = [{ evento: "Lead", total: 20 }, { evento: "Lead Qualificado", total: 56 }];
-  const testes = { Lead: 2, "Lead Qualificado": 56 };
-  assert.deepEqual(divergenciaEventos(meta, testes, { Lead: 17, "Lead Qualificado": 0 }), []);
-  assert.equal(divergenciaEventos(meta, testes, { Lead: 30 }).length, 1);
-  assert.deepEqual(divergenciaEventos([{ evento: "Lead", total: 5 }], {}, { Lead: 8 }), []);
+test("Meta × nosso: só alerta quando a Meta recebe menos de 80% do que enviamos", () => {
+  // Caso real 24/10: 155 testes × 86 na Meta e 11 nossos — não é problema (antes dava "0 × 11")
+  const meta = [{ evento: "Lead General", total: 75 }, { evento: "Lead Qualificado", total: 86 }];
+  const testes = { "Lead General": 8, "Lead Qualificado": 155 };
+  assert.deepEqual(divergenciaEventos(meta, testes, { "Lead General": 24, "Lead Qualificado": 11 }), []);
+  // Meta com menos que 80% do nosso → problema
+  const p = divergenciaEventos([{ evento: "Lead", total: 20 }], {}, { Lead: 30 });
+  assert.equal(p.length, 1);
+  assert.match(p[0], /faltam 33%/);
+  // Evento que a Meta não tem nenhum
+  assert.equal(divergenciaEventos([], {}, { "Lead Qualificado": 12 }).length, 1);
+  // 80% ou mais → ok; abaixo de 10 nossos → não compara
+  assert.deepEqual(divergenciaEventos([{ evento: "Lead", total: 24 }], {}, { Lead: 30 }), []);
+  assert.deepEqual(divergenciaEventos([{ evento: "Lead", total: 0 }], {}, { Lead: 8 }), []);
 });

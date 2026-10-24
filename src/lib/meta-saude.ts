@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
 import { avaliarSaude, mensagemSaude, type RespostaSaude } from "./meta-saude-regras";
-import { divergenciaEventos } from "./meta-ads-regras";
+import { divergenciaCritica, divergenciaEventos } from "./meta-ads-regras";
 import { modelosAlertas } from "./textos-alertas";
 import { grupoConfigurado, rpcGrupo } from "./grupo";
 
@@ -72,15 +72,21 @@ export async function atualizarSaudeMeta(disparo: "agendado" | "manual"): Promis
   const [{ r, erro }, testes, nossos] = await Promise.all([buscar(), testes24h(), nossos24h()]);
   const { problemas, avisos } = avaliarSaude(r, erro);
   // Meta × nosso (margem de 20%)
-  if (r?.ok && r.volume_24h.ok && nossos) problemas.push(...divergenciaEventos(r.volume_24h.eventos, testes, nossos));
+  // WhatsApp só com o que é crítico: os problemas de qualidade (consulta recusada, deduplicação baixa)
+  // e a Meta recebendo MENOS do que enviamos. A diferença para mais fica só no painel.
+  const criticos = [...problemas];
+  if (r?.ok && r.volume_24h.ok && nossos) {
+    problemas.push(...divergenciaEventos(r.volume_24h.eventos, testes, nossos));
+    criticos.push(...divergenciaCritica(r.volume_24h.eventos, testes, nossos));
+  }
   const { data, error } = await db().from("meta_saude")
     .insert({ disparo, ok: problemas.length === 0, problemas, avisos, dados: r ? { ...r, testes_24h: testes, nossos_24h: nossos } : {} })
     .select("*").single();
   if (error) throw new Error(`não consegui gravar a saúde na Meta: ${error.message}`);
   const salvo = data as RegistroSaude;
-  if (problemas.length > 0) {
+  if (criticos.length > 0) {
     const { data: g } = await db().from("lancamentos").select("alerta_telefones").eq("tipo", "grupo_gratuito").maybeSingle();
-    const envio = await enviarWhatsapp(((g?.alerta_telefones as string[] | null) ?? []).filter(Boolean), mensagemSaude(problemas, await modelosAlertas()), "meta_saude");
+    const envio = await enviarWhatsapp(((g?.alerta_telefones as string[] | null) ?? []).filter(Boolean), mensagemSaude(criticos, await modelosAlertas()), "meta_saude");
     await db().from("meta_saude").update({ envio_status: envio.status }).eq("id", salvo.id);
     salvo.envio_status = envio.status;
   }
