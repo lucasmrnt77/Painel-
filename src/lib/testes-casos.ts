@@ -142,7 +142,7 @@ export function casosEventos(): Caso[] {
   casos.push({ grupo: "Trader e Lead", nome: "trader: qualificação com Imposible", corpo: { landing: "trader", acao: "qualificacao", telefone: telTeste("AR"), resposta: "no_imposible", genero: "mujer" }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
   casos.push({ grupo: "Trader e Lead", nome: "trader: qualificação sem dados", corpo: { landing: "trader", acao: "qualificacao", telefone: telTeste("BR") }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
   casos.push({ grupo: "Trader e Lead", nome: "trader: menos de 3 meses", corpo: { landing: "trader", acao: "qualificacao", telefone: telTeste("UY"), experiencia: "menos-3-meses" }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
-  casos.push({ grupo: "Trader e Lead", nome: "trader: nunca operou", corpo: { landing: "trader", acao: "qualificacao", telefone: telTeste("AR"), experiencia: "nunca" }, http: 200, evento: null, qualificado: false });
+  casos.push({ grupo: "Trader e Lead", nome: "trader: nunca operou", corpo: { landing: "trader", acao: "qualificacao", telefone: telTeste("AR"), experiencia: "nunca" }, http: 200, evento: "Lead Trader Desqualificado", qualificado: false });
   casos.push({ grupo: "Trader e Lead", nome: "Lead General", corpo: { landing: "general", acao: "lead", telefone: telTeste("UY"), email: "qa@teste.com" }, http: 200, evento: "Lead General", qualificado: null });
   casos.push({ grupo: "Trader e Lead", nome: "Lead Trader", corpo: { landing: "trader", acao: "lead", telefone: telTeste("MX") }, http: 200, evento: "Lead Trader", qualificado: null });
 

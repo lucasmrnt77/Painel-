@@ -6,7 +6,7 @@
  */
 
 import { montar, type Modelos } from "./modelos-alertas";
-export const EVENTOS_MONITORADOS = ["Lead", "Lead General", "Lead Qualificado", "Lead Trader", "Lead Trader Qualificado", "Lead Jubilado Qualificado", "Lead Qualificado GeneralJubilados"];
+export const EVENTOS_MONITORADOS = ["Lead", "Lead General", "Lead Qualificado", "Lead Trader", "Lead Trader Qualificado", "Lead Jubilado Qualificado", "Lead Qualificado GeneralJubilados", "Lead Trader Desqualificado"];
 /** % mínimo de eventos (navegador e servidor) com event_id para a deduplicação funcionar. */
 export const LIMITE_DEDUP = 80;
 
