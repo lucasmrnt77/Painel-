@@ -11,7 +11,22 @@ import { SITES, type Site } from "./criativos";
 
 export type Registro = { id: number; nome: string; pagina: Site | null; variacao: string | null };
 export type Historico = { nome: string; pagina: Site | null; variacao: string | null; desde: string };
-export type MetaDia = { criativo: string; data: string; investimento: number; cliques: number; visualizacoes: number };
+export type MetaDia = { criativo: string; data: string; investimento: number; cliques: number; visualizacoes: number; campanha?: string | null };
+
+/**
+ * Página pelo nome da campanha (padrão do gestor de tráfego, dezembro/2026 em diante):
+ *   [PC][LEADS][DEZ26][UY][Trader] Teste de Página 01 → Trader
+ *   [General] → General · [Jubilados] → Jubilar · [General/Jubilados] → Gen-Jubilados
+ * Com o link único, a campanha leva a uma página (o domínio) e a Vercel divide entre as variações.
+ */
+export function siteDaCampanha(campanha: string | null | undefined): string | null {
+  const c = campanha ?? "";
+  if (/\[\s*general\s*\/\s*jubilad[oa]s?\s*\]|\[\s*gen-?jubilados\s*\]/i.test(c)) return "Gen-Jubilados";
+  if (/\[\s*jubilad[oa]s?\s*\]|\[\s*jubilar\s*\]/i.test(c)) return "Jubilar";
+  if (/\[\s*trader\s*\]/i.test(c)) return "Trader";
+  if (/\[\s*general\s*\]/i.test(c)) return "General";
+  return null;
+}
 export type LeadsAnuncio = { anuncio: string; site: string; landing: string; leads: number; qualificados: number };
 
 export type Linha = {
@@ -128,8 +143,10 @@ export function montarDesempenho(registros: Registro[], historico: Historico[], 
   const relevantes = new Set([...porNome.keys(), ...leadsPorAnuncio.keys()]);
   for (const m of meta) {
     const k = chave(m.criativo);
-    if (!relevantes.has(k)) continue;
-    const dest = destinoNoDia(k, m.data);
+    // A página que o nome da campanha indica vale primeiro (link único); senão, o registro do anúncio ou os leads
+    const daCampanha = siteDaCampanha(m.campanha);
+    if (!daCampanha && !relevantes.has(k)) continue;
+    const dest = daCampanha ?? destinoNoDia(k, m.data);
     if (!dest) continue;
     const l = linha(m.criativo, dest);
     l.investimento += m.investimento;

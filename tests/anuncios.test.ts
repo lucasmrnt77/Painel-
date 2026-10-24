@@ -61,3 +61,14 @@ test("anúncio não registrado: vai para a variação onde entraram os leads", (
   assert.equal(d.linhas[0].registrado, false);
   assert.equal(d.linhas[0].conversao, 0.1);
 });
+
+test("página pelo nome da campanha (padrão de dezembro)", async () => {
+  const { siteDaCampanha, montarDesempenho } = await import("../src/lib/anuncios");
+  assert.equal(siteDaCampanha("[PC][LEADS][DEZ26][UY][Trader] Teste de Página 01"), "Trader");
+  assert.equal(siteDaCampanha("[PC][LEADS][DEZ26][UY][General] Teste de Página 01"), "General");
+  assert.equal(siteDaCampanha("[PC][LEADS][DEZ26][AR][Jubilados] Teste de Página 01"), "Jubilar");
+  assert.equal(siteDaCampanha("[PC][LEADS][DEZ26][AR][General/Jubilados] Teste de Página 01"), "Gen-Jubilados");
+  assert.equal(siteDaCampanha("[PC][WPP] Teste API 2"), null);
+  const d = montarDesempenho([], [], [{ criativo: "Anúncio X", campanha: "[PC][LEADS][DEZ26][AR][General/Jubilados] Teste de Página 01", data: "2026-10-26", investimento: 10, cliques: 7, visualizacoes: 5 }], []);
+  assert.deepEqual(d.linhas.map((l) => [l.destino, l.cliques]), [["Gen-Jubilados", 7]]);
+});

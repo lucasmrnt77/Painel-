@@ -179,7 +179,7 @@ export async function desempenhoAnuncios(lancamentoId: number, periodo: Periodo 
           .order("anuncio").order("site").order("landing").range(de, ate)),
     adsLanc
       ? todas((de, ate) => {
-          let q = db().from("pc_ads_meta_anuncio_dia").select("criativo, data, investimento, cliques, visitou_pagina").eq("lancamento", adsLanc);
+          let q = db().from("pc_ads_meta_anuncio_dia").select("criativo, campanha, data, investimento, cliques, visitou_pagina").eq("lancamento", adsLanc);
           if (periodo.de) q = q.gte("data", periodo.de);
           if (periodo.ate) q = q.lte("data", periodo.ate);
           return q.order("data").order("ad_id").range(de, ate);
@@ -194,8 +194,8 @@ export async function desempenhoAnuncios(lancamentoId: number, periodo: Periodo 
     registros,
     ((hist.data ?? []) as unknown as { pagina: Registro["pagina"]; variacao: string | null; desde: string; criativos: { nome: string } | null }[])
       .filter((h) => h.criativos).map((h) => ({ nome: h.criativos!.nome, pagina: h.pagina, variacao: h.variacao, desde: h.desde })),
-    ((meta.data ?? []) as { criativo: string | null; data: string; investimento: unknown; cliques: unknown; visitou_pagina: unknown }[])
-      .filter((m) => m.criativo).map((m) => ({ criativo: m.criativo!, data: m.data, investimento: n(m.investimento), cliques: n(m.cliques), visualizacoes: n(m.visitou_pagina) })),
+    ((meta.data ?? []) as { criativo: string | null; campanha: string | null; data: string; investimento: unknown; cliques: unknown; visitou_pagina: unknown }[])
+      .filter((m) => m.criativo).map((m) => ({ criativo: m.criativo!, campanha: m.campanha, data: m.data, investimento: n(m.investimento), cliques: n(m.cliques), visualizacoes: n(m.visitou_pagina) })),
     ((leads.data ?? []) as { anuncio: string | null; site: string; landing: string; leads: unknown; qualificados: unknown }[])
       .filter((l) => l.anuncio).map((l) => ({ anuncio: l.anuncio!, site: l.site, landing: l.landing, leads: n(l.leads), qualificados: n(l.qualificados) })),
   );
