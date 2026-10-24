@@ -5,7 +5,7 @@ import { enviarWhatsapp } from "./whatsapp";
 import { testesVaiProWhatsapp } from "./politica-alertas";
 import { modelosAlertas } from "./textos-alertas";
 import {
-  casosEventos, conferirRegistros, conferirResposta, mensagemTestes, MAX_DETALHES, TELEFONES_TESTE,
+  casosEventos, conferirRegistros, conferirResposta, mensagemTestes, MAX_DETALHES, telTeste,
   type Etapa, type Execucao, type Falha, type RegistroEvento, type RespostaServico,
 } from "./testes-casos";
 
@@ -76,7 +76,7 @@ async function testarTracking(run: string): Promise<{ etapas: Etapa[]; falhas: F
 
   // Mesmo event_id duas vezes: só pode virar 1 evento
   const dup = `${run}-dup`;
-  const corpoDup = { landing: "general", acao: "qualificacao", telefone: TELEFONES_TESTE.UY, resposta: "si_puedo", ...extra, event_id: dup };
+  const corpoDup = { landing: "general", acao: "qualificacao", telefone: telTeste("UY"), resposta: "si_puedo", ...extra, event_id: dup };
   const d1 = await postar(url, corpoDup, { origin: origem() });
   const d2 = await postar(url, corpoDup, { origin: origem() });
   if (d1.corpo?.evento !== "Lead Qualificado" || d2.corpo?.evento !== "Lead Qualificado") {

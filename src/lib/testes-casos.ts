@@ -40,12 +40,25 @@ export type Caso = {
   qualificado: boolean | null;
 };
 
-export const TELEFONES_TESTE: Record<string, string> = {
-  AR: "5491100009001",
-  UY: "59899009001",
-  BR: "5511900009001",
-  MX: "5215500009001",
+/** Início e tamanho dos telefones de teste por país (o DDI decide o país na regra). */
+export const TELEFONES_TESTE: Record<string, { prefixo: string; tamanho: number }> = {
+  AR: { prefixo: "54911", tamanho: 13 },
+  UY: { prefixo: "5989", tamanho: 11 },
+  BR: { prefixo: "5511", tamanho: 13 },
+  MX: { prefixo: "52155", tamanho: 13 },
 };
+
+/**
+ * Um telefone de teste NOVO a cada uso (mesmo país, dígitos sorteados).
+ * Antes eram 4 números fixos repetidos em ~50 eventos por dia, e a Meta acusava
+ * "números de telefone duplicados" (>50% dos Lead Qualificado da API de Conversões).
+ */
+export function telTeste(pais: string): string {
+  const t = TELEFONES_TESTE[pais] ?? TELEFONES_TESTE["UY"];
+  let s = t.prefixo;
+  while (s.length < t.tamanho) s += String(Math.floor(Math.random() * 10));
+  return s;
+}
 
 const SI = ["si_puedo", "Sí, podría hacerlo sin problema"];
 const NO_HOY = ["no_pero_podria", "No hoy, pero podría organizarme para conseguirlo"];
@@ -97,19 +110,19 @@ export function casosEventos(): Caso[] {
 
   // Argentina: todas as combinações de resposta × gênero × faixa (incluindo vazios)
   for (const r of RESPOSTAS) for (const g of ["hombre", "mujer", null]) for (const f of FAIXAS)
-    casos.push(qualificacao("Argentina", `AR · ${rotulo(r)} · ${rotulo(g)} · ${rotulo(f)}`, "AR", { telefone: TELEFONES_TESTE.AR, idade: f, genero: g, resposta: r }));
+    casos.push(qualificacao("Argentina", `AR · ${rotulo(r)} · ${rotulo(g)} · ${rotulo(f)}`, "AR", { telefone: telTeste("AR"), idade: f, genero: g, resposta: r }));
 
   // Uruguai: gênero e idade não importam; BR/MX (outros países) seguem a regra da Argentina (23/10)
   for (const p of ["UY", "BR", "MX"]) for (const r of RESPOSTAS) for (const g of ["hombre", "mujer"]) for (const f of ["25_34", "mayor_65"])
-    casos.push(qualificacao("Outros países", `${p} · ${rotulo(r)} · ${g} · ${f}`, p, { telefone: TELEFONES_TESTE[p], idade: f, genero: g, resposta: r }));
+    casos.push(qualificacao("Outros países", `${p} · ${rotulo(r)} · ${g} · ${f}`, p, { telefone: telTeste(p), idade: f, genero: g, resposta: r }));
 
   // País: o DDI do telefone vale mais que a geolocalização
   const pais: [string, string, string, string, string][] = [
     ["sem telefone, geo AR, mulher", "", "AR", "mujer", "AR"],
     ["sem telefone, geo AR, homem 45-54", "", "AR", "hombre", "AR"],
     ["sem telefone, geo CL, mulher", "", "CL", "mujer", "CL"],
-    ["telefone UY vence geo AR", TELEFONES_TESTE.UY, "AR", "mujer", "UY"],
-    ["telefone AR vence geo UY", TELEFONES_TESTE.AR, "UY", "mujer", "AR"],
+    ["telefone UY vence geo AR", telTeste("UY"), "AR", "mujer", "UY"],
+    ["telefone AR vence geo UY", telTeste("AR"), "UY", "mujer", "AR"],
   ];
   for (const [nome, tel, geo, genero, p] of pais)
     casos.push(qualificacao("País", nome, p, { telefone: tel, pais_geo: geo, idade: "45_54", genero, resposta: "no_pero_podria" }));
@@ -123,15 +136,15 @@ export function casosEventos(): Caso[] {
     ["UY", "No hoy, pero podría organizarme para conseguirlo", "Femenino", "Menor de 25"],
   ];
   for (const [p, r, g, f] of textos)
-    casos.push(qualificacao("Textos em espanhol", `${p} · "${r}" · ${g} · ${f}`, p, { telefone: TELEFONES_TESTE[p], idade: f, genero: g, resposta: r }));
+    casos.push(qualificacao("Textos em espanhol", `${p} · "${r}" · ${g} · ${f}`, p, { telefone: telTeste(p), idade: f, genero: g, resposta: r }));
 
   // Trader e eventos de Lead
-  casos.push({ grupo: "Trader e Lead", nome: "trader: qualificação com Imposible", corpo: { landing: "trader", acao: "qualificacao", telefone: TELEFONES_TESTE.AR, resposta: "no_imposible", genero: "mujer" }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
-  casos.push({ grupo: "Trader e Lead", nome: "trader: qualificação sem dados", corpo: { landing: "trader", acao: "qualificacao", telefone: TELEFONES_TESTE.BR }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
-  casos.push({ grupo: "Trader e Lead", nome: "trader: menos de 3 meses", corpo: { landing: "trader", acao: "qualificacao", telefone: TELEFONES_TESTE.UY, experiencia: "menos-3-meses" }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
-  casos.push({ grupo: "Trader e Lead", nome: "trader: nunca operou", corpo: { landing: "trader", acao: "qualificacao", telefone: TELEFONES_TESTE.AR, experiencia: "nunca" }, http: 200, evento: null, qualificado: false });
-  casos.push({ grupo: "Trader e Lead", nome: "Lead General", corpo: { landing: "general", acao: "lead", telefone: TELEFONES_TESTE.UY, email: "qa@teste.com" }, http: 200, evento: "Lead General", qualificado: null });
-  casos.push({ grupo: "Trader e Lead", nome: "Lead Trader", corpo: { landing: "trader", acao: "lead", telefone: TELEFONES_TESTE.MX }, http: 200, evento: "Lead Trader", qualificado: null });
+  casos.push({ grupo: "Trader e Lead", nome: "trader: qualificação com Imposible", corpo: { landing: "trader", acao: "qualificacao", telefone: telTeste("AR"), resposta: "no_imposible", genero: "mujer" }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
+  casos.push({ grupo: "Trader e Lead", nome: "trader: qualificação sem dados", corpo: { landing: "trader", acao: "qualificacao", telefone: telTeste("BR") }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
+  casos.push({ grupo: "Trader e Lead", nome: "trader: menos de 3 meses", corpo: { landing: "trader", acao: "qualificacao", telefone: telTeste("UY"), experiencia: "menos-3-meses" }, http: 200, evento: "Lead Trader Qualificado", qualificado: true });
+  casos.push({ grupo: "Trader e Lead", nome: "trader: nunca operou", corpo: { landing: "trader", acao: "qualificacao", telefone: telTeste("AR"), experiencia: "nunca" }, http: 200, evento: null, qualificado: false });
+  casos.push({ grupo: "Trader e Lead", nome: "Lead General", corpo: { landing: "general", acao: "lead", telefone: telTeste("UY"), email: "qa@teste.com" }, http: 200, evento: "Lead General", qualificado: null });
+  casos.push({ grupo: "Trader e Lead", nome: "Lead Trader", corpo: { landing: "trader", acao: "lead", telefone: telTeste("MX") }, http: 200, evento: "Lead Trader", qualificado: null });
 
   // Entradas inválidas são recusadas
   casos.push({ grupo: "Inválidos", nome: "landing inválida", corpo: { landing: "xyz", acao: "lead" }, http: 400, evento: null, qualificado: null });

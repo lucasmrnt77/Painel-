@@ -36,7 +36,8 @@ const PAINEL_URL = env("PAINEL_URL", "https://painel.traderdelite.net");
 const TESTES_TOKEN = env("TESTES_TOKEN");
 const GRUPO_URL = env("GRUPO_URL", "https://captura-grupo.vercel.app");
 const GENERAL_URL = env("GENERAL_URL", "https://general-semana-inversionista-painel.vercel.app/gracias-video4");
-const TELEFONE_UY = "59899009001";
+// Número novo a cada execução: com o mesmo número todo dia a Meta acusa "telefones duplicados"
+const TELEFONE_UY = "5989" + String(Math.floor(Math.random() * 1e7)).padStart(7, "0");
 
 const etapas = [];
 const falhas = [];

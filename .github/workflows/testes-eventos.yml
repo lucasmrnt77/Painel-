@@ -10,7 +10,7 @@ on:
 
 jobs:
   navegador:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # fixo: o ubuntu-latest virou 26.04 (out/2026) e o Playwright 1.56 não roda nele
     timeout-minutes: 10
     environment: TESTES_TOKEN
     defaults:
