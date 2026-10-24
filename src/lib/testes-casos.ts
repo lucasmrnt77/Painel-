@@ -101,7 +101,7 @@ const rotulo = (v: string | null | undefined) => v ?? "vazio";
 
 function qualificacao(grupo: string, nome: string, pais: string | null, corpo: Omit<CorpoEvento, "landing" | "acao">): Caso {
   const q = qualificaEsperado(pais, corpo.resposta, corpo.genero, corpo.idade);
-  return { grupo, nome, corpo: { landing: "general", acao: "qualificacao", ...corpo }, http: 200, evento: q ? "Lead Qualificado" : null, qualificado: q };
+  return { grupo, nome, corpo: { landing: "general", acao: "qualificacao", ...corpo }, http: 200, evento: q ? "Lead Qualificado" : "Lead Desqualificado", qualificado: q };
 }
 
 /** Todos os casos: 157 (mais 1 verificação de envio duplicado = 158). */
@@ -152,8 +152,8 @@ export function casosEventos(): Caso[] {
   casos.push({ grupo: "Jubilados", nome: "jubilados: UY · no_pero_podria · mujer · mayor_65", corpo: { landing: "jubilados", acao: "qualificacao", telefone: telTeste("UY"), resposta: "no_pero_podria", genero: "mujer", idade: "mayor_65" }, http: 200, evento: "Lead Jubilado Qualificado", qualificado: true });
   casos.push({ grupo: "General/Jubilados", nome: "genjub: Lead General", corpo: { landing: "genjub", acao: "lead", telefone: telTeste("AR") }, http: 200, evento: "Lead General", qualificado: null });
   casos.push({ grupo: "General/Jubilados", nome: "genjub: AR · si_puedo", corpo: { landing: "genjub", acao: "qualificacao", telefone: telTeste("AR"), resposta: "si_puedo", genero: "mujer", idade: "55_64" }, http: 200, evento: "Lead Qualificado GeneralJubilados", qualificado: true });
-  casos.push({ grupo: "General/Jubilados", nome: "genjub: AR · no_pero_podria · mujer · 25_34", corpo: { landing: "genjub", acao: "qualificacao", telefone: telTeste("AR"), resposta: "no_pero_podria", genero: "mujer", idade: "25_34" }, http: 200, evento: null, qualificado: false });
-  casos.push({ grupo: "Jubilados", nome: "jubilados: AR · no_imposible", corpo: { landing: "jubilados", acao: "qualificacao", telefone: telTeste("AR"), resposta: "no_imposible", genero: "hombre", idade: "55_64" }, http: 200, evento: null, qualificado: false });
+  casos.push({ grupo: "General/Jubilados", nome: "genjub: AR · no_pero_podria · mujer · 25_34", corpo: { landing: "genjub", acao: "qualificacao", telefone: telTeste("AR"), resposta: "no_pero_podria", genero: "mujer", idade: "25_34" }, http: 200, evento: "Lead Desqualificado GeneralJubilados", qualificado: false });
+  casos.push({ grupo: "Jubilados", nome: "jubilados: AR · no_imposible", corpo: { landing: "jubilados", acao: "qualificacao", telefone: telTeste("AR"), resposta: "no_imposible", genero: "hombre", idade: "55_64" }, http: 200, evento: "Lead Jubilado Desqualificado", qualificado: false });
 
   // Entradas inválidas são recusadas
   casos.push({ grupo: "Inválidos", nome: "landing inválida", corpo: { landing: "xyz", acao: "lead" }, http: 400, evento: null, qualificado: null });
