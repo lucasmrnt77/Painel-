@@ -5,9 +5,9 @@ import {
   type Execucao,
 } from "../src/lib/testes-casos";
 
-test("casos: cobrem a matriz inteira (154 + duplicado = 155 verificações)", () => {
+test("casos: cobrem a matriz inteira (157 + duplicado = 158 verificações)", () => {
   const c = casosEventos();
-  assert.equal(c.length, 154);
+  assert.equal(c.length, 157);
   assert.equal(c.filter((x) => x.grupo === "Argentina").length, 84);
   assert.equal(c.filter((x) => x.evento === "Lead Qualificado").length, 50); // 23/10: outros países seguem a regra da Argentina
 });
