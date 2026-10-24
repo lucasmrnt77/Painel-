@@ -169,17 +169,17 @@ async function testarGeneral(browser) {
     await page.getByRole("button", { name: /UNIRME AL GRUPO/i }).click();
     await aguardar(() => respostas.some((r) => r.enviado.acao === "qualificacao"), 15000);
     const q = respostas.find((r) => r.enviado.acao === "qualificacao");
-    await aguardar(() => pixel.some((p) => p.ev === "Lead Qualificado" && p.eid === q?.recebido?.event_id), 8000);
+    await aguardar(() => pixel.some((p) => p.ev === "Lead General Qualificado" && p.eid === q?.recebido?.event_id), 8000);
     etapa("General: Lead Qualificado ao responder (pixel × servidor)", [
       [!!q, "chamou", "a página não chamou o serviço ao responder"],
       [q?.enviado?.idade === "35_44" && q?.enviado?.genero === "hombre" && q?.enviado?.resposta === "no_pero_podria", "dados", `respostas enviadas erradas: ${JSON.stringify(q?.enviado ?? {}).slice(0, 150)}`],
-      [q?.recebido?.evento === "Lead Qualificado" && q?.recebido?.qualificado === true, "evento", `servidor devolveu "${q?.recebido?.evento ?? "nada"}"`],
-      ...conferirPixel(pixel, "Lead Qualificado", q?.recebido?.event_id),
+      [q?.recebido?.evento === "Lead General Qualificado" && q?.recebido?.qualificado === true, "evento", `servidor devolveu "${q?.recebido?.evento ?? "nada"}"`],
+      ...conferirPixel(pixel, "Lead General Qualificado", q?.recebido?.event_id),
     ]);
   } catch (e) {
     etapa("General: página de obrigado", [[false, "erro", `erro no teste: ${e.message}`]]);
   } finally {
-    const outros = [...new Set(pixel.map((p) => p.ev))].filter((ev) => !["PageView", "Lead General", "Lead Qualificado"].includes(ev));
+    const outros = [...new Set(pixel.map((p) => p.ev))].filter((ev) => !["PageView", "Lead General", "Lead General Qualificado"].includes(ev));
     if (outros.length) console.log(`  (outros disparos do pixel na General: ${outros.join(", ")})`);
     await ctx.close();
   }

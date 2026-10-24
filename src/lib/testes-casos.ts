@@ -5,7 +5,7 @@
  * sem importar o código do serviço de tracking. Assim, se alguém mudar a regra
  * lá sem querer, o teste diário pega.
  *
- * General — "Lead Qualificado":
+ * General — "Lead General Qualificado" (até 24/10 "Lead Qualificado"):
  *   • Argentina: "Sí" qualifica todos; "No hoy" qualifica homens até 64 anos
  *     (menor de 25 a 55–64) e mulheres de 35 a 44.
  *   • Uruguai: "Sí" ou "No hoy" qualificam todos. Outros países (desde 23/10): a regra da Argentina.
@@ -101,7 +101,7 @@ const rotulo = (v: string | null | undefined) => v ?? "vazio";
 
 function qualificacao(grupo: string, nome: string, pais: string | null, corpo: Omit<CorpoEvento, "landing" | "acao">): Caso {
   const q = qualificaEsperado(pais, corpo.resposta, corpo.genero, corpo.idade);
-  return { grupo, nome, corpo: { landing: "general", acao: "qualificacao", ...corpo }, http: 200, evento: q ? "Lead Qualificado" : "Lead General Desqualificado", qualificado: q };
+  return { grupo, nome, corpo: { landing: "general", acao: "qualificacao", ...corpo }, http: 200, evento: q ? "Lead General Qualificado" : "Lead General Desqualificado", qualificado: q };
 }
 
 /** Todos os casos: 157 (mais 1 verificação de envio duplicado = 158). */

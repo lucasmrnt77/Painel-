@@ -79,10 +79,10 @@ async function testarTracking(run: string): Promise<{ etapas: Etapa[]; falhas: F
   const corpoDup = { landing: "general", acao: "qualificacao", telefone: telTeste("UY"), resposta: "si_puedo", ...extra, event_id: dup };
   const d1 = await postar(url, corpoDup, { origin: origem() });
   const d2 = await postar(url, corpoDup, { origin: origem() });
-  if (d1.corpo?.evento !== "Lead Qualificado" || d2.corpo?.evento !== "Lead Qualificado") {
+  if (d1.corpo?.evento !== "Lead General Qualificado" || d2.corpo?.evento !== "Lead General Qualificado") {
     falhasRegra.push({ teste: "Duplicado: mesmo event_id 2×", motivo: `respostas ${d1.http}/${d2.http}` });
   } else {
-    esperados.push({ eventId: dup, evento: "Lead Qualificado" });
+    esperados.push({ eventId: dup, evento: "Lead General Qualificado" });
   }
 
   // O serviço envia à Meta depois de responder: espera os registros saírem de "pendente"
