@@ -9,7 +9,7 @@ test("casos: cobrem a matriz inteira (150 + duplicado = 151 verificações)", ()
   const c = casosEventos();
   assert.equal(c.length, 150);
   assert.equal(c.filter((x) => x.grupo === "Argentina").length, 84);
-  assert.equal(c.filter((x) => x.evento === "Lead Qualificado").length, 57);
+  assert.equal(c.filter((x) => x.evento === "Lead Qualificado").length, 50); // 23/10: outros países seguem a regra da Argentina
 });
 
 test("regra esperada: Argentina", () => {
@@ -28,7 +28,9 @@ test("regra esperada: outros países e textos", () => {
   assert.equal(qualificaEsperado("UY", "no_pero_podria", "mujer", "menor_25"), true);
   assert.equal(qualificaEsperado("BR", "si_puedo", null, null), true);
   assert.equal(qualificaEsperado("MX", "no_imposible", "hombre", "45_54"), false);
-  assert.equal(qualificaEsperado(null, "no_pero_podria", "mujer", null), true);
+  assert.equal(qualificaEsperado(null, "no_pero_podria", "mujer", null), false); // sem país: regra da Argentina
+  assert.equal(qualificaEsperado("BR", "no_pero_podria", "mujer", "25_34"), false); // outros países: regra da Argentina (23/10)
+  assert.equal(qualificaEsperado("BR", "no_pero_podria", "mujer", "35_44"), true);
   assert.equal(qualificaEsperado("AR", "No hoy, pero podría organizarme para conseguirlo", "Masculino", "35 a 44 años"), true);
   assert.equal(qualificaEsperado("AR", "No hoy, pero podría organizarme para conseguirlo", "Masculino", "+65"), false);
 });

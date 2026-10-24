@@ -8,7 +8,7 @@
  * General — "Lead Qualificado":
  *   • Argentina: "Sí" qualifica todos; "No hoy" qualifica homens até 64 anos
  *     (menor de 25 a 55–64) e mulheres de 35 a 44.
- *   • Outros países: "Sí" ou "No hoy" qualificam todos.
+ *   • Uruguai: "Sí" ou "No hoy" qualificam todos. Outros países (desde 23/10): a regra da Argentina.
  *   • "Imposible" ou sem resposta nunca qualifica.
  * Trader — "Lead Trader Qualificado" para quem já opera (inclusive menos de 3 meses);
  *   "Nunca hice" não; sem a experiência informada, qualifica.
@@ -73,7 +73,7 @@ export function qualificaEsperado(pais: string | null, r: string | null | undefi
   const x = resposta(r);
   if (x === "si") return true;
   if (x !== "no_hoy") return false;
-  if (pais !== "AR") return true;
+  if (pais === "UY") return true; // Uruguai: "No hoy" qualifica todos; Argentina e os outros países seguem a regra da Argentina (23/10)
   const f = faixaDe(faixa);
   if (!f || !genero) return false;
   if (HOMEM.includes(genero)) return ["menor_25", "25_34", "35_44", "45_54", "55_64"].includes(f);
@@ -99,7 +99,7 @@ export function casosEventos(): Caso[] {
   for (const r of RESPOSTAS) for (const g of ["hombre", "mujer", null]) for (const f of FAIXAS)
     casos.push(qualificacao("Argentina", `AR · ${rotulo(r)} · ${rotulo(g)} · ${rotulo(f)}`, "AR", { telefone: TELEFONES_TESTE.AR, idade: f, genero: g, resposta: r }));
 
-  // Outros países: gênero e idade não importam
+  // Uruguai: gênero e idade não importam; BR/MX (outros países) seguem a regra da Argentina (23/10)
   for (const p of ["UY", "BR", "MX"]) for (const r of RESPOSTAS) for (const g of ["hombre", "mujer"]) for (const f of ["25_34", "mayor_65"])
     casos.push(qualificacao("Outros países", `${p} · ${rotulo(r)} · ${g} · ${f}`, p, { telefone: TELEFONES_TESTE[p], idade: f, genero: g, resposta: r }));
 
