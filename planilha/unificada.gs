@@ -18,6 +18,9 @@
  *                 Campana, Anuncio, utm_source, utm_medium, utm_term, Landing, Pagina de gracias, Grupo).
  *                 M "CHEQUEO" é de vocês. N Pais · O Calificado (3+ meses operando) · P ID (não apagar).
  *  - "Leads Grupo General" / "Leads Grupo Trader" → entradas nos grupos (Fecha, Hora, Telefono, Grupo, ID).
+ *  - "👤 Entrou Lead | Geral / Trader / Unificado" → modelo da gestora de tráfego (26/10/2026): UMA LINHA POR ENVIO,
+ *                 UTMs separadas (Campaña, Anuncio, Campaña completa, Source, Medium, Content, Term, AD ID), Status, Grupo, Origem.
+ *                 Os dados vão de A em diante; o ID fica na coluna BH (60), longe das fórmulas/estatísticas ao lado (não apagar).
  *  - "Estadisticas" → criada uma vez com as fórmulas de sempre + resumo da Trader (depois é de vocês).
  *  - "Estado"   → última atualização, leads por aba e último erro.
  *  As linhas não mudam de lugar: o que vocês anotarem nas colunas livres continua na pessoa certa.
@@ -34,7 +37,8 @@
  * Fórmulas: setFormula usa sempre a sintaxe em inglês (vírgula), qualquer que seja o idioma da planilha.
  */
 var LIMITE_POR_LINHA = 40; // até isso, atualiza linha a linha; acima, regrava o bloco (mais rápido)
-var ABAS_ESPERADAS = ["General", "Trader", "Leads Grupo General", "Leads Grupo Trader"];
+var ABAS_ESPERADAS = ["General", "Trader", "Leads Grupo General", "Leads Grupo Trader",
+  "👤 Entrou Lead | Geral", "👤 Entrou Lead | Trader", "👤 Entrou Lead | Unificado"];
 
 function props_() { return PropertiesService.getScriptProperties(); }
 
@@ -200,12 +204,13 @@ function estado_(ss, d, res, erro) {
     ["Lanzamiento", d ? d.nome + " (" + d.lancamento + ")" : e.getRange("B2").getValue()],
     ["Leads General", contarIds_(ss, "General", 23)],
     ["Leads Trader", contarIds_(ss, "Trader", 16)],
-    ["Último cambio", d ? (d.completo ? "Conferencia completa · " : "") + resumo : e.getRange("B5").getValue()],
+    ["Envíos (Entrou Lead | Unificado)", contarIds_(ss, "👤 Entrou Lead | Unificado", 60)],
+    ["Último cambio", d ? (d.completo ? "Conferencia completa · " : "") + resumo : e.getRange("B6").getValue()],
     ["Último error", erro ? agora + " — " + erro : ""],
   ];
   e.getRange(1, 1, linhas.length, 2).setValues(linhas);
   e.getRange(1, 1, linhas.length, 1).setFontWeight("bold");
-  e.getRange("B6").setFontColor(erro ? "#c00000" : "#000000");
+  e.getRange("B7").setFontColor(erro ? "#c00000" : "#000000");
 }
 
 /** Cria "Estadisticas" (uma vez): fórmulas de sempre da General + resumo da Trader. */

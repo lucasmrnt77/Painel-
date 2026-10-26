@@ -60,6 +60,20 @@ export function telTeste(pais: string): string {
   return s;
 }
 
+/**
+ * Identidade de teste NOVA a cada evento (e-mail, fbp, fbc), como um visitante real que veio de anúncio.
+ * Sem isso, os eventos dos robôs (a maioria dos eventos por volume) chegavam à Meta só com telefone,
+ * e o diagnóstico do evento mostrava e-mail/fbp/fbc em ~10% (o "Lead Qualificado" ruim × o Jubilado 100%).
+ */
+export function identidadeTeste(agora: number = Date.now()): { email: string; fbp: string; fbc: string } {
+  const n = (d: number) => Array.from({ length: d }, () => Math.floor(Math.random() * 10)).join("");
+  return {
+    email: `qa.${n(10)}@teste.com`,
+    fbp: `fb.1.${agora}.${n(10)}`,
+    fbc: `fb.1.${agora}.IwTeste${n(16)}`,
+  };
+}
+
 const SI = ["si_puedo", "Sí, podría hacerlo sin problema"];
 const NO_HOY = ["no_pero_podria", "No hoy, pero podría organizarme para conseguirlo"];
 const HOMEM = ["hombre", "Masculino"];

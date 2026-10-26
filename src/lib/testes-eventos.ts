@@ -5,7 +5,7 @@ import { enviarWhatsapp } from "./whatsapp";
 import { testesVaiProWhatsapp } from "./politica-alertas";
 import { modelosAlertas } from "./textos-alertas";
 import {
-  casosEventos, conferirRegistros, conferirResposta, mensagemTestes, MAX_DETALHES, telTeste,
+  casosEventos, conferirRegistros, conferirResposta, identidadeTeste, mensagemTestes, MAX_DETALHES, telTeste,
   type Etapa, type Execucao, type Falha, type RegistroEvento, type RespostaServico,
 } from "./testes-casos";
 
@@ -68,7 +68,7 @@ async function testarTracking(run: string): Promise<{ etapas: Etapa[]; falhas: F
 
   await emParalelo(casos, 6, async (c, i) => {
     const eventId = `${run}-${String(i + 1).padStart(3, "0")}`;
-    const r = await postar(url, { ...c.corpo, ...extra, event_id: eventId }, { origin: origem() });
+    const r = await postar(url, { ...identidadeTeste(), ...c.corpo, ...extra, event_id: eventId }, { origin: origem() });
     const motivo = conferirResposta(c, eventId, r);
     if (motivo) falhasRegra.push({ teste: `${c.grupo}: ${c.nome}`, motivo });
     if (c.evento && r.http === 200) esperados.push({ eventId, evento: c.evento });
@@ -76,7 +76,7 @@ async function testarTracking(run: string): Promise<{ etapas: Etapa[]; falhas: F
 
   // Mesmo event_id duas vezes: só pode virar 1 evento
   const dup = `${run}-dup`;
-  const corpoDup = { landing: "general", acao: "qualificacao", telefone: telTeste("UY"), resposta: "si_puedo", ...extra, event_id: dup };
+  const corpoDup = { ...identidadeTeste(), landing: "general", acao: "qualificacao", telefone: telTeste("UY"), resposta: "si_puedo", ...extra, event_id: dup };
   const d1 = await postar(url, corpoDup, { origin: origem() });
   const d2 = await postar(url, corpoDup, { origin: origem() });
   if (d1.corpo?.evento !== "Lead General Qualificado" || d2.corpo?.evento !== "Lead General Qualificado") {

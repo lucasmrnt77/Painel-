@@ -5,6 +5,7 @@ import { avaliarSaude, mensagemSaude, type RespostaSaude } from "./meta-saude-re
 import { divergenciaCritica, divergenciaEventos } from "./meta-ads-regras";
 import { modelosAlertas } from "./textos-alertas";
 import { grupoConfigurado, rpcGrupo } from "./grupo";
+import { compararQualificados, QUALIFICADOS, type FontesMeta, type LinhaComparacao } from "./comparacao-qualificados";
 
 /**
  * "Saúde na Meta": o painel pede ao serviço de tracking (que guarda o token da Meta)
@@ -75,12 +76,23 @@ export async function atualizarSaudeMeta(disparo: "agendado" | "manual"): Promis
   // WhatsApp só com o que é crítico: os problemas de qualidade (consulta recusada, deduplicação baixa)
   // e a Meta recebendo MENOS do que enviamos. A diferença para mais fica só no painel.
   const criticos = [...problemas];
+  // Leads qualificados: nós × Meta por origem (navegador e servidor). Meta com MAIS ou com MENOS = alerta.
+  const fontes = r?.ok ? (r as { qualificados_24h?: FontesMeta[] }).qualificados_24h : undefined;
+  let comparacao: LinhaComparacao[] | null = null;
+  if (r?.ok && nossos && fontes) {
+    comparacao = compararQualificados(fontes, nossos, testes);
+    const p = comparacao.flatMap((l) => l.problemas);
+    problemas.push(...p);
+    criticos.push(...p);
+  }
   if (r?.ok && r.volume_24h.ok && nossos) {
-    problemas.push(...divergenciaEventos(r.volume_24h.eventos, testes, nossos));
-    criticos.push(...divergenciaCritica(r.volume_24h.eventos, testes, nossos));
+    // Os qualificados já foram comparados acima (com a origem); aqui ficam os demais eventos
+    const outros = fontes ? Object.fromEntries(Object.entries(nossos).filter(([ev]) => !QUALIFICADOS.includes(ev))) : nossos;
+    problemas.push(...divergenciaEventos(r.volume_24h.eventos, testes, outros));
+    criticos.push(...divergenciaCritica(r.volume_24h.eventos, testes, outros));
   }
   const { data, error } = await db().from("meta_saude")
-    .insert({ disparo, ok: problemas.length === 0, problemas, avisos, dados: r ? { ...r, testes_24h: testes, nossos_24h: nossos } : {} })
+    .insert({ disparo, ok: problemas.length === 0, problemas, avisos, dados: r ? { ...r, testes_24h: testes, nossos_24h: nossos, comparacao_qualificados: comparacao } : {} })
     .select("*").single();
   if (error) throw new Error(`não consegui gravar a saúde na Meta: ${error.message}`);
   const salvo = data as RegistroSaude;

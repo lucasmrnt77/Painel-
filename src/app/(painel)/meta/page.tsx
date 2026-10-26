@@ -6,9 +6,18 @@ import { Cartao, Tabela, td } from "@/components/ui";
 import { BotaoAtualizarSaude } from "@/components/meta-saude";
 import { traduzirDetalhe } from "@/lib/testes-casos";
 import { tradutor } from "@/lib/i18n/servidor";
+import type { LinhaComparacao, Situacao } from "@/lib/comparacao-qualificados";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // botão "Atualizar agora"
+
+const SITUACAO: Record<Situacao, { texto: string; cor: string }> = {
+  ok: { texto: "Batendo", cor: "text-emerald-400" },
+  meta_mais: { texto: "Meta com MAIS — envio em dobro", cor: "text-rose-400" },
+  meta_menos: { texto: "Meta com MENOS — eventos perdidos", cor: "text-rose-400" },
+  poucos: { texto: "Poucos eventos (menos de 10)", cor: "text-zinc-500" },
+  sem_dados: { texto: "Sem dados da Meta", cor: "text-zinc-500" },
+};
 
 const FREQ: Record<string, string> = { real_time: "tempo real", hourly: "de hora em hora", daily: "diária" };
 
@@ -32,6 +41,7 @@ export default async function SaudeMeta() {
   const volume = d && d.volume_24h.ok ? d.volume_24h.eventos : null;
   const nomesOutros = [...new Set([...outros.map((e) => e.evento), ...(volume ?? []).map((v) => v.evento)])].filter((n) => !EVENTOS_MONITORADOS.includes(n));
   const testes = ((d as unknown as { testes_24h?: Record<string, number> } | null)?.testes_24h) ?? {};
+  const comparacao = ((d as unknown as { comparacao_qualificados?: LinhaComparacao[] | null } | null)?.comparacao_qualificados) ?? null;
   // A Meta conta os eventos de teste junto no volume do pixel: desconta os testes automáticos
   const vol = (ev: string) => {
     const t = volume?.find((v) => v.evento === ev)?.total ?? (volume ? 0 : null);
@@ -65,6 +75,26 @@ export default async function SaudeMeta() {
           {ultimo.problemas.length > 0 && <ul className="mt-2 space-y-1 text-sm text-rose-300">{ultimo.problemas.map((p, i) => <li key={i}>• {traduzirDetalhe(t, p)}</li>)}</ul>}
           {ultimo.avisos.length > 0 && <ul className="mt-2 space-y-1 text-xs text-amber-300/90">{ultimo.avisos.map((p, i) => <li key={i}>• {traduzirDetalhe(t, p)}</li>)}</ul>}
         </section>
+      )}
+
+      {comparacao && comparacao.length > 0 && (
+        <Cartao titulo={t("Leads qualificados: nós × Meta (últimas 24 h)")}>
+          <Tabela cabecalho={[t("Evento"), t("Enviados por nós"), t("Meta — servidor"), t("Meta — navegador"), t("Situação")]}>
+            {comparacao.map((l) => (
+              <tr key={l.evento}>
+                <td className={`${td} font-medium`}>{l.evento}</td>
+                <td className={`${td} tabular`}>{numero(l.nosso)}{l.testes > 0 && <span className="text-xs text-zinc-500"> (+{numero(l.testes)} {t("testes")})</span>}</td>
+                <td className={`${td} tabular`}>{l.metaServidor == null ? "—" : numero(l.metaServidor)}</td>
+                <td className={`${td} tabular`}>{l.metaNavegador == null ? "—" : numero(l.metaNavegador)}</td>
+                <td className={`${td} text-xs ${SITUACAO[l.situacao].cor}`}>{t(SITUACAO[l.situacao].texto)}</td>
+              </tr>
+            ))}
+          </Tabela>
+          <p className="mt-2 text-xs text-zinc-500">
+            {t("Cada lead qualificado sai 1 vez pelo navegador e 1 vez pelo servidor, com o mesmo event_id. O esperado é a Meta ter mais ou menos o mesmo número que nós em cada coluna (no navegador pode ser um pouco menos, por bloqueador de anúncios).")}{" "}
+            {t("Meta com MAIS de 20% acima do que enviamos = algo mandando em dobro; servidor da Meta com MENOS de 80% = eventos se perdendo. Os dois casos vão para o WhatsApp de alertas.")}
+          </p>
+        </Cartao>
       )}
 
       {monitorados.length > 0 && (

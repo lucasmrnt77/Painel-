@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { env } from "@/lib/env";
 import { tokenValido } from "@/lib/seguranca";
+import { abasEntrouLead, type Envio } from "@/lib/entrou-lead";
 
 /**
  * Formato 3 (atual, planilha/unificada.gs): igual ao 2, mas uma aba por página no layout da planilha modelo
@@ -149,6 +150,9 @@ async function formato2(lanc: { id: number; slug: string; nome: string }, pagina
 
   if (versao === 3) {
     const r = await formato3(lanc, leads, perfil, membros, desde);
+    // Abas "👤 Entrou Lead" (modelo da gestora de tráfego): uma linha por envio, das pessoas que mudaram
+    const chavesEnvios = desde ? [...new Set(leads.map((l) => String(l.telefone_chave ?? "")).filter(Boolean))] : null;
+    Object.assign(r.abas, await entrouLead(lanc.id, chavesEnvios));
     await baterPonto(nome, lanc.id, r.total, !desde);
     return { ok: true, formato: 3, lancamento: lanc.slug, nome: lanc.nome, completo: !desde, cursor, gerado_em: new Date().toISOString(), abas: r.abas };
   }
@@ -184,6 +188,20 @@ async function formato2(lanc: { id: number; slug: string; nome: string }, pagina
       "Leads Grupo": { colunas: COLUNAS_GRUPO_V2, extra: [], linhas: grupo },
     },
   };
+}
+
+const SELECT_ENVIO = "id, criado_em, telefone, telefone_chave, email, pagina_captura, pc:payload->>pagina_captura, experiencia, landing, pagina_obrigado, faixa_etaria, genero, resposta_dinheiro, qualificado, clicou_grupo_em, utm_source, utm_medium, utm_campaign, utm_content, utm_term";
+
+/** Envios (todos, ou só das pessoas em `chaves`) + quem entrou no grupo → as três abas "Entrou Lead". */
+async function entrouLead(lancamentoId: number, chaves: string[] | null) {
+  if (chaves && !chaves.length) return abasEntrouLead([], new Set());
+  const envios = chaves
+    ? await porChaves<Envio>(chaves, (lote) => db().from("inscricoes").select(SELECT_ENVIO).eq("lancamento_id", lancamentoId).in("telefone_chave", lote) as unknown as PromiseLike<{ data: Envio[] | null; error: { message: string } | null }>)
+    : await todas<Envio>((de, ate) => db().from("inscricoes").select(SELECT_ENVIO).eq("lancamento_id", lancamentoId).order("id").range(de, ate) as unknown as PromiseLike<{ data: Envio[] | null; error: { message: string } | null }>);
+  const membros = chaves
+    ? await porChaves<Lead>(chaves, (lote) => db().from("membros_grupo").select("telefone_chave").eq("lancamento_id", lancamentoId).not("primeira_entrada_em", "is", null).in("telefone_chave", lote))
+    : await todas<Lead>((de, ate) => db().from("membros_grupo").select("telefone_chave").eq("lancamento_id", lancamentoId).not("primeira_entrada_em", "is", null).order("id").range(de, ate));
+  return abasEntrouLead(envios, new Set(membros.map((m) => String(m.telefone_chave ?? "")).filter(Boolean)));
 }
 
 /** Batimento: a planilha buscou dados agora (não derruba a resposta se falhar). */

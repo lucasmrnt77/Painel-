@@ -87,3 +87,12 @@ test("mensagem do WhatsApp", () => {
   assert.match(mensagemTestes(e, false), /falharam.*\n2 de 150[\s\S]*• X: Y/);
   assert.match(mensagemTestes({ ...e, ok: true, falhas: 0 }, true), /voltaram a passar/);
 });
+
+test("identidade de teste: e-mail, fbp e fbc novos e no formato da Meta", async () => {
+  const { identidadeTeste } = await import("../src/lib/testes-casos");
+  const a = identidadeTeste(1790000000000), b = identidadeTeste(1790000000000);
+  assert.match(a.email, /^qa\.\d{10}@teste\.com$/);
+  assert.match(a.fbp, /^fb\.1\.1790000000000\.\d{10}$/);
+  assert.match(a.fbc, /^fb\.1\.1790000000000\.IwTeste\d{16}$/);
+  assert.notEqual(a.email, b.email);
+});
