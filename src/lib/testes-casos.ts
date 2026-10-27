@@ -1,11 +1,18 @@
 /**
  * Casos dos testes automáticos dos eventos da Meta (puro — sem servidor).
  *
- * A regra esperada é escrita de novo aqui, direto do mapa do funil (22/10/2026),
- * sem importar o código do serviço de tracking. Assim, se alguém mudar a regra
- * lá sem querer, o teste diário pega.
+ * As regras esperadas são escritas de novo aqui, sem importar o código do serviço de tracking.
+ * Assim, se alguém mudar a regra lá sem querer, o teste diário pega.
  *
- * General — "Lead General Qualificado" (até 24/10 "Lead Qualificado"):
+ * Desde 27/10/2026 (Emi: "hasta finalizar los test… solo cambiaremos el evento en Meta") há duas regras:
+ *
+ * EVENTO NA META (qualificaMetaEsperado) — General, Jubilados e General/Jubilados:
+ *   • Perfil desqualificado em qualquer resposta (inclusive "Sí"):
+ *     Uruguai: mulher 55–64 e homem +65. Argentina e outros países: toda mulher menos 45–54; homem +65.
+ *   • Os demais: "Sí" qualifica; "No hoy" qualifica (na Argentina e outros países, só com gênero e idade);
+ *     "Imposible" ou sem resposta nunca qualifica.
+ *
+ * CRITÉRIO DA PLANILHA E DO PAINEL (qualificaEsperado) — regra anterior, até o fim dos testes:
  *   • Argentina: "Sí" qualifica todos; "No hoy" qualifica homens até 64 anos
  *     (menor de 25 a 55–64) e mulheres de 35 a 44.
  *   • Uruguai: "Sí" ou "No hoy" qualificam todos. Outros países (desde 23/10): a regra da Argentina.
@@ -95,7 +102,7 @@ function resposta(r: string | null | undefined): "si" | "no_hoy" | "outra" {
   return "outra";
 }
 
-/** A regra oficial, reescrita a partir da especificação. */
+/** Critério da planilha e do painel (regra anterior, até o fim dos testes). */
 export function qualificaEsperado(pais: string | null, r: string | null | undefined, genero: string | null | undefined, faixa: string | null | undefined): boolean {
   const x = resposta(r);
   if (x === "si") return true;
@@ -108,6 +115,28 @@ export function qualificaEsperado(pais: string | null, r: string | null | undefi
   return false;
 }
 
+/**
+ * Evento na Meta: regra nova, reescrita a partir da especificação (Emi, 27/10/2026).
+ * 1) Perfil desqualificado em QUALQUER resposta (inclusive "Sí"):
+ *    Uruguai: mulher 55–64 e homem +65. Argentina e outros países: toda mulher menos 45–54; homem +65.
+ * 2) Os demais: "Sí" qualifica; "Imposible"/vazio não; "No hoy" qualifica no Uruguai e, na Argentina e
+ *    outros países, só com gênero e idade informados.
+ */
+export function qualificaMetaEsperado(pais: string | null, r: string | null | undefined, genero: string | null | undefined, faixa: string | null | undefined): boolean {
+  const x = resposta(r);
+  if (x === "outra") return false;
+  const f = faixaDe(faixa);
+  const g = genero && HOMEM.includes(genero) ? "h" : genero && MULHER.includes(genero) ? "m" : null;
+  const uy = pais === "UY";
+  if (g && f) {
+    const fora = uy ? (g === "m" && f === "55_64") || (g === "h" && f === "mayor_65") : (g === "m" && f !== "45_54") || (g === "h" && f === "mayor_65");
+    if (fora) return false;
+  }
+  if (x === "si") return true;
+  if (uy) return true;
+  return !!g && !!f;
+}
+
 const RESPOSTAS = ["si_puedo", "no_pero_podria", "no_imposible", null];
 const FAIXAS = ["menor_25", "25_34", "35_44", "45_54", "55_64", "mayor_65", null];
 
@@ -115,10 +144,11 @@ const rotulo = (v: string | null | undefined) => v ?? "vazio";
 
 function qualificacao(grupo: string, nome: string, pais: string | null, corpo: Omit<CorpoEvento, "landing" | "acao">): Caso {
   const q = qualificaEsperado(pais, corpo.resposta, corpo.genero, corpo.idade);
-  return { grupo, nome, corpo: { landing: "general", acao: "qualificacao", ...corpo }, http: 200, evento: q ? "Lead General Qualificado" : "Lead General Desqualificado", qualificado: q };
+  const m = qualificaMetaEsperado(pais, corpo.resposta, corpo.genero, corpo.idade);
+  return { grupo, nome, corpo: { landing: "general", acao: "qualificacao", ...corpo }, http: 200, evento: m ? "Lead General Qualificado" : "Lead General Desqualificado", qualificado: q };
 }
 
-/** Todos os casos: 157 (mais 1 verificação de envio duplicado = 158). */
+/** Todos os casos: 209 (mais 1 verificação de envio duplicado = 210). */
 export function casosEventos(): Caso[] {
   const casos: Caso[] = [];
 
@@ -126,8 +156,8 @@ export function casosEventos(): Caso[] {
   for (const r of RESPOSTAS) for (const g of ["hombre", "mujer", null]) for (const f of FAIXAS)
     casos.push(qualificacao("Argentina", `AR · ${rotulo(r)} · ${rotulo(g)} · ${rotulo(f)}`, "AR", { telefone: telTeste("AR"), idade: f, genero: g, resposta: r }));
 
-  // Uruguai: gênero e idade não importam; BR/MX (outros países) seguem a regra da Argentina (23/10)
-  for (const p of ["UY", "BR", "MX"]) for (const r of RESPOSTAS) for (const g of ["hombre", "mujer"]) for (const f of ["25_34", "mayor_65"])
+  // Uruguai e BR/MX (outros países seguem a regra da Argentina); faixas que mudam na regra da Meta de 27/10
+  for (const p of ["UY", "BR", "MX"]) for (const r of RESPOSTAS) for (const g of ["hombre", "mujer"]) for (const f of ["25_34", "45_54", "55_64", "mayor_65"])
     casos.push(qualificacao("Outros países", `${p} · ${rotulo(r)} · ${g} · ${f}`, p, { telefone: telTeste(p), idade: f, genero: g, resposta: r }));
 
   // País: o DDI do telefone vale mais que a geolocalização
@@ -162,10 +192,14 @@ export function casosEventos(): Caso[] {
 
   // Jubilados (24/10): mesma regra da General, eventos próprios
   casos.push({ grupo: "Jubilados", nome: "jubilados: Lead Jubilado", corpo: { landing: "jubilados", acao: "lead", telefone: telTeste("UY") }, http: 200, evento: "Lead Jubilado", qualificado: null });
-  casos.push({ grupo: "Jubilados", nome: "jubilados: AR · si_puedo", corpo: { landing: "jubilados", acao: "qualificacao", telefone: telTeste("AR"), resposta: "si_puedo", genero: "hombre", idade: "mayor_65" }, http: 200, evento: "Lead Jubilado Qualificado", qualificado: true });
+  casos.push({ grupo: "Jubilados", nome: "jubilados: AR · si_puedo · hombre · 55_64", corpo: { landing: "jubilados", acao: "qualificacao", telefone: telTeste("AR"), resposta: "si_puedo", genero: "hombre", idade: "55_64" }, http: 200, evento: "Lead Jubilado Qualificado", qualificado: true });
+  casos.push({ grupo: "Jubilados", nome: "jubilados: AR · si_puedo · hombre · mayor_65 (Meta desqualifica, planilha não)", corpo: { landing: "jubilados", acao: "qualificacao", telefone: telTeste("AR"), resposta: "si_puedo", genero: "hombre", idade: "mayor_65" }, http: 200, evento: "Lead Jubilado Desqualificado", qualificado: true });
+  casos.push({ grupo: "Jubilados", nome: "jubilados: UY · si_puedo · mujer · 55_64 (Meta desqualifica, planilha não)", corpo: { landing: "jubilados", acao: "qualificacao", telefone: telTeste("UY"), resposta: "si_puedo", genero: "mujer", idade: "55_64" }, http: 200, evento: "Lead Jubilado Desqualificado", qualificado: true });
   casos.push({ grupo: "Jubilados", nome: "jubilados: UY · no_pero_podria · mujer · mayor_65", corpo: { landing: "jubilados", acao: "qualificacao", telefone: telTeste("UY"), resposta: "no_pero_podria", genero: "mujer", idade: "mayor_65" }, http: 200, evento: "Lead Jubilado Qualificado", qualificado: true });
   casos.push({ grupo: "General/Jubilados", nome: "genjub: Lead GeneralJubilados", corpo: { landing: "genjub", acao: "lead", telefone: telTeste("AR") }, http: 200, evento: "Lead GeneralJubilados", qualificado: null });
-  casos.push({ grupo: "General/Jubilados", nome: "genjub: AR · si_puedo", corpo: { landing: "genjub", acao: "qualificacao", telefone: telTeste("AR"), resposta: "si_puedo", genero: "mujer", idade: "55_64" }, http: 200, evento: "Lead Qualificado GeneralJubilados", qualificado: true });
+  casos.push({ grupo: "General/Jubilados", nome: "genjub: AR · si_puedo · mujer · 45_54", corpo: { landing: "genjub", acao: "qualificacao", telefone: telTeste("AR"), resposta: "si_puedo", genero: "mujer", idade: "45_54" }, http: 200, evento: "Lead Qualificado GeneralJubilados", qualificado: true });
+  casos.push({ grupo: "General/Jubilados", nome: "genjub: AR · si_puedo · mujer · 55_64 (Meta desqualifica, planilha não)", corpo: { landing: "genjub", acao: "qualificacao", telefone: telTeste("AR"), resposta: "si_puedo", genero: "mujer", idade: "55_64" }, http: 200, evento: "Lead Desqualificado GeneralJubilados", qualificado: true });
+  casos.push({ grupo: "General/Jubilados", nome: "genjub: AR · no_pero_podria · mujer · 45_54 (Meta qualifica, planilha não)", corpo: { landing: "genjub", acao: "qualificacao", telefone: telTeste("AR"), resposta: "no_pero_podria", genero: "mujer", idade: "45_54" }, http: 200, evento: "Lead Qualificado GeneralJubilados", qualificado: false });
   casos.push({ grupo: "General/Jubilados", nome: "genjub: AR · no_pero_podria · mujer · 25_34", corpo: { landing: "genjub", acao: "qualificacao", telefone: telTeste("AR"), resposta: "no_pero_podria", genero: "mujer", idade: "25_34" }, http: 200, evento: "Lead Desqualificado GeneralJubilados", qualificado: false });
   casos.push({ grupo: "Jubilados", nome: "jubilados: AR · no_imposible", corpo: { landing: "jubilados", acao: "qualificacao", telefone: telTeste("AR"), resposta: "no_imposible", genero: "hombre", idade: "55_64" }, http: 200, evento: "Lead Jubilado Desqualificado", qualificado: false });
 

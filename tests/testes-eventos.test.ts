@@ -1,18 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  casosEventos, conferirRegistros, conferirResposta, lerResultadoNavegador, mensagemTestes, qualificaEsperado,
+  casosEventos, conferirRegistros, conferirResposta, lerResultadoNavegador, mensagemTestes, qualificaEsperado, qualificaMetaEsperado,
   type Execucao,
 } from "../src/lib/testes-casos";
 
-test("casos: cobrem a matriz inteira (157 + duplicado = 158 verificações)", () => {
+test("casos: cobrem a matriz inteira (209 + duplicado = 210 verificações)", () => {
   const c = casosEventos();
-  assert.equal(c.length, 157);
+  assert.equal(c.length, 209);
   assert.equal(c.filter((x) => x.grupo === "Argentina").length, 84);
-  assert.equal(c.filter((x) => x.evento === "Lead General Qualificado").length, 50); // 23/10: outros países seguem a regra da Argentina
+  assert.equal(c.filter((x) => x.evento === "Lead General Qualificado").length, 56); // evento na Meta: regra de 27/10
+  assert.equal(c.filter((x) => x.qualificado === true && x.corpo.landing === "general").length, 70); // planilha: regra anterior
 });
 
-test("regra esperada: Argentina", () => {
+test("planilha (regra anterior): Argentina", () => {
   assert.equal(qualificaEsperado("AR", "si_puedo", "mujer", "menor_25"), true);
   assert.equal(qualificaEsperado("AR", "si_puedo", null, null), true);
   for (const f of ["menor_25", "25_34", "35_44", "45_54", "55_64"]) assert.equal(qualificaEsperado("AR", "no_pero_podria", "hombre", f), true);
@@ -24,7 +25,7 @@ test("regra esperada: Argentina", () => {
   assert.equal(qualificaEsperado("AR", null, "hombre", "45_54"), false);
 });
 
-test("regra esperada: outros países e textos", () => {
+test("planilha (regra anterior): outros países e textos", () => {
   assert.equal(qualificaEsperado("UY", "no_pero_podria", "mujer", "menor_25"), true);
   assert.equal(qualificaEsperado("BR", "si_puedo", null, null), true);
   assert.equal(qualificaEsperado("MX", "no_imposible", "hombre", "45_54"), false);
@@ -35,8 +36,40 @@ test("regra esperada: outros países e textos", () => {
   assert.equal(qualificaEsperado("AR", "No hoy, pero podría organizarme para conseguirlo", "Masculino", "+65"), false);
 });
 
+test("Meta (regra de 27/10): Argentina", () => {
+  // Perfil fora em qualquer resposta: mulher fora de 45–54 e homem +65
+  for (const r of ["si_puedo", "no_pero_podria"]) {
+    for (const f of ["menor_25", "25_34", "35_44", "55_64", "mayor_65"]) assert.equal(qualificaMetaEsperado("AR", r, "mujer", f), false, `${r} mujer ${f}`);
+    assert.equal(qualificaMetaEsperado("AR", r, "mujer", "45_54"), true);
+    for (const f of ["menor_25", "25_34", "35_44", "45_54", "55_64"]) assert.equal(qualificaMetaEsperado("AR", r, "hombre", f), true);
+    assert.equal(qualificaMetaEsperado("AR", r, "hombre", "mayor_65"), false);
+  }
+  assert.equal(qualificaMetaEsperado("AR", "si_puedo", null, null), true); // sem perfil, "Sí" qualifica
+  assert.equal(qualificaMetaEsperado("AR", "no_pero_podria", "hombre", null), false);
+  assert.equal(qualificaMetaEsperado("AR", "no_pero_podria", null, "45_54"), false);
+  assert.equal(qualificaMetaEsperado("AR", "no_imposible", "hombre", "45_54"), false);
+  assert.equal(qualificaMetaEsperado("AR", null, "hombre", "45_54"), false);
+});
+
+test("Meta (regra de 27/10): Uruguai, outros países e textos", () => {
+  assert.equal(qualificaMetaEsperado("UY", "no_pero_podria", "mujer", "menor_25"), true);
+  assert.equal(qualificaMetaEsperado("UY", "no_pero_podria", "mujer", "mayor_65"), true);
+  assert.equal(qualificaMetaEsperado("UY", "si_puedo", "mujer", "55_64"), false);
+  assert.equal(qualificaMetaEsperado("UY", "no_pero_podria", "mujer", "55_64"), false);
+  assert.equal(qualificaMetaEsperado("UY", "si_puedo", "hombre", "mayor_65"), false);
+  assert.equal(qualificaMetaEsperado("UY", "no_pero_podria", null, null), true);
+  assert.equal(qualificaMetaEsperado("BR", "si_puedo", null, null), true);
+  assert.equal(qualificaMetaEsperado("MX", "no_imposible", "hombre", "45_54"), false);
+  assert.equal(qualificaMetaEsperado(null, "no_pero_podria", "mujer", null), false); // sem país: regra da Argentina
+  assert.equal(qualificaMetaEsperado("BR", "si_puedo", "mujer", "25_34"), false); // outros países = Argentina
+  assert.equal(qualificaMetaEsperado("BR", "no_pero_podria", "mujer", "45_54"), true);
+  assert.equal(qualificaMetaEsperado("AR", "No hoy, pero podría organizarme para conseguirlo", "Masculino", "35 a 44 años"), true);
+  assert.equal(qualificaMetaEsperado("AR", "No hoy, pero podría organizarme para conseguirlo", "Masculino", "+65"), false);
+  assert.equal(qualificaMetaEsperado("AR", "Sí, podría hacerlo sin problema", "Femenino", "25 a 34 años"), false);
+});
+
 test("conferirResposta: aponta o que veio errado", () => {
-  const caso = casosEventos().find((c) => c.nome === "AR · no_pero_podria · mujer · 45_54")!;
+  const caso = casosEventos().find((c) => c.nome === "AR · no_pero_podria · mujer · 25_34")!;
   assert.equal(caso.evento, "Lead General Desqualificado");
   assert.equal(conferirResposta(caso, "e1", { http: 200, corpo: { ok: true, evento: "Lead General Desqualificado", qualificado: false, event_id: "e1" } }), null);
   assert.match(conferirResposta(caso, "e1", { http: 200, corpo: { ok: true, evento: "Lead Qualificado", qualificado: true, event_id: "e1" } })!, /esperado "Lead General Desqualificado"/);
