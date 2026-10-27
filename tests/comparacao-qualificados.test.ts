@@ -10,10 +10,17 @@ test("qualificados: tudo batendo = ok", () => {
   assert.deepEqual(r[0].problemas, []);
 });
 
+test("qualificados: servidor da Meta = nosso + cópia do navegador (gateway) não é problema (alerta de 27/10)", () => {
+  const r = compararQualificados([f("Lead General Qualificado", 144, 47)], { "Lead General Qualificado": 47 }, { "Lead General Qualificado": 52 }, ["Lead General Qualificado"]);
+  assert.equal(r[0].situacao, "ok");
+  const j = compararQualificados([f("Lead Jubilado Qualificado", 69, 34)], { "Lead Jubilado Qualificado": 36 }, { "Lead Jubilado Qualificado": 2 }, ["Lead Jubilado Qualificado"]);
+  assert.equal(j[0].situacao, "ok");
+});
+
 test("qualificados: Meta com o dobro (exemplo do Emi: 10 nossos × 20 na Meta)", () => {
-  const srv = compararQualificados([f("Lead General Qualificado", 20, 10)], { "Lead General Qualificado": 10 }, {}, ["Lead General Qualificado"]);
+  const srv = compararQualificados([f("Lead General Qualificado", 30, 10)], { "Lead General Qualificado": 10 }, {}, ["Lead General Qualificado"]);
   assert.equal(srv[0].situacao, "meta_mais");
-  assert.match(srv[0].problemas[0], /registrou 20 pelo servidor.*enviamos 10/);
+  assert.match(srv[0].problemas[0], /registrou 30 pelo servidor.*enviamos 10/);
   const nav = compararQualificados([f("Lead General Qualificado", 10, 20)], { "Lead General Qualificado": 10 }, {}, ["Lead General Qualificado"]);
   assert.equal(nav[0].situacao, "meta_mais");
   assert.match(nav[0].problemas[0], /navegador registrou 20/);

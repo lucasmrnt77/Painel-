@@ -12,6 +12,11 @@
  *     (ex.: o GTM também disparando o evento, ou a página mandando duas vezes) → a Meta infla os resultados.
  *   • Servidor da Meta com MENOS de 80% do que enviamos: eventos se perdendo no caminho.
  * Abaixo de 10 eventos não compara (ruído).
+ *
+ * 27/10: a Meta conta no "servidor" também uma CÓPIA de cada evento do pixel do navegador (ex.: Conversions API
+ * Gateway / CAPI automática do pixel), com o mesmo event_id — a Meta junta as três na deduplicação. Por isso o
+ * servidor da Meta ≈ nosso servidor + navegador (+ testes): o teto do servidor soma o navegador. Só passa disso
+ * se houver um envio a mais de verdade.
  */
 
 export const QUALIFICADOS = ["Lead General Qualificado", "Lead Jubilado Qualificado", "Lead Qualificado GeneralJubilados", "Lead Trader Qualificado"];
@@ -49,9 +54,10 @@ export function compararQualificados(
 
     // Teto: o que enviamos + os testes do período (a Meta pode contar parte deles), com a margem
     const teto = (nosso + t) * (1 + MARGEM);
+    const tetoServidor = (nosso + t + (nav ?? 0)) * (1 + MARGEM);
     const problemas: string[] = [];
     let situacao: Situacao = "ok";
-    if (srv != null && srv > teto) {
+    if (srv != null && srv > tetoServidor) {
       situacao = "meta_mais";
       problemas.push(`${evento}: a Meta registrou ${srv} pelo servidor nas últimas 24 h e nós enviamos ${nosso} — tem envio em dobro (a Meta está contando a mais).`);
     }
