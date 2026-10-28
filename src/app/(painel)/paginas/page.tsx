@@ -49,8 +49,9 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
       {comVisitas && <td className={`${td} tabular text-right`}>{numero(l.visitas)}</td>}
       <td className={`${td} tabular text-right`}>{numero(l.leads)} <span className="text-xs text-zinc-500">({pct(l.leads, totalLeads)})</span></td>
       {comVisitas && <td className={`${td} tabular text-right`}>{pct(l.leads, l.visitas)}</td>}
-      <td className={`${td} tabular text-right`}>{pct(l.responderam, l.leads)}</td>
-      <td className={`${td} tabular text-right`}>{numero(l.qualificados)} <span className="text-xs text-zinc-500">({pct(l.qualificados, l.qualificados + l.nao_qualificados)})</span></td>
+      <td className={`${td} tabular text-right`}>{numero(l.responderam)} <span className="text-xs text-zinc-500">({pct(l.responderam, l.leads)})</span></td>
+      <td className={`${td} tabular text-right`}>{numero(l.qualificados)} <span className="text-xs text-zinc-500">({pct(l.qualificados, l.leads)})</span></td>
+      {comVisitas && <td className={`${td} tabular text-right`}>{pct(l.qualificados, l.visitas)}</td>}
       <td className={`${td} tabular text-right`}>{numero(l.no_grupo)} <span className="text-xs text-zinc-500">({pct(l.no_grupo, l.leads)})</span></td>
     </tr>
   );
@@ -81,7 +82,7 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
         <Kpi rotulo={t("Visitas")} valor={numero(visitas)} detalhe={t("páginas com o aviso de visita")} />
         <Kpi rotulo={t("Leads (pessoas)")} valor={numero(leads)} detalhe={visitas ? t("{p} das visitas", { p: pct(leads, visitas) }) : undefined} />
         <Kpi rotulo={t("Responderam")} valor={numero(responderam)} detalhe={pct(responderam, leads)} />
-        <Kpi rotulo={t("Calificados")} valor={numero(qualificados)} destaque="verde" detalhe={t("{p} de quem respondeu", { p: pct(qualificados, responderam) })} />
+        <Kpi rotulo={t("Calificados")} valor={numero(qualificados)} destaque="verde" detalhe={t("{p} dos leads · {v} das visitas", { p: pct(qualificados, leads), v: pct(qualificados, visitas) })} />
         <Kpi rotulo={t("No grupo")} valor={numero(noGrupo)} detalhe={pct(noGrupo, leads)} />
       </div>
 
@@ -103,12 +104,12 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
           <div key={site} className="space-y-4">
             <h2 className="pt-2 text-base font-semibold">{t("Página {s}", { s: nomeSite })}</h2>
             <Cartao titulo={t("Páginas de captura · {s}", { s: nomeSite })}>
-              <Tabela cabecalho={[t("Landing"), t("Visitas"), t("Leads (% do total)"), t("Conversão"), t("Responderam"), t("Calificados (% de quem respondeu)"), t("No grupo")]} vazio={ls.length === 0}>
+              <Tabela cabecalho={[t("Landing"), t("Visitas"), t("Leads (% do total)"), t("Conversão"), t("Responderam (% dos leads)"), t("Calificados (% dos leads)"), t("Calificados ÷ visitas"), t("No grupo")]} vazio={ls.length === 0}>
                 {ls.map((l) => linhaFunil(l, total, true))}
               </Tabela>
             </Cartao>
             <Cartao titulo={t("Páginas de gracias · {s}", { s: nomeSite })}>
-              <Tabela cabecalho={[t("Gracias"), t("Leads (% do total)"), t("Responderam"), t("Calificados (% de quem respondeu)"), t("No grupo")]} vazio={gs.length === 0}>
+              <Tabela cabecalho={[t("Gracias"), t("Leads (% do total)"), t("Responderam (% dos leads)"), t("Calificados (% dos leads)"), t("No grupo")]} vazio={gs.length === 0}>
                 {gs.map((l) => linhaFunil(l, total, false))}
               </Tabela>
             </Cartao>
