@@ -146,6 +146,8 @@ export const ES_LANCAMENTO: Dic = {
   "Calificados (% de quem respondeu)": "Calificados (% de quienes respondieron)",
   "Calificados (% dos leads)": "Calificados (% de los leads)",
   "Calificados ÷ visitas": "Calificados ÷ visitas",
+  "No grupo (% das visitas)": "En el grupo (% de las visitas)",
+  "No grupo (% dos leads)": "En el grupo (% de los leads)",
   "Responderam (% dos leads)": "Respondieron (% de los leads)",
   "{p} dos leads · {v} das visitas": "{p} de los leads · {v} de las visitas",
   "A coluna \"% do total\" mostra a divisão real do tráfego. Num teste de 3 páginas com 33% cada, cada uma deve ficar perto de 33%.": "La columna \"% del total\" muestra la división real del tráfico. En una prueba de 3 páginas con 33 % cada una, cada una debería quedar cerca del 33 %.",
