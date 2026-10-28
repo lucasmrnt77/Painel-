@@ -109,3 +109,16 @@ export function resumoTeste(paginas: string[], landings: LinhaFunil[], contagens
   }
   return linhas;
 }
+
+/**
+ * REGRA (28/10/2026): nenhum teste pode sobrepor outro. Os dados de cada teste (visitas, leads,
+ * qualificados, Meta) são separados por dia (horário do Uruguai), então dois testes do mesmo lançamento
+ * não podem ter nenhum dia em comum — nem o dia da troca. Devolve o teste que conflita, ou null.
+ */
+export function testeQueSobrepoe(
+  novo: { inicio: string; fim: string },
+  outros: { id: number; nome: string; inicio: string; fim: string }[],
+  idProprio?: number | null,
+): { id: number; nome: string; inicio: string; fim: string } | null {
+  return outros.find((o) => o.id !== idProprio && o.inicio <= novo.fim && novo.inicio <= o.fim) ?? null;
+}

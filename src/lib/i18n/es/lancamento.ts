@@ -144,6 +144,8 @@ export const ES_LANCAMENTO: Dic = {
   "Leads (% do total)": "Leads (% del total)",
   "Conversão": "Conversión",
   "Calificados (% de quem respondeu)": "Calificados (% de quienes respondieron)",
+  "O teste não foi salvo: a data de fim é antes da data de início.": "La prueba no se guardó: la fecha de fin es anterior a la de inicio.",
+  "O teste não foi salvo: as datas se sobrepõem ao teste {c}. Regra: nenhum teste pode ter dia em comum com outro, para os dados não se misturarem. Comece o novo teste no dia seguinte ao fim do anterior.": "La prueba no se guardó: las fechas se superponen con la prueba {c}. Regla: ninguna prueba puede compartir días con otra, para que los datos no se mezclen. Empezá la nueva prueba el día siguiente al fin de la anterior.",
   "Calificados (% dos leads)": "Calificados (% de los leads)",
   "Calificados ÷ visitas": "Calificados ÷ visitas",
   "No grupo (% das visitas)": "En el grupo (% de las visitas)",

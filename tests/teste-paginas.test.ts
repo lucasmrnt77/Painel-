@@ -57,3 +57,16 @@ test("Gen-Jubilados: site próprio nos testes", () => {
     [anuncio("General", 1, 200), anuncio("Gen-Jubilados", 1, 100)]);
   assert.deepEqual(r.map((l) => l.cliques), [200, 100]);
 });
+
+test("regra: nenhum teste pode sobrepor outro (28/10)", async () => {
+  const { testeQueSobrepoe } = await import("../src/lib/teste-paginas");
+  const outros = [
+    { id: 6, nome: "Teste 1", inicio: "2026-10-26", fim: "2026-10-27" },
+    { id: 10, nome: "Teste 2", inicio: "2026-10-29", fim: "2026-10-31" },
+  ];
+  assert.equal(testeQueSobrepoe({ inicio: "2026-10-28", fim: "2026-10-28" }, outros), null); // dia livre
+  assert.equal(testeQueSobrepoe({ inicio: "2026-10-27", fim: "2026-10-29" }, outros)?.id, 6); // encosta nos dois
+  assert.equal(testeQueSobrepoe({ inicio: "2026-11-01", fim: "2026-11-03" }, outros), null);
+  assert.equal(testeQueSobrepoe({ inicio: "2026-10-31", fim: "2026-11-02" }, outros)?.id, 10); // mesmo dia de fim = sobrepõe
+  assert.equal(testeQueSobrepoe({ inicio: "2026-10-29", fim: "2026-11-02" }, outros, 10), null); // editar o próprio teste
+});

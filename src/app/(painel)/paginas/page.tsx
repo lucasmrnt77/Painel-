@@ -74,6 +74,13 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
         </div>
       </div>
 
+      {param(sp, "erro_teste") && (
+        <p className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+          {param(sp, "erro_teste") === "fim_antes"
+            ? t("O teste não foi salvo: a data de fim é antes da data de início.")
+            : t("O teste não foi salvo: as datas se sobrepõem ao teste {c}. Regra: nenhum teste pode ter dia em comum com outro, para os dados não se misturarem. Comece o novo teste no dia seguinte ao fim do anterior.", { c: param(sp, "conflito") ?? "" })}
+        </p>
+      )}
       <SeletorTestes lancamentoId={atual.lancamento_id} slug={atual.slug} testes={testes} teste={teste} periodo={periodo} comPeriodo={comPeriodo} erro={erroTestes} t={t} />
 
       {teste && resultado && <ResultadoTeste teste={teste} linhas={resultado} comMeta={!!anuncios?.comMeta} t={t} />}

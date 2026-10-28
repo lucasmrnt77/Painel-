@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "./supabase";
 import { exigirLogin } from "./sessao";
 import { lerPeriodo } from "./periodo";
-import { lerPaginasTeste } from "./teste-paginas";
+import { lerPaginasTeste, testeQueSobrepoe } from "./teste-paginas";
 
 /** Lê nome, páginas e período do formulário (vazio/inválido = null). */
 function lerTeste(fd: FormData) {
@@ -24,6 +24,14 @@ export async function salvarTestePagina(fd: FormData): Promise<void> {
   const id = Number(fd.get("id"));
   const t = lerTeste(fd);
   if (!t || !Number.isInteger(lancamentoId) || lancamentoId <= 0) return;
+  // Regra: um teste nunca pode ter dia em comum com outro do mesmo lançamento (dados não se misturam)
+  if (t.fim < t.inicio) redirect(`/paginas?${new URLSearchParams({ l: slug, erro_teste: "fim_antes" })}`);
+  const { data: outros, error: erroOutros } = await db().from("testes_paginas").select("id, nome, inicio, fim").eq("lancamento_id", lancamentoId);
+  if (erroOutros) throw new Error(erroOutros.message);
+  const conflito = testeQueSobrepoe(t, (outros ?? []) as { id: number; nome: string; inicio: string; fim: string }[], Number.isInteger(id) && id > 0 ? id : null);
+  if (conflito) {
+    redirect(`/paginas?${new URLSearchParams({ l: slug, erro_teste: "sobrepoe", conflito: `${conflito.nome} (${conflito.inicio} a ${conflito.fim})` })}`);
+  }
   let testeId = id;
   if (Number.isInteger(id) && id > 0) {
     const { error } = await db().from("testes_paginas").update(t).eq("id", id).eq("lancamento_id", lancamentoId);
