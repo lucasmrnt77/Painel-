@@ -41,6 +41,15 @@ test("ranking: melhor variação por país e resumo", () => {
   const [r] = montarRanking(linhas, [], []);
   assert.equal(r.melhor.AR?.taxaInscricao, "/v2");
   assert.equal(r.melhor.UY?.taxaQualificados, "/v1");
+  // calif. = qualificados ÷ leads (todos os leads, respondendo ou não), não ÷ visitas
+  assert.equal(r.celulas["/v1"].UY?.taxaQualificados, 8 / 12);
+  assert.equal(r.celulas["/v1"].UY?.taxaInscricao, 12 / 100);
+  assert.equal(r.celulas["/v1"].UY?.taxaQualificadosVisitas, 8 / 100);
+  assert.equal(r.celulas["/v1"].UY?.taxaNoGrupo, 0); // sem a coluna no_grupo, conta 0
+  const [g] = montarRanking([{ site: "General", landing: "/v1", pais: "UY", visitas: 82, leads: 15, qualificados: 12, noGrupo: 10, responderam: 13 }], [], []);
+  assert.equal(g.celulas["/v1"].UY?.taxaNoGrupo, 10 / 82);
+  assert.equal(g.celulas["/v1"].UY?.responderam, 13);
+  assert.equal(g.celulas["/v1"].UY?.taxaResponderam, 13 / 15);
   assert.equal(r.melhor.CL?.taxaInscricao, "/v1"); // /v2 não disputa (menos de 30 visitas)
   assert.deepEqual(r.resumo, [{ variacao: "/v1", paises: ["CL"] }, { variacao: "/v2", paises: ["AR", "UY"] }]);
   assert.equal(listaPaises(["AR", "UY"]), "Argentina e Uruguai");

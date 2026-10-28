@@ -1,4 +1,4 @@
-import { Cartao, td } from "@/components/ui";
+import { td } from "@/components/ui";
 import { listaPaises, MIN_LEADS_CPL, MIN_VISITAS, NOME_PAIS, PAISES, type Celula, type PaisGrupo, type RankingSite } from "@/lib/criativos";
 import { numero } from "@/lib/formato";
 
@@ -13,12 +13,16 @@ function Selo({ children }: { children: React.ReactNode }) {
 
 function CelulaPais({ c, melhor, t }: { c: Celula | undefined; melhor: { insc: boolean; qual: boolean; cpl: boolean }; t: T }) {
   if (!c) return <span className="text-zinc-400">—</span>;
+  const n = (v: number) => <span className="text-zinc-400"> · {numero(v)}</span>;
   return (
     <div className="space-y-0.5 text-xs leading-tight">
-      <div className="tabular">{pctN(c.taxaInscricao)} {t("inscr.")}{melhor.insc && <Selo>★</Selo>}</div>
-      <div className="tabular text-zinc-500">{pctN(c.taxaQualificados)} {t("qualif.")}{melhor.qual && <Selo>★</Selo>}</div>
+      <div className="tabular">{pctN(c.taxaInscricao)} {t("inscr.")}{n(c.leads)}{melhor.insc && <Selo>★</Selo>}</div>
+      <div className="tabular text-zinc-500">{pctN(c.taxaResponderam)} {t("responderam")}{n(c.responderam)}</div>
+      <div className="tabular text-zinc-500">{pctN(c.taxaQualificados)} {t("qualif. (leads)")}{n(c.qualificados)}{melhor.qual && <Selo>★</Selo>}</div>
+      <div className="tabular text-zinc-500">{pctN(c.taxaQualificadosVisitas)} {t("qualif. (visitas)")}{n(c.qualificados)}</div>
+      <div className="tabular text-zinc-500">{pctN(c.taxaNoGrupo)} {t("no grupo (visitas)")}{n(c.noGrupo)}</div>
       {c.gasto != null && <div className="tabular text-zinc-500">{usd(c.cpl)} {t("por lead")}{melhor.cpl && <Selo>★</Selo>}</div>}
-      <div className="tabular text-[10px] text-zinc-400">{numero(c.visitas)} {t("visitas")} · {numero(c.leads)} {t("leads")}</div>
+      <div className="tabular text-[10px] text-zinc-400">{numero(c.visitas)} {t("visitas")}</div>
     </div>
   );
 }
@@ -35,7 +39,12 @@ export function RankingPaginas({ ranking, comGasto, idioma, t }: { ranking: Rank
       {ranking.map((r) => {
         const paises = PAISES.filter((p) => r.variacoes.some((v) => r.celulas[v]?.[p]));
         return (
-          <Cartao key={r.site} titulo={t("Página {s}: variação × país", { s: r.site })}>
+          <details key={r.site} className="group rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+              <span className="inline-block text-xs text-zinc-500 transition-transform group-open:rotate-90">▶</span>
+              {t("Página {s}: variação × país", { s: r.site })}
+            </summary>
+            <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
             <div className="mb-3 space-y-1 text-sm">
               {r.resumo.length === 0 ? (
                 <p className="text-zinc-500">{t("Ainda sem visitas suficientes para comparar (mínimo de {n} visitas por variação e país).", { n: MIN_VISITAS })}</p>
@@ -73,11 +82,12 @@ export function RankingPaginas({ ranking, comGasto, idioma, t }: { ranking: Rank
                 </tbody>
               </table>
             </div>
-          </Cartao>
+            </div>
+          </details>
         );
       })}
       <p className="text-xs text-zinc-500">
-        {t("★ = melhor do país: maior taxa de inscrição (leads ÷ visitas), maior taxa de qualificados (qualificados ÷ visitas) e menor custo por lead. Só disputam variações com pelo menos {v} visitas no país (e {l} leads para o custo).", { v: MIN_VISITAS, l: MIN_LEADS_CPL })}{" "}
+        {t("Clique no nome da página para abrir ou fechar. Ao lado de cada % está o número de pessoas. inscr. = leads ÷ visitas · responderam = responderam as 3 perguntas ÷ leads · qualif. (leads) = qualificados ÷ todos os leads, respondendo ou não · qualif. (visitas) = qualificados ÷ visitas · no grupo (visitas) = entraram no grupo do WhatsApp ÷ visitas. ★ = melhor do país: maior inscr., maior qualif. (leads) e menor custo por lead. Só disputam variações com pelo menos {v} visitas no país (e {l} leads para a qualificação e o custo).", { v: MIN_VISITAS, l: MIN_LEADS_CPL })}{" "}
         {comGasto
           ? t("Custo por lead: investimento da base da Paola ligado à página pela aba Criativos (ou pelo prefixo [T], [G], [JG] do anúncio). Quando o criativo usa a divisão normal da página, o investimento é dividido entre as variações pela proporção de visitas (estimativa).")
           : t("Custo por lead aparece quando o lançamento tiver dados de anúncios na base da Paola.")}

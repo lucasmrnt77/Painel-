@@ -54,15 +54,18 @@ export const VARIACAO = /^\/([A-Za-z0-9_-]{1,30})?$/;
 
 // ── Ranking variação × país ─────────────────────────────────────────────────────────────────────
 
-export type LinhaPais = { site: string; landing: string; pais: PaisGrupo; visitas: number; leads: number; qualificados: number };
+export type LinhaPais = { site: string; landing: string; pais: PaisGrupo; visitas: number; leads: number; qualificados: number; noGrupo?: number; responderam?: number };
 export type Gasto = { criativo: string; pais: string; investimento: number };
 export type CriativoMapa = { nome: string; pagina: Site | null; variacao: string | null };
 
 export type Celula = {
-  visitas: number; leads: number; qualificados: number;
+  visitas: number; leads: number; qualificados: number; noGrupo: number; responderam: number;
   gasto: number | null; // estimado quando o criativo não tem variação fixa
   taxaInscricao: number | null; // leads ÷ visitas
-  taxaQualificados: number | null; // qualificados ÷ visitas
+  taxaQualificados: number | null; // qualificados ÷ leads (28/10: % de calificados sobre todos os leads, respondendo ou não)
+  taxaQualificadosVisitas: number | null; // qualificados ÷ visitas
+  taxaResponderam: number | null; // responderam as perguntas ÷ leads
+  taxaNoGrupo: number | null; // entraram no grupo do WhatsApp ÷ visitas
   cpl: number | null; // gasto ÷ leads
   cplQualificado: number | null; // gasto ÷ qualificados
 };
@@ -126,9 +129,12 @@ export function montarRanking(linhas: LinhaPais[], gastos: Gasto[], criativos: C
         const parte = totVisitas > 0 ? l.visitas / totVisitas : totLeads > 0 ? l.leads / totLeads : 0;
         const g = temGasto ? semVar * parte + (gasto.get(chave(site, pais, l.landing)) ?? 0) : null;
         (celulas[l.landing] ??= {})[pais] = {
-          visitas: l.visitas, leads: l.leads, qualificados: l.qualificados, gasto: g,
+          visitas: l.visitas, leads: l.leads, qualificados: l.qualificados, noGrupo: l.noGrupo ?? 0, responderam: l.responderam ?? 0, gasto: g,
           taxaInscricao: l.visitas > 0 ? l.leads / l.visitas : null,
-          taxaQualificados: l.visitas > 0 ? l.qualificados / l.visitas : null,
+          taxaQualificados: l.leads > 0 ? l.qualificados / l.leads : null,
+          taxaQualificadosVisitas: l.visitas > 0 ? l.qualificados / l.visitas : null,
+          taxaResponderam: l.leads > 0 ? (l.responderam ?? 0) / l.leads : null,
+          taxaNoGrupo: l.visitas > 0 ? (l.noGrupo ?? 0) / l.visitas : null,
           cpl: g != null && g > 0 && l.leads > 0 ? g / l.leads : null,
           cplQualificado: g != null && g > 0 && l.qualificados > 0 ? g / l.qualificados : null,
         };
@@ -148,7 +154,7 @@ export function montarRanking(linhas: LinhaPais[], gastos: Gasto[], criativos: C
       };
       const m: Melhor = {
         taxaInscricao: maior((c) => c.taxaInscricao, (c) => c.visitas >= MIN_VISITAS),
-        taxaQualificados: maior((c) => c.taxaQualificados, (c) => c.visitas >= MIN_VISITAS),
+        taxaQualificados: maior((c) => c.taxaQualificados, (c) => c.leads >= MIN_LEADS_CPL),
         cpl: maior((c) => (c.cpl == null ? null : -c.cpl), (c) => c.leads >= MIN_LEADS_CPL),
       };
       if (m.taxaInscricao || m.taxaQualificados || m.cpl) melhor[pais] = m;

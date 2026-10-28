@@ -112,7 +112,7 @@ export function pesoNome(nome: string): number {
  * Ranking variação × país (Trader, General e Jubilar): visitas/leads/qualificados do painel e o investimento da
  * base da Paola (pc_ads_meta_anuncio_dia) ligado à página pela aba Criativos (ou pelo prefixo [T]/[G]/[JG] do anúncio).
  */
-type LinhaPaisBanco = { site: string | null; landing: string; pais: PaisGrupo; visitas: unknown; leads: unknown; qualificados: unknown };
+type LinhaPaisBanco = { site: string | null; landing: string; pais: PaisGrupo; visitas: unknown; leads: unknown; qualificados: unknown; no_grupo?: unknown; responderam?: unknown };
 
 export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SEM_PERIODO, paginas: string[] | null = null) {
   const comPeriodo = temPeriodo(periodo);
@@ -120,9 +120,9 @@ export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SE
   const adsLanc = (lanc as { ads_lancamento?: string | null } | null)?.ads_lancamento ?? null;
   const [linhas, criativos, gastos] = await Promise.all([
     comPeriodo
-      ? todas<LinhaPaisBanco>((de, ate) => db().rpc("metricas_landing_pais_periodo", argsPeriodo(lancamentoId, periodo)).select("site, landing, pais, visitas, leads, qualificados")
+      ? todas<LinhaPaisBanco>((de, ate) => db().rpc("metricas_landing_pais_periodo", argsPeriodo(lancamentoId, periodo)).select("site, landing, pais, visitas, leads, responderam, qualificados, no_grupo")
           .order("site").order("landing").order("pais").range(de, ate) as unknown as PromiseLike<{ data: LinhaPaisBanco[] | null; error: { message: string } | null }>)
-      : todas<LinhaPaisBanco>((de, ate) => db().from("v_metricas_landing_pais").select("site, landing, pais, visitas, leads, qualificados").eq("lancamento_id", lancamentoId)
+      : todas<LinhaPaisBanco>((de, ate) => db().from("v_metricas_landing_pais").select("site, landing, pais, visitas, leads, responderam, qualificados, no_grupo").eq("lancamento_id", lancamentoId)
           .order("site").order("landing").order("pais").range(de, ate)),
     db().from("criativos").select("nome, pagina, variacao"),
     adsLanc
@@ -137,7 +137,7 @@ export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SE
   if (linhas.error) return { erro: linhas.error.message, ranking: [], comGasto: false };
   const n = (v: unknown) => Number(v ?? 0);
   const ranking = montarRanking(
-    (linhas.data ?? []).filter((r) => !paginas || paginas.includes(nomePagina(r.site ?? "—", r.landing))).map((r) => ({ site: r.site ?? "—", landing: r.landing, pais: r.pais, visitas: n(r.visitas), leads: n(r.leads), qualificados: n(r.qualificados) })),
+    (linhas.data ?? []).filter((r) => !paginas || paginas.includes(nomePagina(r.site ?? "—", r.landing))).map((r) => ({ site: r.site ?? "—", landing: r.landing, pais: r.pais, visitas: n(r.visitas), leads: n(r.leads), qualificados: n(r.qualificados), noGrupo: n(r.no_grupo), responderam: n(r.responderam) })),
     ((gastos.data ?? []) as { criativo: string | null; pais: string | null; investimento: unknown }[])
       .filter((g) => g.criativo).map((g) => ({ criativo: g.criativo!, pais: g.pais ?? "", investimento: n(g.investimento) })),
     ((criativos.data ?? []) as { nome: string; pagina: "general" | "trader" | "jubilar" | "genjub" | null; variacao: string | null }[]),
