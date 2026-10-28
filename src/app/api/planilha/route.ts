@@ -91,6 +91,8 @@ function linhaBase(l: Lead, p: Perfil): string[] {
   ].map((v) => String(v ?? ""));
 }
 
+/** Regra do Trader (igual à do serviço de tracking): só "Nunca hice" não qualifica. */
+const qualificaTraderPlanilha = (exp: unknown) => !String(exp ?? "").trim().toLowerCase().startsWith("nunca");
 const calificado = (p: Perfil) => (p.q === true ? "Sí" : p.q === false ? "No" : "");
 const nomePagina = (l: Lead) => (l.pagina_captura === "trader" ? "Trader" : "General");
 
@@ -244,7 +246,8 @@ async function formato3(
         fecha, hora, String(l.experiencia ?? ""), String(l.telefone ?? ""),
         String(l.utm_campaign ?? ""), String(l.utm_content ?? ""), String(l.utm_source ?? ""), String(l.utm_medium ?? ""), String(l.utm_term ?? ""),
         String(l.landing ?? ""), String(l.pagina_obrigado ?? ""), l.no_grupo === true,
-        pais, calificado(p), k,
+        // 28/10/2026: sem qualificado gravado (o clique se perdia ao abrir o WhatsApp), vale a regra do Trader pela experiência
+        pais, calificado(p.q === null && l.experiencia ? { ...p, q: qualificaTraderPlanilha(l.experiencia) } : p), k,
       ]);
     } else {
       paginaDe.set(k, "General");
