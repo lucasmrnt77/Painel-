@@ -3,7 +3,7 @@ import { MultiSelecao } from "@/components/multi-selecao";
 import { db } from "@/lib/supabase";
 import {
   contagensPorEdicao, conversaoPorEdicao, repeticaoPorEdicao, conversaoPorParticipacao, conversaoPorTotal, edicoes,
-  FILTROS_COMPRA, fontesPorEdicao, resumoProblemas, telefonesCorrigidos, telefonesDescartados, telefonesInvalidos, telefonesParaRevisar,
+  FILTROS_COMPRA, fontesPorEdicao, resumoProblemas, telefonesCorrigidos, telefonesResgatados, telefonesDescartados, telefonesInvalidos, telefonesParaRevisar,
   type FonteEdicao, type ResumoProblema,
 } from "@/lib/base-leads";
 import {
@@ -36,7 +36,7 @@ const PAISES = [
 
 const ORIGEM_CORRECAO: Record<string, string> = {
   regra: "regra do país", automatica: "sugestão automática", cruzamento: "achado completo na base ou no grupo",
-  manual: "corrigido à mão", ia: "sugestão da IA",
+  manual: "corrigido à mão", ia: "sugestão da IA", resgate: "resgatado do descarte",
 };
 
 const campo = "rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950";
@@ -49,7 +49,7 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
   const motivoRevisar = um(sp.rmot);
   const motivoInvalido = um(sp.imot);
 
-  const [eds, porPart, porEdicao, porTotal, contagens, revisar, ultima, totais, repeticao, lancsPainel, fontes, invalidos, problemas, descartados, corrigidos] = await Promise.all([
+  const [eds, porPart, porEdicao, porTotal, contagens, revisar, ultima, totais, repeticao, lancsPainel, fontes, invalidos, problemas, descartados, corrigidos, resgatados] = await Promise.all([
     edicoes(), conversaoPorParticipacao(), conversaoPorEdicao(), conversaoPorTotal(), contagensPorEdicao(),
     telefonesParaRevisar(100, "todos", motivoRevisar),
     db().from("bd_atualizacoes").select("atualizado_em").order("id", { ascending: false }).limit(1).maybeSingle(),
@@ -61,6 +61,7 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
     resumoProblemas(),
     telefonesDescartados(100),
     telefonesCorrigidos(200),
+    telefonesResgatados(),
   ]);
   const cont = new Map(contagens.map((c) => [c.edicao_id, c]));
   const fontesDe = new Map<number, FonteEdicao[]>();
@@ -219,7 +220,7 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
         {invalidos.total > invalidos.itens.length && <p className="mt-2 text-xs text-zinc-500">{t("Mostrando {a} de {b}. Corrija ou descarte para ver os próximos.", { a: numero(invalidos.itens.length), b: numero(invalidos.total) })}</p>}
       </Cartao>
 
-      <Cartao titulo={t("Telefones descartados automaticamente · dezembro/2026 em diante ({n})", { n: numero(descartados.total) })}>
+      <Cartao titulo={t("Telefones descartados ({n})", { n: numero(descartados.total) })}>
         <p className="mb-3 text-xs text-zinc-500">
           {t("Números que a regra não conseguiu corrigir com segurança (número de teste, poucos dígitos, dígitos a mais, formato desconhecido). Ficam fora das estatísticas, mas guardados: se souber o número certo, salve; ou volte para a revisão. Se o número completo aparecer depois em outro registro ou no grupo, ele é corrigido sozinho.")}
         </p>
@@ -257,13 +258,32 @@ export default async function BaseLeads({ searchParams }: PageProps<"/base-leads
         {descartados.total > descartados.itens.length && <p className="mt-2 text-xs text-zinc-500">{t("Mostrando {a} de {b}.", { a: numero(descartados.itens.length), b: numero(descartados.total) })}</p>}
       </Cartao>
 
-      <Cartao titulo={t("Telefones corrigidos · dezembro/2026 em diante ({n})", { n: numero(corrigidos.total) })}>
+      <Cartao titulo={t("Telefones corrigidos ({n})", { n: numero(corrigidos.total) })}>
+        {resgatados.length > 0 && (
+          <div className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/30">
+            <div className="mb-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+              {t("Resgatados do descarte ({n}) — números que tinham sido descartados automaticamente e passaram a ser reconhecidos por uma regra nova", { n: resgatados.length })}
+            </div>
+            <Tabela cabecalho={[t("Telefone como chegou"), t("Número corrigido"), t("Por que tinha sido descartado"), t("Como foi resgatado"), t("Lançamentos"), t("Vezes")]} vazio={false}>
+              {resgatados.map((r) => (
+                <tr key={`${r.telefone_original}-${r.telefone_corrigido}`}>
+                  <td className={`${td} font-mono text-xs`}>{r.telefone_original}</td>
+                  <td className={`${td} font-mono text-xs font-semibold`}>{r.telefone_corrigido}</td>
+                  <td className={`${td} text-xs`}>{traduzirMotivo(t, r.motivo_original ?? "")}</td>
+                  <td className={`${td} text-xs`}>{t((r.motivo ?? "").replace(/^resgatado do descarte: /, ""))}</td>
+                  <td className={`${td} text-xs`}>{r.edicoes}</td>
+                  <td className={`${td} tabular`}>{r.ocorrencias}</td>
+                </tr>
+              ))}
+            </Tabela>
+          </div>
+        )}
         <details>
           <summary className="cursor-pointer text-xs text-zinc-500">{t("Ver como o número chegou × como ficou")}</summary>
           <div className="mt-3">
             <Tabela cabecalho={[t("Telefone como chegou"), t("Número corrigido"), t("Problema"), t("Como foi corrigido"), t("Vezes")]} vazio={corrigidos.itens.length === 0}>
               {corrigidos.itens.map((r) => (
-                <tr key={`${r.telefone_original}-${r.telefone_corrigido}`}>
+                <tr key={`${r.telefone_original}-${r.telefone_corrigido}`} className={r.origem === "resgate" ? "bg-emerald-50 dark:bg-emerald-950/30" : undefined}>
                   <td className={`${td} font-mono text-xs`}>{r.telefone_original}</td>
                   <td className={`${td} font-mono text-xs`}>{r.telefone_corrigido}</td>
                   <td className={`${td} text-xs`}>{traduzirMotivo(t, (r.motivo_original ?? r.motivo ?? "").replace(/^corrigido automaticamente: /, ""))}</td>

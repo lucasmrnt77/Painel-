@@ -161,6 +161,14 @@ export async function telefonesCorrigidos(limite = 200): Promise<{ itens: Corrig
   return { itens: (data ?? []) as Corrigido[], total: count ?? 0 };
 }
 
+/** Números que estavam descartados e foram resgatados por uma regra nova do normalizador (049). */
+export async function telefonesResgatados(): Promise<Corrigido[]> {
+  const { data, error } = await db().from("v_bd_telefones_corrigidos").select("*").eq("origem", "resgate")
+    .order("telefone_original").limit(500);
+  if (error) return [];
+  return (data ?? []) as Corrigido[];
+}
+
 export type ResumoProblema = { lista: "revisar" | "invalido"; motivo: string | null; numeros: number; compradores: number };
 
 export async function resumoProblemas(): Promise<ResumoProblema[]> {
