@@ -9,6 +9,8 @@ import { dataHora } from "@/lib/formato";
 import { duracao } from "@/lib/mensagens";
 import { CartaoMonitor } from "@/components/monitor";
 import { FormAlertas, type ConfigAds } from "@/components/formularios";
+import { lerContaMeta, metaContaConfigurada, type ResultadoConta } from "@/lib/meta-conta";
+import { minutosDoDia, SITUACAO_CONTA, somaGasto, somaOrcamento } from "@/lib/meta-conta-regras";
 import { CartaoEnvioAlertas } from "@/components/envio-alertas";
 import { AutoAtualizar } from "@/components/auto-atualizar";
 import { Cartao, Tabela, td } from "@/components/ui";
@@ -42,7 +44,9 @@ const ROTULO_TIPO: Record<string, { rotulo: string; cor: string }> = {
   testes_voltaram: { rotulo: "Eventos Meta ok de novo", cor: "text-emerald-600 dark:text-emerald-400" },
   ads_sem_gasto: { rotulo: "Meta sem gastar", cor: "text-rose-600 dark:text-rose-400" },
   ads_cpl_alto: { rotulo: "Custo por lead alto", cor: "text-rose-600 dark:text-rose-400" },
-  ads_gasto_baixo: { rotulo: "Meta gastando pouco", cor: "text-rose-600 dark:text-rose-400" },
+  ads_conta_bloqueada: { rotulo: "Conta da Meta com problema", cor: "text-rose-600 dark:text-rose-400" },
+  ads_limite_reduzido: { rotulo: "Limite diário da Meta reduzido", cor: "text-rose-600 dark:text-rose-400" },
+  ads_ritmo_baixo: { rotulo: "Gasto abaixo do orçamento", cor: "text-rose-600 dark:text-rose-400" },
   ads_sem_dados: { rotulo: "Dados da Meta parados", cor: "text-amber-600 dark:text-amber-400" },
 };
 const ENVIO: Record<string, string> = { enviado: "enviado", parcial: "envio parcial", falhou: "falhou", sem_envio: "só no painel", pendente: "enviando" };
@@ -64,13 +68,58 @@ async function inscricoesGrupo(): Promise<{ ultimos20: number; ultimos60: number
 /** Configuração dos alertas das campanhas na Meta (migração 047). */
 async function configAds(id: number): Promise<ConfigAds | null> {
   const { data, error } = await db().from("lancamentos")
-    .select("ads_campanha_filtro, ads_cpl_maximo, ads_gasto_minimo_30min, ads_hora_inicio").eq("id", id).maybeSingle();
+    .select("ads_campanha_filtro, ads_cpl_maximo, ads_hora_inicio").eq("id", id).maybeSingle();
   if (error || !data) return null; // antes da migração 047
-  const d = data as { ads_campanha_filtro: string | null; ads_cpl_maximo: number | string; ads_gasto_minimo_30min: number | string | null; ads_hora_inicio: number };
+  const d = data as { ads_campanha_filtro: string | null; ads_cpl_maximo: number | string; ads_hora_inicio: number };
   return {
     filtro: d.ads_campanha_filtro, cplMaximo: Number(d.ads_cpl_maximo) || 8,
-    gastoMinimo30: d.ads_gasto_minimo_30min == null ? null : Number(d.ads_gasto_minimo_30min), horaInicio: d.ads_hora_inicio,
+    horaInicio: d.ads_hora_inicio,
   };
+}
+
+/** Leitura direta da conta na Meta, para conferir o token e os números (migração 048). */
+async function ContaMeta({ filtro, t }: { filtro: string | null; t: T }) {
+  if (!metaContaConfigurada()) return <p className="text-sm text-zinc-500">{t("Leitura direta desligada: cadastre META_ADS_TOKEN e META_AD_ACCOUNT_ID na Vercel e faça o redeploy.")}</p>;
+  if (!filtro) return null;
+  let r: ResultadoConta;
+  try {
+    r = await lerContaMeta(filtro);
+  } catch (e) {
+    return <p className="text-sm text-rose-600">{t("A Meta recusou a leitura: {erro}", { erro: e instanceof Error ? e.message : String(e) })}</p>;
+  }
+  const din = (v: number) => `${r.moeda === "USD" ? "US$" : r.moeda} ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const orc = somaOrcamento(r);
+  const gasto = somaGasto(r);
+  const esperado = orc * (minutosDoDia(new Date(r.lidoEm)) / 1440);
+  const item = (rot: string, val: string, cls = "") => (
+    <div><div className="text-xs text-zinc-500">{rot}</div><div className={`tabular mt-0.5 text-lg font-semibold ${cls}`}>{val}</div></div>
+  );
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {item(t("Conta"), r.nomeConta ?? "—")}
+        {item(t("Situação"), t(SITUACAO_CONTA[r.status] ?? `status ${r.status}`), r.status === 1 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600")}
+        {item(t("Limite diário (Meta)"), r.limiteDiario != null ? din(r.limiteDiario) : t("não informado pela API"))}
+        {item(t("Orçamento do dia"), din(orc))}
+        {item(t("Gasto hoje"), din(gasto))}
+        {item(t("Esperado até agora"), `${din(esperado)}${esperado > 0 ? ` · ${Math.round((100 * gasto) / esperado)}%` : ""}`)}
+      </div>
+      <p className="text-xs text-zinc-500">
+        {t("{n} campanhas ativas do lançamento (de {t} ativas na conta) · filtro {f}", { n: r.campanhas.length, t: r.campanhasDaConta, f: filtro })} · {t("lido às {h}", { h: dataHora(r.lidoEm) })}
+      </p>
+      {r.campanhas.length > 0 && (
+        <Tabela cabecalho={[t("Campanha"), t("Orçamento/dia"), t("Gasto hoje")]} vazio={false}>
+          {r.campanhas.map((c) => (
+            <tr key={c.id}>
+              <td className={`${td} text-xs`}>{c.nome}</td>
+              <td className={`${td} tabular`}>{din(c.orcamentoDia)}</td>
+              <td className={`${td} tabular`}>{din(c.gastoHoje)}</td>
+            </tr>
+          ))}
+        </Tabela>
+      )}
+    </div>
+  );
 }
 
 async function testes(): Promise<{ servidor: Execucao | null; navegador: Execucao | null; historico: Execucao[] } | null> {
@@ -181,6 +230,9 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
         <section className="space-y-3">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">{t("Lançamento")} · {atual.nome}</h2>
           <CartaoMonitor s={sLanc} alertas={aLanc} modo={modo} titulo={`${t("Monitor")} — ${atual.nome}`} />
+          <Cartao titulo={t("Conta de anúncios na Meta (leitura direta)")}>
+            <ContaMeta filtro={ads?.filtro ?? null} t={t} />
+          </Cartao>
           <Cartao titulo={t("Configuração dos alertas do lançamento")}>
             <FormAlertas id={atual.lancamento_id} alertaMinutos={sLanc.alerta_minutos_sem_entrada} resumoMinutos={sLanc.resumo_minutos} telefones={sLanc.alerta_telefones} ads={ads ?? undefined} />
           </Cartao>

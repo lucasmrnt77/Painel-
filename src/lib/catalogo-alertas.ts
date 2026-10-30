@@ -8,6 +8,7 @@
  */
 import { mensagemAlerta, mensagemRedirecionador } from "./mensagens";
 import { mensagemSaude } from "./meta-saude-regras";
+import { mensagemConta } from "./meta-conta-regras";
 import { mensagemAds } from "./meta-ads-regras";
 import { mensagemTestes, type Execucao } from "./testes-casos";
 import type { Modelos } from "./modelos-alertas";
@@ -327,20 +328,52 @@ export const CATALOGO: ItemCatalogo[] = [
     exemplo: (m?: Modelos) => mensagemAds("ads_cpl_alto", "OP Futuros (grupo gratuito)", { moeda: "USD", dia: "2026-12-06", investimento: 11.3, leads: 1, limite: 8 }, m),
   },
   {
-    tipo: "ads_gasto_baixo", area: "ads", envio: "whatsapp",
-    nome: { pt: "A Meta está gastando pouco", es: "Meta está gastando poco" },
+    tipo: "ads_conta_bloqueada", area: "ads", envio: "whatsapp",
+    nome: { pt: "Conta de anúncios com problema na Meta", es: "Cuenta publicitaria con problema en Meta" },
     envioDetalhe: { pt: "Sempre.", es: "Siempre." },
     quando: {
-      pt: "Checado a cada 30 min, a partir da hora de início configurada no lançamento (dezembro: 6h). Compara o gasto acumulado de hoje entre as duas últimas sincronizações dos dados da Meta: se no intervalo foi gasto menos que o mínimo configurado para cada 30 min (proporcional ao intervalo), alerta. O mínimo é configurável no lançamento (ex.: US$ 50 no começo, mais nas fases seguintes); vazio = alerta desligado. Com os dados chegando só 2–3 vezes por dia, a checagem só acontece quando chega uma sincronização nova.",
-      es: "Se revisa cada 30 min, a partir de la hora de inicio configurada en el lanzamiento (diciembre: 6 h). Compara el gasto acumulado de hoy entre las dos últimas sincronizaciones de los datos de Meta: si en el intervalo se gastó menos que el mínimo configurado para cada 30 min (proporcional al intervalo), alerta. El mínimo se configura en el lanzamiento (ej.: US$ 50 al comienzo, más en las fases siguientes); vacío = alerta apagada. Con los datos llegando solo 2–3 veces por día, la revisión solo ocurre cuando llega una sincronización nueva.",
+      pt: "Lido direto da API da Meta a cada 30 min (precisa de META_ADS_TOKEN e META_AD_ACCOUNT_ID na Vercel). A conta de anúncios não está ativa: desativada, em análise de risco, com pagamento pendente, em período de carência ou encerrada — com o motivo, quando a Meta informa.",
+      es: "Leído directo de la API de Meta cada 30 min (necesita META_ADS_TOKEN y META_AD_ACCOUNT_ID en Vercel). La cuenta publicitaria no está activa: desactivada, en análisis de riesgo, con pago pendiente, en período de gracia o cerrada — con el motivo, cuando Meta lo informa.",
     },
-    repeticao: { pt: "No máximo uma a cada 2 h enquanto o gasto continuar baixo.", es: "Como máximo una cada 2 h mientras el gasto siga bajo." },
-    diagnostico: { pt: "A Meta não está entregando no ritmo esperado: pagamento recusado ou sem saldo, anúncio reprovado/limitado, orçamento reduzido ou campanha pausada.", es: "Meta no está entregando al ritmo esperado: pago rechazado o sin saldo, anuncio rechazado/limitado, presupuesto reducido o campaña pausada." },
+    repeticao: { pt: "Uma vez por dia enquanto a conta continuar com problema.", es: "Una vez por día mientras la cuenta siga con problema." },
+    diagnostico: { pt: "Bloqueio por política, revisão de risco/pagamento ou problema de cobrança: os anúncios param de entregar.", es: "Bloqueo por política, revisión de riesgo/pago o problema de cobro: los anuncios dejan de entregar." },
     verificar: {
-      pt: ["Gerenciador de Anúncios → Cobrança: pagamento e limite de gasto da conta.", "Status dos anúncios (reprovado, em análise, limitado) e orçamento das campanhas.", "Se o orçamento foi reduzido de propósito, ajustar o mínimo no painel (Alertas → Configuração)."],
-      es: ["Administrador de anuncios → Facturación: pago y límite de gasto de la cuenta.", "Estado de los anuncios (rechazado, en revisión, limitado) y presupuesto de las campañas.", "Si el presupuesto se redujo a propósito, ajustar el mínimo en el panel (Alertas → Configuración)."],
+      pt: ["Gerenciador de Anúncios → Qualidade da conta: aviso e opção de pedir revisão.", "Cobrança: pagamento recusado ou saldo.", "Avisar o gestor de tráfego e o Emi."],
+      es: ["Administrador de anuncios → Calidad de la cuenta: aviso y opción de pedir revisión.", "Facturación: pago rechazado o saldo.", "Avisar al gestor de tráfico y a Emi."],
     },
-    exemplo: (m?: Modelos) => mensagemAds("ads_gasto_baixo", "Dezembro 2026", { moeda: "USD", de: "2026-12-06T13:00:00Z", ate: "2026-12-06T13:30:00Z", minutos: 30, gasto: 12.4, esperado: 50, limiar: 50, acumulado: 310.2 }, m),
+    exemplo: (m?: Modelos) => mensagemConta("ads_conta_bloqueada", "Dezembro 2026", { status: 7, motivo: 3 }, m),
+  },
+  {
+    tipo: "ads_limite_reduzido", area: "ads", envio: "whatsapp",
+    nome: { pt: "Limite diário da Meta reduzido", es: "Límite diario de Meta reducido" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: {
+      pt: "Lido direto da API da Meta a cada 30 min. (1) A Meta baixou o \"limite de gastos diário\" da conta (mais de 2% abaixo da leitura anterior). (2) O limite ficou abaixo da soma dos orçamentos das campanhas ativas do lançamento — aí as campanhas não conseguem gastar o planejado.",
+      es: "Leído directo de la API de Meta cada 30 min. (1) Meta bajó el \"límite de gastos diario\" de la cuenta (más de 2% debajo de la lectura anterior). (2) El límite quedó debajo de la suma de los presupuestos de las campañas activas del lanzamiento — así las campañas no pueden gastar lo planificado.",
+    },
+    repeticao: { pt: "(1) Uma vez por redução. (2) Uma vez por dia.", es: "(1) Una vez por reducción. (2) Una vez por día." },
+    diagnostico: { pt: "A própria Meta reduz o limite quando vê risco na conta (pagamentos, políticas, conta nova). Foi o problema do lançamento anterior.", es: "La propia Meta reduce el límite cuando ve riesgo en la cuenta (pagos, políticas, cuenta nueva). Fue el problema del lanzamiento anterior." },
+    verificar: {
+      pt: ["Gerenciador de Anúncios → Qualidade da conta e Cobrança.", "Ajustar os orçamentos para caber no limite enquanto ele não volta a subir."],
+      es: ["Administrador de anuncios → Calidad de la cuenta y Facturación.", "Ajustar los presupuestos para que entren en el límite mientras no vuelva a subir."],
+    },
+    exemplo: (m?: Modelos) => mensagemConta("ads_limite_reduzido", "Dezembro 2026", { moeda: "USD", limite: 250, anterior: 1833.15, orcamento: 272 }, m),
+  },
+  {
+    tipo: "ads_ritmo_baixo", area: "ads", envio: "whatsapp",
+    nome: { pt: "Gasto abaixo do orçamento", es: "Gasto debajo del presupuesto" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: {
+      pt: "Lido direto da API da Meta a cada 30 min, a partir da hora de início do lançamento (dezembro: 6h). Soma os orçamentos diários das campanhas ativas do lançamento (lidos da Meta, então acompanham quando o gestor aumenta) e calcula quanto já devia ter sido gasto até agora. Se o gasto real está abaixo de 50% disso, alerta e lista as campanhas mais atrasadas.",
+      es: "Leído directo de la API de Meta cada 30 min, a partir de la hora de inicio del lanzamiento (diciembre: 6 h). Suma los presupuestos diarios de las campañas activas del lanzamiento (leídos de Meta, así acompañan cuando el gestor aumenta) y calcula cuánto ya debería haberse gastado hasta ahora. Si el gasto real está debajo del 50% de eso, alerta y lista las campañas más atrasadas.",
+    },
+    repeticao: { pt: "No máximo uma a cada 2 h enquanto continuar.", es: "Como máximo una cada 2 h mientras continúe." },
+    diagnostico: { pt: "A Meta não está entregando no ritmo do orçamento: limite da conta, pagamento, anúncios reprovados/limitados ou público pequeno.", es: "Meta no está entregando al ritmo del presupuesto: límite de la cuenta, pago, anuncios rechazados/limitados o público chico." },
+    verificar: {
+      pt: ["Campanhas listadas no alerta: status e entrega no Gerenciador.", "Limite de gasto diário e Cobrança da conta."],
+      es: ["Campañas listadas en la alerta: estado y entrega en el Administrador.", "Límite de gasto diario y Facturación de la cuenta."],
+    },
+    exemplo: (m?: Modelos) => mensagemConta("ads_ritmo_baixo", "Dezembro 2026", { moeda: "USD", gasto: 40, esperado: 136, orcamento: 272, pct: 0.29, lido_em: "2026-12-06T15:00:00Z", atrasadas: [{ nome: "[PC][LEADS][DEZ26][AR][General]", gasto: 3.1, esperado: 25 }] }, m),
   },
   {
     tipo: "ads_sem_dados", area: "ads", envio: "whatsapp",

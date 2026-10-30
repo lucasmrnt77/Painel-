@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { avaliarAds, avaliarGastoMinimo, divergenciaEventos, type EntradaAds, type EntradaGastoMinimo } from "../src/lib/meta-ads-regras";
+import { avaliarAds, divergenciaEventos, type EntradaAds } from "../src/lib/meta-ads-regras";
 
 // Horário de Brasília/Uruguai = UTC-3
 const BR = (dia: string, h: number, m = 0) => new Date(`${dia}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-03:00`);
@@ -76,54 +76,6 @@ test("Meta × nosso: só alerta quando a Meta recebe menos de 80% do que enviamo
   // 80% ou mais → ok; abaixo de 10 nossos → não compara
   assert.deepEqual(divergenciaEventos([{ evento: "Lead", total: 24 }], {}, { Lead: 30 }), []);
   assert.deepEqual(divergenciaEventos([{ evento: "Lead", total: 0 }], {}, { Lead: 8 }), []);
-});
-
-// ── Gasto mínimo a cada 30 min (dezembro/2026)
-const g = (x: Partial<EntradaGastoMinimo>): EntradaGastoMinimo => ({
-  lancamentoId: 5, nome: "Dezembro 2026", moeda: "USD", limiar30: 10, horaInicio: 6,
-  leituras: [
-    { syncEm: BR("2026-12-06", 10).toISOString(), investimento: 100 },
-    { syncEm: BR("2026-12-06", 10, 30).toISOString(), investimento: 112 },
-  ],
-  ultimoAlertaEm: null, agora: BR("2026-12-06", 10, 37), ...x,
-});
-
-test("gasto mínimo: gastou o mínimo nos 30 min → sem alerta", () => {
-  assert.equal(avaliarGastoMinimo(g({})), null);
-});
-
-test("gasto mínimo: gastou menos nos 30 min → alerta", () => {
-  const a = avaliarGastoMinimo(g({ leituras: [
-    { syncEm: BR("2026-12-06", 10).toISOString(), investimento: 100 },
-    { syncEm: BR("2026-12-06", 10, 30).toISOString(), investimento: 104 },
-  ] }));
-  assert.equal(a?.tipo, "ads_gasto_baixo");
-  assert.equal(a?.dados.gasto, 4);
-  assert.match(a!.mensagem, /10:00 às 10:30/);
-});
-
-test("gasto mínimo: intervalo maior → mínimo proporcional", () => {
-  // 6 h entre 10h e 16h → mínimo 120; gastou 150 → ok
-  const ok = avaliarGastoMinimo(g({ leituras: [
-    { syncEm: BR("2026-12-06", 10).toISOString(), investimento: 100 },
-    { syncEm: BR("2026-12-06", 16).toISOString(), investimento: 250 },
-  ], agora: BR("2026-12-06", 16, 7) }));
-  assert.equal(ok, null);
-});
-
-test("gasto mínimo: antes da hora de início, desligado ou repetido → sem alerta", () => {
-  const madrugada = g({ leituras: [
-    { syncEm: BR("2026-12-06", 3).toISOString(), investimento: 10 },
-    { syncEm: BR("2026-12-06", 10).toISOString(), investimento: 11 },
-  ] });
-  assert.equal(avaliarGastoMinimo(madrugada), null);
-  const baixo = [
-    { syncEm: BR("2026-12-06", 10).toISOString(), investimento: 100 },
-    { syncEm: BR("2026-12-06", 10, 30).toISOString(), investimento: 101 },
-  ];
-  assert.equal(avaliarGastoMinimo(g({ leituras: baixo, limiar30: null })), null);
-  assert.equal(avaliarGastoMinimo(g({ leituras: baixo, ultimoAlertaEm: BR("2026-12-06", 9, 30).toISOString() })), null);
-  assert.ok(avaliarGastoMinimo(g({ leituras: baixo, ultimoAlertaEm: BR("2026-12-06", 8).toISOString() })));
 });
 
 test("custo por lead: com hora de início 6h a parcial já é avaliada de manhã", () => {

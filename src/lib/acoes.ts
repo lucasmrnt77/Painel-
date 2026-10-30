@@ -70,15 +70,11 @@ export async function salvarAlertas(_: EstadoForm, fd: FormData): Promise<Estado
   if (fd.has("ads_cpl_maximo")) {
     // Campanhas na Meta (migração 047)
     const cpl = Number(texto(fd, "ads_cpl_maximo"));
-    const minTxt = texto(fd, "ads_gasto_minimo_30min");
-    const minimo = minTxt ? Number(minTxt.replace(",", ".")) : null;
     const hora = Number(texto(fd, "ads_hora_inicio") ?? "6");
     if (!Number.isFinite(cpl) || cpl < 0.5 || cpl > 1000) return { erro: t("Custo máximo por lead inválido") };
-    if (minimo != null && (!Number.isFinite(minimo) || minimo <= 0 || minimo > 100000)) return { erro: t("Gasto mínimo inválido") };
     if (!Number.isInteger(hora) || hora < 0 || hora > 23) return { erro: t("Hora inválida") };
     linha.ads_campanha_filtro = texto(fd, "ads_campanha_filtro") || null;
     linha.ads_cpl_maximo = cpl;
-    linha.ads_gasto_minimo_30min = minimo;
     linha.ads_hora_inicio = hora;
   }
   const { error } = await db().from("lancamentos").update(linha).eq("id", id);

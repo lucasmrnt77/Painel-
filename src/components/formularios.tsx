@@ -129,7 +129,7 @@ const RESUMOS = [
 
 /** Configuração dos alertas de um monitor (aba Alertas). Com `referencia`, mostra o campo da campanha do Sendflow. */
 /** Configuração dos alertas das campanhas na Meta (só lançamento). */
-export type ConfigAds = { filtro: string | null; cplMaximo: number; gastoMinimo30: number | null; horaInicio: number };
+export type ConfigAds = { filtro: string | null; cplMaximo: number; horaInicio: number };
 
 export function FormAlertas({ id, alertaMinutos, resumoMinutos, telefones, referencia, ads }: {
   id: number; alertaMinutos: number; resumoMinutos: number; telefones: string[]; referencia?: { valor: string | null }; ads?: ConfigAds;
@@ -168,10 +168,6 @@ export function FormAlertas({ id, alertaMinutos, resumoMinutos, telefones, refer
           <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 sm:col-span-2">
             {t("Campanhas do lançamento (parte do nome; % = qualquer texto)")}
             <input name="ads_campanha_filtro" defaultValue={ads.filtro ?? ""} placeholder="%[DEZ26]%" className={`${campo} font-mono`} />
-          </label>
-          <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            {t("Gasto mínimo a cada 30 min (US$) — vazio = desligado")}
-            <input name="ads_gasto_minimo_30min" type="number" min="0" step="0.01" defaultValue={ads.gastoMinimo30 ?? ""} placeholder="50" className={campo} />
           </label>
           <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
             {t("Custo máximo por lead (US$): investimento ÷ todos os leads do dia")}

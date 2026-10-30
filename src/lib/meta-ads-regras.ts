@@ -7,8 +7,7 @@
  *  - ads_sem_dados: a sincronização da Paola parou (sem ela as outras alertas não funcionam).
  *  - ads_sem_gasto: a Meta deixou de gastar (campanha travada, cartão, anúncio reprovado...).
  *  - ads_cpl_alto: investimento ÷ leads acima do limite (padrão US$ 8; dezembro/2026: US$ 6, todos os leads).
- *  - ads_gasto_baixo: entre duas sincronizações a Meta gastou menos que o mínimo configurado
- *    para cada 30 min (ex.: US$ 50 a cada 30 min no começo do lançamento; sobe nas fases seguintes).
+ *  (Conta bloqueada, limite diário reduzido e gasto abaixo do ritmo do orçamento: meta-conta-regras.ts.)
  * Para não dar falso alarme no começo do dia, a parcial do dia só é avaliada com dados
  * sincronizados a partir da hora de início configurada no lançamento (padrão 12h; dezembro: 6h)
  * e com pelo menos 1 limite inteiro já gasto.
@@ -18,10 +17,7 @@ import { montar, type Modelos } from "./modelos-alertas";
 export const FUSO_ADS_OFFSET = "-03:00"; // Brasil/Uruguai, sem horário de verão
 export const HORAS_SEM_SYNC = 20;
 export const HORA_PARCIAL = 12;
-/** Gasto mínimo: não repete o alerta antes deste intervalo (minutos), enquanto o gasto continuar baixo. */
-export const REPETIR_GASTO_BAIXO_MIN = 120;
-/** Janela mínima entre duas sincronizações para avaliar o gasto (minutos). */
-export const JANELA_MINIMA_GASTO_MIN = 20;
+
 /** Ontem com menos de 30% da média dos 3 dias anteriores = gasto parado. */
 export const FRACAO_GASTO_MINIMO = 0.3;
 /** Média mínima (US$/dia) para o "gasto parado" valer (evita alerta em campanha quase sem verba). */
@@ -43,7 +39,7 @@ export type EntradaAds = {
   /** Hora local (0–23) a partir da qual a parcial de hoje é avaliada. Padrão: HORA_PARCIAL. */
   horaInicio?: number;
 };
-export type AlertaAds = { tipo: "ads_sem_dados" | "ads_sem_gasto" | "ads_cpl_alto" | "ads_gasto_baixo"; chave: string; mensagem: string; dados: Record<string, unknown> };
+export type AlertaAds = { tipo: "ads_sem_dados" | "ads_sem_gasto" | "ads_cpl_alto"; chave: string; mensagem: string; dados: Record<string, unknown> };
 
 export function diaLocal(d: Date): string {
   return new Date(d.getTime() - 3 * 3_600_000).toISOString().slice(0, 10);
@@ -79,13 +75,6 @@ export function mensagemAds(tipo: AlertaAds["tipo"], nome: string, d: Record<str
       nome, titulo: parcial ? "não gastou nada hoje" : "quase não gastou ontem",
       periodo: parcial ? `Até ${hhmm(String(d.ultima_sync))}` : dataBr(String(d.dia)),
       investimento: dinheiro(Number(d.investimento), moeda), ativos: d.ativos as number, media: dinheiro(Number(d.media), moeda),
-    }, modelos);
-  }
-  if (tipo === "ads_gasto_baixo") {
-    return montar(tipo, {
-      nome, de: hhmm(String(d.de)), ate: hhmm(String(d.ate)), minutos: String(d.minutos),
-      gasto: dinheiro(Number(d.gasto), moeda), esperado: dinheiro(Number(d.esperado), moeda),
-      limiar: dinheiro(Number(d.limiar), moeda), acumulado: dinheiro(Number(d.acumulado), moeda),
     }, modelos);
   }
   const leads = Number(d.leads);
@@ -160,48 +149,6 @@ export function avaliarAds(e: EntradaAds, qualificados: boolean): AlertaAds[] {
     }
   }
   return saida;
-}
-
-/** Leitura do gasto acumulado de hoje numa sincronização (guardada pelo painel a cada rodada). */
-export type LeituraGasto = { syncEm: string; investimento: number };
-export type EntradaGastoMinimo = {
-  lancamentoId: number; nome: string; moeda: string;
-  /** Gasto mínimo esperado a cada 30 min (null = alerta desligado). */
-  limiar30: number | null;
-  horaInicio: number;
-  /** Leituras de hoje, em qualquer ordem. */
-  leituras: LeituraGasto[];
-  /** Quando foi o último alerta de gasto baixo deste lançamento (para não repetir a cada rodada). */
-  ultimoAlertaEm: string | null;
-  agora: Date;
-};
-
-/**
- * Gasto mínimo a cada 30 min: compara as duas últimas sincronizações de hoje. Se no intervalo entre
- * elas a Meta gastou menos que (mínimo × minutos ÷ 30), alerta. Com a sincronização a cada 30 min
- * é exatamente "gastou pelo menos X nos últimos 30 min"; com sincronizações mais espaçadas o mínimo
- * é proporcional ao intervalo. Só avalia intervalos que começam a partir da hora de início.
- */
-export function avaliarGastoMinimo(e: EntradaGastoMinimo): AlertaAds | null {
-  if (!e.limiar30 || e.limiar30 <= 0) return null;
-  const hoje = diaLocal(e.agora);
-  const doDia = e.leituras.filter((l) => diaLocal(new Date(l.syncEm)) === hoje)
-    .sort((a, b) => new Date(a.syncEm).getTime() - new Date(b.syncEm).getTime());
-  if (doDia.length < 2) return null;
-  const atual = doDia[doDia.length - 1];
-  const ant = doDia[doDia.length - 2];
-  const tAnt = new Date(ant.syncEm);
-  const tAtual = new Date(atual.syncEm);
-  if (horaLocal(tAnt) < e.horaInicio) return null;
-  const minutos = Math.round((tAtual.getTime() - tAnt.getTime()) / 60_000);
-  if (minutos < JANELA_MINIMA_GASTO_MIN) return null;
-  const gasto = Math.max(0, atual.investimento - ant.investimento);
-  const esperado = (e.limiar30 * minutos) / 30;
-  if (gasto >= esperado) return null;
-  if (e.ultimoAlertaEm && e.agora.getTime() - new Date(e.ultimoAlertaEm).getTime() < REPETIR_GASTO_BAIXO_MIN * 60_000) return null;
-  return alerta("ads_gasto_baixo", `ads_gasto_baixo:${e.lancamentoId}:${Math.floor(tAtual.getTime() / 1000)}`, e.nome, {
-    moeda: e.moeda, de: ant.syncEm, ate: atual.syncEm, minutos, gasto, esperado, limiar: e.limiar30, acumulado: atual.investimento,
-  });
 }
 
 /**
