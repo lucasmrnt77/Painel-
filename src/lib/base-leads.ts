@@ -122,6 +122,45 @@ export async function telefonesInvalidos(limite = 100, motivo?: string): Promise
   return { itens: (data ?? []) as Invalido[], total: count ?? 0 };
 }
 
+/**
+ * Correção automática de telefones (migração 046), em todos os lançamentos:
+ * cruzamento → sugestões confiáveis aprovadas → o resto descartado (guardado, dá para recuperar).
+ * Antes da migração 046 cai no cruzamento antigo (027/033).
+ */
+export async function corrigirTelefonesAutomatico(): Promise<void> {
+  const { error } = await db().rpc("bd_telefones_automatico");
+  if (!error) return;
+  if (error.code !== "PGRST202") throw new Error(error.message);
+  const r = await db().rpc("bd_cruzar_telefones");
+  if (r.error && r.error.code !== "PGRST202") throw new Error(r.error.message);
+}
+
+export type Descartado = {
+  telefone_original: string; sugestao: string | null; motivo: string | null; origem: string; descartado_em: string;
+  ocorrencias: number; e_comprador: boolean; edicoes: string;
+};
+
+/** Números descartados (automático e manual), de todos os lançamentos. */
+export async function telefonesDescartados(limite = 100): Promise<{ itens: Descartado[]; total: number }> {
+  const { data, error, count } = await db().from("v_bd_descartados").select("*", { count: "exact" })
+    .order("descartado_em", { ascending: false }).order("telefone_original").limit(limite);
+  if (error) return { itens: [], total: 0 }; // antes da migração 046
+  return { itens: (data ?? []) as Descartado[], total: count ?? 0 };
+}
+
+export type Corrigido = {
+  telefone_original: string; telefone_corrigido: string; motivo: string | null; motivo_original: string | null;
+  origem: string; ocorrencias: number; edicoes: string;
+};
+
+/** Como o número chegou × como ficou, de todos os lançamentos. */
+export async function telefonesCorrigidos(limite = 200): Promise<{ itens: Corrigido[]; total: number }> {
+  const { data, error, count } = await db().from("v_bd_telefones_corrigidos").select("*", { count: "exact" })
+    .order("ocorrencias", { ascending: false }).order("telefone_original").limit(limite);
+  if (error) return { itens: [], total: 0 };
+  return { itens: (data ?? []) as Corrigido[], total: count ?? 0 };
+}
+
 export type ResumoProblema = { lista: "revisar" | "invalido"; motivo: string | null; numeros: number; compradores: number };
 
 export async function resumoProblemas(): Promise<ResumoProblema[]> {

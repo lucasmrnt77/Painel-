@@ -2,6 +2,23 @@ import type { Dic, Padroes } from "./tipos";
 
 /** Base de leads (/base-leads), TPP → Expert Trader (/base-leads/tpp), importador e multi-seleção. */
 export const ES_BASE_LEADS: Dic = {
+  // telefones: correção automática (046)
+  "Telefones descartados ({n})": "Teléfonos descartados ({n})",
+  "Números que a regra não conseguiu corrigir com segurança (número de teste, poucos dígitos, dígitos a mais, formato desconhecido). Ficam fora das estatísticas, mas guardados: se souber o número certo, salve; ou volte para a revisão. Se o número completo aparecer depois em outro registro ou no grupo, ele é corrigido sozinho.": "Números que la regla no pudo corregir con seguridad (número de prueba, pocos dígitos, dígitos de más, formato desconocido). Quedan fuera de las estadísticas, pero guardados: si sabés el número correcto, guardalo; o volvelo a la revisión. Si el número completo aparece después en otro registro o en el grupo, se corrige solo.",
+  "Motivo": "Motivo",
+  "descartado automaticamente": "descartado automáticamente",
+  "descartado à mão": "descartado a mano",
+  "voltar para revisão": "volver a revisión",
+  "Mostrando {a} de {b}.": "Mostrando {a} de {b}.",
+  "Telefones corrigidos ({n})": "Teléfonos corregidos ({n})",
+  "Ver como o número chegou × como ficou": "Ver cómo llegó el número × cómo quedó",
+  "Número corrigido": "Número corregido",
+  "Como foi corrigido": "Cómo se corrigió",
+  "regra do país": "regla del país",
+  "sugestão automática": "sugerencia automática",
+  "achado completo na base ou no grupo": "encontrado completo en la base o en el grupo",
+  "corrigido à mão": "corregido a mano",
+  "sugestão da IA": "sugerencia de la IA",
   // cabeçalho / KPIs
   "Todos os lançamentos, uma pessoa por telefone · números recalculados em {data}": "Todos los lanzamientos, una persona por teléfono · números recalculados el {data}",
   "Recalcular agora": "Recalcular ahora",

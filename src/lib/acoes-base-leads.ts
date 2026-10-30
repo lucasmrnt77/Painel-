@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "./supabase";
 import { exigirLogin } from "./sessao";
+import { corrigirTelefonesAutomatico } from "./base-leads";
 
 const CAMINHO = "/base-leads";
 
@@ -73,10 +74,19 @@ export async function alternarEdicao(fd: FormData) {
   revalidatePath(CAMINHO);
 }
 
-/** Telefones com erro que aparecem completos em outro registro da base viram correção (migração 027). */
+/** Correção automática: cruzamento, sugestões confiáveis e descarte guardado (migração 046). */
 async function cruzarTelefones() {
-  const { error } = await db().rpc("bd_cruzar_telefones");
-  if (error && error.code !== "PGRST202") throw new Error(error.message); // PGRST202: antes da migração 027
+  await corrigirTelefonesAutomatico();
+}
+
+/** Tira um número do descarte e volta para a revisão manual (não é descartado de novo). */
+export async function recuperarTelefone(fd: FormData) {
+  await exigirLogin();
+  const original = texto(fd, "original").replace(/\D/g, "");
+  if (!original) return;
+  const { error } = await db().rpc("bd_recuperar_telefone", { p_original: original });
+  if (error) throw new Error(error.message);
+  revalidatePath(CAMINHO);
 }
 
 /** Só um lançamento recebe as inscrições do painel por vez. */

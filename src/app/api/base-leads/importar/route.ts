@@ -1,5 +1,6 @@
 import { estaLogado } from "@/lib/sessao";
 import { db } from "@/lib/supabase";
+import { corrigirTelefonesAutomatico } from "@/lib/base-leads";
 
 export const maxDuration = 120;
 
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   }
   if (corpo.tipo === "atualizar") {
     // Fim da importação: recalcula as estatísticas
-    await db().rpc("bd_cruzar_telefones"); // telefones com erro que aparecem completos em outro registro (027)
+    await corrigirTelefonesAutomatico();
     const { data, error } = await db().rpc("bd_atualizar_base");
     if (error) return Response.json({ erro: error.message }, { status: 500 });
     return Response.json(data);
