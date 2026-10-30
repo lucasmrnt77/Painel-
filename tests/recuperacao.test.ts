@@ -43,3 +43,32 @@ test("recuperação: leitura do corpo do Apps Script", () => {
   assert.deepEqual([e[2].conta, e[2].http, e[2].enviado_em], [null, null, agora.toISOString()]);
   assert.deepEqual(lerEnvios(null), []);
 });
+
+test("recuperação: funil, período e série do gráfico (30/10)", async () => {
+  const { filtrarPeriodo, funilDe, serieRecuperacao, inicioPeriodo } = await import("../src/lib/recuperacao");
+  const agora = new Date("2026-10-30T15:00:00Z"); // 12h no Uruguai
+  assert.equal(funilDe("Trader"), "Trader");
+  assert.equal(funilDe("Jubilar"), "General");
+  assert.equal(funilDe("Gen-Jubilados"), "General");
+  assert.equal(inicioPeriodo("hoje", agora), "2026-10-30");
+  assert.equal(inicioPeriodo("3d", agora), "2026-10-28");
+  assert.equal(inicioPeriodo("7d", agora), "2026-10-24");
+  assert.equal(inicioPeriodo("tudo", agora), null);
+  const ls = [
+    l("a", "2026-10-30T13:10:00Z", true, 5), // 10h UY
+    l("b", "2026-10-30T13:40:00Z", false, null),
+    l("c", "2026-10-29T13:00:00Z", true, 50, { site: "Trader" }),
+    l("d", "2026-10-26T13:00:00Z", true, 50),
+  ];
+  assert.equal(filtrarPeriodo(ls, "hoje", agora).length, 2);
+  assert.equal(filtrarPeriodo(ls, "3d", agora).length, 3);
+  assert.equal(filtrarPeriodo(ls, "7d", agora).length, 4);
+  const hoje = serieRecuperacao(filtrarPeriodo(ls, "hoje", agora), "hoje", agora);
+  assert.equal(hoje.length, 13); // 00h a 12h
+  assert.deepEqual(hoje[10], { chave: "10", rotulo: "10h", recebidos: 2, entraram: 1, taxa: 0.5 });
+  const sete = serieRecuperacao(filtrarPeriodo(ls, "7d", agora), "7d", agora);
+  assert.equal(sete.length, 7);
+  assert.equal(sete[0].rotulo, "24/10");
+  assert.equal(sete[2].recebidos, 1); // 26/10
+  assert.equal(sete[1].taxa, null); // dia sem envio
+});

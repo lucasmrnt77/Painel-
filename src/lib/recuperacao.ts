@@ -93,3 +93,62 @@ export function lerEnvios(corpo: unknown, agora = new Date()): { telefone: strin
   }
   return saida;
 }
+
+// ── Funil, período e série do gráfico (30/10/2026) ─────────────────────────────
+
+/** General = páginas General, Jubilados e General/Jubilados (mesmo grupo); Trader = página Trader. */
+export function funilDe(site: string): "General" | "Trader" {
+  return site === "Trader" ? "Trader" : "General";
+}
+
+export type PeriodoRec = "hoje" | "3d" | "7d" | "tudo";
+export const PERIODOS_REC: PeriodoRec[] = ["hoje", "3d", "7d", "tudo"];
+
+/** Primeiro dia (AAAA-MM-DD, Uruguai) do período: hoje = só hoje; 3d = hoje e os 2 dias anteriores. */
+export function inicioPeriodo(p: PeriodoRec, agora: Date = new Date()): string | null {
+  if (p === "tudo") return null;
+  const dias = p === "hoje" ? 0 : p === "3d" ? 2 : 6;
+  return diaUY(new Date(agora.getTime() - dias * 86_400_000).toISOString());
+}
+
+export function filtrarPeriodo(linhas: LinhaRecuperacao[], p: PeriodoRec, agora: Date = new Date()): LinhaRecuperacao[] {
+  const ini = inicioPeriodo(p, agora);
+  return ini ? linhas.filter((l) => diaUY(l.primeiro_envio) >= ini) : linhas;
+}
+
+export type PontoRec = { chave: string; rotulo: string; recebidos: number; entraram: number; taxa: number | null };
+
+/** Série do gráfico: por hora (hoje) ou por dia (demais), com os buracos preenchidos com zero. */
+export function serieRecuperacao(linhas: LinhaRecuperacao[], p: PeriodoRec, agora: Date = new Date()): PontoRec[] {
+  const porHora = p === "hoje";
+  const chave = (iso: string) => {
+    if (!porHora) return diaUY(iso);
+    const h = new Date(iso).toLocaleTimeString("en-GB", { timeZone: "America/Montevideo", hour: "2-digit", hour12: false });
+    return h.slice(0, 2);
+  };
+  const m = new Map<string, { recebidos: number; entraram: number }>();
+  for (const l of linhas) {
+    const k = chave(l.primeiro_envio);
+    const g = m.get(k) ?? { recebidos: 0, entraram: 0 };
+    g.recebidos++;
+    if (l.entrou_depois) g.entraram++;
+    m.set(k, g);
+  }
+  let chaves: string[];
+  if (porHora) {
+    const agoraH = Number(chave(agora.toISOString()));
+    chaves = Array.from({ length: agoraH + 1 }, (_, i) => String(i).padStart(2, "0"));
+  } else {
+    const ini = inicioPeriodo(p, agora) ?? [...m.keys()].sort()[0];
+    chaves = [];
+    if (ini) {
+      const fim = diaUY(agora.toISOString());
+      for (let d = new Date(`${ini}T12:00:00Z`); diaUY(d.toISOString()) <= fim; d = new Date(d.getTime() + 86_400_000)) chaves.push(diaUY(d.toISOString()));
+    }
+  }
+  return chaves.map((k) => {
+    const g = m.get(k) ?? { recebidos: 0, entraram: 0 };
+    const rotulo = porHora ? `${k}h` : `${k.slice(8, 10)}/${k.slice(5, 7)}`;
+    return { chave: k, rotulo, ...g, taxa: g.recebidos ? g.entraram / g.recebidos : null };
+  });
+}
