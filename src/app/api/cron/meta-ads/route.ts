@@ -3,7 +3,7 @@ import { executarAlertasAds } from "@/lib/meta-ads";
 
 export const maxDuration = 60;
 
-/** Alertas de gasto e custo por lead na Meta, de hora em hora (vercel.json). A Vercel envia "Authorization: Bearer <CRON_SECRET>". */
+/** Alertas de gasto e custo por lead na Meta, a cada 30 min (vercel.json). A Vercel envia "Authorization: Bearer <CRON_SECRET>". */
 export async function GET(req: Request) {
   const segredo = process.env.CRON_SECRET?.trim();
   if (!segredo || !iguaisSeguro(req.headers.get("authorization") ?? "", `Bearer ${segredo}`)) {

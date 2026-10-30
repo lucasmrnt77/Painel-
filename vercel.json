@@ -19,7 +19,7 @@
     },
     {
       "path": "/api/cron/meta-ads",
-      "schedule": "37 * * * *"
+      "schedule": "7,37 * * * *"
     }
   ]
 }

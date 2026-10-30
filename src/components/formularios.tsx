@@ -128,8 +128,11 @@ const RESUMOS = [
 ] as const;
 
 /** Configuração dos alertas de um monitor (aba Alertas). Com `referencia`, mostra o campo da campanha do Sendflow. */
-export function FormAlertas({ id, alertaMinutos, resumoMinutos, telefones, referencia }: {
-  id: number; alertaMinutos: number; resumoMinutos: number; telefones: string[]; referencia?: { valor: string | null };
+/** Configuração dos alertas das campanhas na Meta (só lançamento). */
+export type ConfigAds = { filtro: string | null; cplMaximo: number; gastoMinimo30: number | null; horaInicio: number };
+
+export function FormAlertas({ id, alertaMinutos, resumoMinutos, telefones, referencia, ads }: {
+  id: number; alertaMinutos: number; resumoMinutos: number; telefones: string[]; referencia?: { valor: string | null }; ads?: ConfigAds;
 }) {
   const [estado, acao, pendente] = useActionState(salvarAlertas, undefined);
   const t = useT();
@@ -159,6 +162,29 @@ export function FormAlertas({ id, alertaMinutos, resumoMinutos, telefones, refer
         {t("WhatsApp que recebem os alertas (com DDI, um por linha)")}
         <textarea name="alerta_telefones" rows={2} defaultValue={telefones.join("\n")} placeholder={"5511999999999\n59899123456"} className={`${campo} font-mono`} />
       </label>
+      {ads && (
+        <fieldset className="grid gap-3 rounded-lg border border-zinc-200 p-3 sm:col-span-2 sm:grid-cols-2 dark:border-zinc-800">
+          <legend className="px-1 text-xs font-semibold text-zinc-600 dark:text-zinc-400">{t("Campanhas na Meta (checado a cada 30 min)")}</legend>
+          <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 sm:col-span-2">
+            {t("Campanhas do lançamento (parte do nome; % = qualquer texto)")}
+            <input name="ads_campanha_filtro" defaultValue={ads.filtro ?? ""} placeholder="%[DEZ26]%" className={`${campo} font-mono`} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            {t("Gasto mínimo a cada 30 min (US$) — vazio = desligado")}
+            <input name="ads_gasto_minimo_30min" type="number" min="0" step="0.01" defaultValue={ads.gastoMinimo30 ?? ""} placeholder="50" className={campo} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            {t("Custo máximo por lead (US$): investimento ÷ todos os leads do dia")}
+            <input name="ads_cpl_maximo" type="number" min="0.5" step="0.01" required defaultValue={ads.cplMaximo} className={campo} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            {t("Começar a checar o dia a partir das (hora UY/AR)")}
+            <select name="ads_hora_inicio" defaultValue={String(ads.horaInicio)} className={campo}>
+              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>)}
+            </select>
+          </label>
+        </fieldset>
+      )}
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <button disabled={pendente} className={botao}>{pendente ? t("Salvando…") : t("Salvar alertas")}</button>
         <Mensagem estado={estado} />

@@ -315,8 +315,8 @@ export const CATALOGO: ItemCatalogo[] = [
     nome: { pt: "Custo por lead acima do limite", es: "Costo por lead arriba del límite" },
     envioDetalhe: { pt: "Sempre.", es: "Siempre." },
     quando: {
-      pt: "Investimento do dia ÷ leads do dia acima do limite (padrão US$ 8, regra do Emi). Grupo gratuito: leads = inscrições da página do grupo; lançamento: leads qualificados. (1) Dia de ontem fechado. (2) Parcial de hoje: só com dados sincronizados depois do meio-dia e com pelo menos US$ 8 já gastos — assim o começo do dia não dá falso alarme.",
-      es: "Inversión del día ÷ leads del día arriba del límite (por defecto US$ 8, regla de Emi). Grupo gratuito: leads = inscripciones de la página del grupo; lanzamiento: leads calificados. (1) Día de ayer cerrado. (2) Parcial de hoy: solo con datos sincronizados después del mediodía y con al menos US$ 8 ya gastados — así el comienzo del día no da falsa alarma.",
+      pt: "Investimento do dia ÷ leads do dia acima do limite configurado no lançamento (dezembro/2026: US$ 6). Grupo gratuito: leads = inscrições da página do grupo; lançamento: todos os leads do dia (General + Jubilados + GenJub + Trader). Checado a cada 30 min. (1) Dia de ontem fechado. (2) Parcial de hoje: só com dados sincronizados a partir da hora de início configurada (dezembro: 6h; padrão 12h) e com pelo menos 1 limite inteiro já gasto — assim as primeiras horas do dia não dão falso alarme.",
+      es: "Inversión del día ÷ leads del día arriba del límite configurado en el lanzamiento (diciembre/2026: US$ 6). Grupo gratuito: leads = inscripciones de la página del grupo; lanzamiento: todos los leads del día (General + Jubilados + GenJub + Trader). Se revisa cada 30 min. (1) Día de ayer cerrado. (2) Parcial de hoy: solo con datos sincronizados a partir de la hora de inicio configurada (diciembre: 6 h; por defecto 12 h) y con al menos 1 límite entero ya gastado — así las primeras horas del día no dan falsa alarma.",
     },
     repeticao: { pt: "No máximo uma por dia (se a parcial já avisou, o dia fechado não repete).", es: "Como máximo una por día (si la parcial ya avisó, el día cerrado no repite)." },
     diagnostico: { pt: "A Meta está gastando mas os leads não estão entrando (ou não estão qualificando): página quebrada, link errado no anúncio, eventos sem chegar à Meta ou público/criativo cansado.", es: "Meta está gastando pero los leads no entran (o no califican): página rota, link equivocado en el anuncio, eventos que no llegan a Meta o público/creativo cansado." },
@@ -325,6 +325,22 @@ export const CATALOGO: ItemCatalogo[] = [
       es: ["Hacer una inscripción de prueba en la página (?tde_teste=1).", "Revisar el link de destino de los anuncios.", "Alertas → Salud en Meta y Pruebas diarias.", "Si la página está ok: CPM/CTR en el Administrador (público o creativo cansado)."],
     },
     exemplo: (m?: Modelos) => mensagemAds("ads_cpl_alto", "OP Futuros (grupo gratuito)", { moeda: "USD", dia: "2026-12-06", investimento: 11.3, leads: 1, limite: 8 }, m),
+  },
+  {
+    tipo: "ads_gasto_baixo", area: "ads", envio: "whatsapp",
+    nome: { pt: "A Meta está gastando pouco", es: "Meta está gastando poco" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: {
+      pt: "Checado a cada 30 min, a partir da hora de início configurada no lançamento (dezembro: 6h). Compara o gasto acumulado de hoje entre as duas últimas sincronizações dos dados da Meta: se no intervalo foi gasto menos que o mínimo configurado para cada 30 min (proporcional ao intervalo), alerta. O mínimo é configurável no lançamento (ex.: US$ 50 no começo, mais nas fases seguintes); vazio = alerta desligado. Com os dados chegando só 2–3 vezes por dia, a checagem só acontece quando chega uma sincronização nova.",
+      es: "Se revisa cada 30 min, a partir de la hora de inicio configurada en el lanzamiento (diciembre: 6 h). Compara el gasto acumulado de hoy entre las dos últimas sincronizaciones de los datos de Meta: si en el intervalo se gastó menos que el mínimo configurado para cada 30 min (proporcional al intervalo), alerta. El mínimo se configura en el lanzamiento (ej.: US$ 50 al comienzo, más en las fases siguientes); vacío = alerta apagada. Con los datos llegando solo 2–3 veces por día, la revisión solo ocurre cuando llega una sincronización nueva.",
+    },
+    repeticao: { pt: "No máximo uma a cada 2 h enquanto o gasto continuar baixo.", es: "Como máximo una cada 2 h mientras el gasto siga bajo." },
+    diagnostico: { pt: "A Meta não está entregando no ritmo esperado: pagamento recusado ou sem saldo, anúncio reprovado/limitado, orçamento reduzido ou campanha pausada.", es: "Meta no está entregando al ritmo esperado: pago rechazado o sin saldo, anuncio rechazado/limitado, presupuesto reducido o campaña pausada." },
+    verificar: {
+      pt: ["Gerenciador de Anúncios → Cobrança: pagamento e limite de gasto da conta.", "Status dos anúncios (reprovado, em análise, limitado) e orçamento das campanhas.", "Se o orçamento foi reduzido de propósito, ajustar o mínimo no painel (Alertas → Configuração)."],
+      es: ["Administrador de anuncios → Facturación: pago y límite de gasto de la cuenta.", "Estado de los anuncios (rechazado, en revisión, limitado) y presupuesto de las campañas.", "Si el presupuesto se redujo a propósito, ajustar el mínimo en el panel (Alertas → Configuración)."],
+    },
+    exemplo: (m?: Modelos) => mensagemAds("ads_gasto_baixo", "Dezembro 2026", { moeda: "USD", de: "2026-12-06T13:00:00Z", ate: "2026-12-06T13:30:00Z", minutos: 30, gasto: 12.4, esperado: 50, limiar: 50, acumulado: 310.2 }, m),
   },
   {
     tipo: "ads_sem_dados", area: "ads", envio: "whatsapp",

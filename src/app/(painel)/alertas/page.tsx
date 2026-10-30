@@ -8,7 +8,7 @@ import { modoEnvio } from "@/lib/whatsapp";
 import { dataHora } from "@/lib/formato";
 import { duracao } from "@/lib/mensagens";
 import { CartaoMonitor } from "@/components/monitor";
-import { FormAlertas } from "@/components/formularios";
+import { FormAlertas, type ConfigAds } from "@/components/formularios";
 import { CartaoEnvioAlertas } from "@/components/envio-alertas";
 import { AutoAtualizar } from "@/components/auto-atualizar";
 import { Cartao, Tabela, td } from "@/components/ui";
@@ -42,6 +42,7 @@ const ROTULO_TIPO: Record<string, { rotulo: string; cor: string }> = {
   testes_voltaram: { rotulo: "Eventos Meta ok de novo", cor: "text-emerald-600 dark:text-emerald-400" },
   ads_sem_gasto: { rotulo: "Meta sem gastar", cor: "text-rose-600 dark:text-rose-400" },
   ads_cpl_alto: { rotulo: "Custo por lead alto", cor: "text-rose-600 dark:text-rose-400" },
+  ads_gasto_baixo: { rotulo: "Meta gastando pouco", cor: "text-rose-600 dark:text-rose-400" },
   ads_sem_dados: { rotulo: "Dados da Meta parados", cor: "text-amber-600 dark:text-amber-400" },
 };
 const ENVIO: Record<string, string> = { enviado: "enviado", parcial: "envio parcial", falhou: "falhou", sem_envio: "só no painel", pendente: "enviando" };
@@ -60,6 +61,18 @@ async function inscricoesGrupo(): Promise<{ ultimos20: number; ultimos60: number
 }
 
 /** Testes automáticos dos eventos; null se a migração 014 ainda não foi aplicada. */
+/** Configuração dos alertas das campanhas na Meta (migração 047). */
+async function configAds(id: number): Promise<ConfigAds | null> {
+  const { data, error } = await db().from("lancamentos")
+    .select("ads_campanha_filtro, ads_cpl_maximo, ads_gasto_minimo_30min, ads_hora_inicio").eq("id", id).maybeSingle();
+  if (error || !data) return null; // antes da migração 047
+  const d = data as { ads_campanha_filtro: string | null; ads_cpl_maximo: number | string; ads_gasto_minimo_30min: number | string | null; ads_hora_inicio: number };
+  return {
+    filtro: d.ads_campanha_filtro, cplMaximo: Number(d.ads_cpl_maximo) || 8,
+    gastoMinimo30: d.ads_gasto_minimo_30min == null ? null : Number(d.ads_gasto_minimo_30min), horaInicio: d.ads_hora_inicio,
+  };
+}
+
 async function testes(): Promise<{ servidor: Execucao | null; navegador: Execucao | null; historico: Execucao[] } | null> {
   try {
     const h = await historicoTestes(30);
@@ -137,7 +150,7 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
   const sGrupo = sGrupoBruto ? situacaoPorLeads(sGrupoBruto, ultimoLead) : null;
   const nomes = new Map<number, string>(resumos.map((r) => [r.lancamento_id, r.nome]));
   if (grupo) nomes.set(grupo.id, grupo.nome);
-  const [hist, tst] = await Promise.all([historico(nomes, t), testes()]);
+  const [hist, tst, ads] = await Promise.all([historico(nomes, t), testes(), atual ? configAds(atual.lancamento_id) : null]);
 
   return (
     <>
@@ -169,7 +182,7 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">{t("Lançamento")} · {atual.nome}</h2>
           <CartaoMonitor s={sLanc} alertas={aLanc} modo={modo} titulo={`${t("Monitor")} — ${atual.nome}`} />
           <Cartao titulo={t("Configuração dos alertas do lançamento")}>
-            <FormAlertas id={atual.lancamento_id} alertaMinutos={sLanc.alerta_minutos_sem_entrada} resumoMinutos={sLanc.resumo_minutos} telefones={sLanc.alerta_telefones} />
+            <FormAlertas id={atual.lancamento_id} alertaMinutos={sLanc.alerta_minutos_sem_entrada} resumoMinutos={sLanc.resumo_minutos} telefones={sLanc.alerta_telefones} ads={ads ?? undefined} />
           </Cartao>
         </section>
       )}

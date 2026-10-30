@@ -41,6 +41,7 @@ export const MODELOS_PADRAO: Record<string, string> = {
   // Campanhas
   ads_sem_dados: "🚨 *{nome}: dados da Meta sem atualizar*\nA última sincronização das campanhas foi {ultima_sync} ({horas} h atrás).\nSem esses dados o painel não consegue avisar se a Meta parar de gastar ou se o custo por lead subir.\n\nAvisar a Paola para conferir a sincronização.",
   ads_sem_gasto: "🚨 *{nome}: a Meta {titulo}*\n{periodo}: {investimento} gastos com {ativos} anúncio(s) ativo(s) — média dos dias anteriores: {media}.\n\nConferir no Gerenciador de Anúncios: pagamento/saldo da conta, anúncios reprovados ou limitados e se a campanha está mesmo ativa.",
+  ads_gasto_baixo: "🚨 *{nome}: a Meta está gastando pouco*\nDas {de} às {ate} ({minutos} min) foram gastos {gasto} — o mínimo configurado é {limiar} a cada 30 min ({esperado} nesse intervalo).\nGasto acumulado hoje: {acumulado}.\n\nConferir no Gerenciador de Anúncios: pagamento/saldo da conta, anúncios reprovados ou limitados, orçamento e se as campanhas estão ativas.",
   ads_cpl_alto: "🚨 *{nome}: custo por lead acima de {limite}*\n{periodo}: {investimento} investidos ÷ {leads} lead(s){qualificados} = *{cpl}*.\nO normal é bem abaixo disso: algo está errado.\n\nConferir: página de captura funcionando (fazer uma inscrição de teste), anúncio levando para a página certa, eventos chegando à Meta (Alertas → Saúde na Meta) e público/criativo cansado.",
 };
 
@@ -74,6 +75,10 @@ export const VARIAVEIS: Record<string, Variavel[]> = {
   ads_sem_gasto: [NOME, v("titulo", "\"não gastou nada hoje\" ou \"quase não gastou ontem\"", "\"não gastou nada hoje\" o \"quase não gastou ontem\""),
     v("periodo", "\"Até 13:10\" (hoje) ou \"06/12\" (ontem)", "\"Até 13:10\" (hoy) o \"06/12\" (ayer)"), v("investimento", "valor gasto", "monto gastado"),
     v("ativos", "anúncios ativos", "anuncios activos"), v("media", "média dos dias anteriores", "promedio de los días anteriores")],
+  ads_gasto_baixo: [NOME, v("de", "hora da sincronização anterior", "hora de la sincronización anterior"), v("ate", "hora da última sincronização", "hora de la última sincronización"),
+    v("minutos", "minutos entre as duas", "minutos entre las dos"), v("gasto", "gasto no intervalo", "gasto en el intervalo"),
+    v("limiar", "mínimo configurado a cada 30 min", "mínimo configurado cada 30 min"), v("esperado", "mínimo proporcional ao intervalo", "mínimo proporcional al intervalo"),
+    v("acumulado", "gasto acumulado hoje", "gasto acumulado hoy")],
   ads_cpl_alto: [NOME, v("limite", "limite de custo por lead", "límite de costo por lead"), v("periodo", "\"Hoje até 13:10\" ou \"Dia 06/12\"", "\"Hoje até 13:10\" o \"Dia 06/12\""),
     v("investimento", "valor investido", "monto invertido"), v("leads", "leads do dia", "leads del día"),
     v("qualificados", "\" qualificado(s)\" no lançamento (vazio no grupo gratuito)", "\" qualificado(s)\" en el lanzamiento (vacío en el grupo gratuito)"),

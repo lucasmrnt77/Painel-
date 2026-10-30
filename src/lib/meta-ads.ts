@@ -2,17 +2,23 @@ import "server-only";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
 import { grupoConfigurado, rpcGrupo } from "./grupo";
-import { avaliarAds, diaLocal, inicioDia, mensagemAds, somarDia, type DiaAds } from "./meta-ads-regras";
+import { avaliarAds, avaliarGastoMinimo, diaLocal, inicioDia, mensagemAds, somarDia, type DiaAds, type LeituraGasto } from "./meta-ads-regras";
 import { modelosAlertas } from "./textos-alertas";
 
 /**
  * Alertas de gasto e custo por lead das campanhas na Meta.
  * Investimento: tabela pc_ads_meta_anuncio_dia (sincronizada pela Paola), filtrada pelo nome da
  * campanha configurado no lançamento (lancamentos.ads_campanha_filtro, ILIKE).
- * Leads: grupo gratuito = inscrições da página do grupo; lançamento = inscrições qualificadas.
+ * Leads: grupo gratuito = inscrições da página do grupo; lançamento = todas as inscrições do dia
+ * (General + Jubilados + GenJub + Trader — pedido do Martín, 30/10/2026).
+ * Gasto mínimo a cada 30 min: o painel guarda o gasto acumulado de hoje a cada sincronização nova
+ * (tabela ads_gasto_leituras, migração 047) e compara as duas últimas.
  */
 
-type Lanc = { id: number; nome: string; tipo: string | null; alerta_telefones: string[] | null; ads_campanha_filtro: string; ads_cpl_maximo: number | null };
+type Lanc = {
+  id: number; nome: string; tipo: string | null; alerta_telefones: string[] | null; ads_campanha_filtro: string; ads_cpl_maximo: number | null;
+  ads_gasto_minimo_30min: number | string | null; ads_hora_inicio: number | null;
+};
 type Linha = { data: string; investimento: number | string | null; ad_status: string | null; moeda: string | null; atualizado_em: string | null };
 
 async function leadsNoPeriodo(l: Lanc, de: Date, ate: Date): Promise<number> {
@@ -24,7 +30,7 @@ async function leadsNoPeriodo(l: Lanc, de: Date, ate: Date): Promise<number> {
     return Number(r.total) || 0;
   }
   const { count, error } = await db().from("inscricoes").select("id", { count: "exact", head: true })
-    .eq("lancamento_id", l.id).eq("qualificado", true).gte("criado_em", de.toISOString()).lt("criado_em", ate.toISOString());
+    .eq("lancamento_id", l.id).gte("criado_em", de.toISOString()).lt("criado_em", ate.toISOString());
   if (error) throw new Error(error.message);
   return count ?? 0;
 }
@@ -59,27 +65,52 @@ async function avaliarLancamento(l: Lanc, agora: Date) {
 
   const chaves = [`ads_sem_gasto:${l.id}:${ontem}:parcial`, `ads_cpl_alto:${l.id}:${ontem}:parcial`];
   const { data: existentes } = await db().from("alertas").select("chave").in("chave", chaves);
+  const horaInicio = l.ads_hora_inicio ?? 12;
+  const moeda = linhas.find((x) => x.moeda)?.moeda ?? "USD";
 
-  return avaliarAds(
+  // Gasto mínimo a cada 30 min: guarda a leitura desta sincronização e compara com a anterior
+  const minimo = l.ads_gasto_minimo_30min == null ? null : Number(l.ads_gasto_minimo_30min);
+  const extra = [];
+  if (minimo && ultimaSync && diaLocal(new Date(ultimaSync)) === hoje) {
+    const gastoHoje = porDia.get(hoje)?.investimento ?? 0;
+    await db().from("ads_gasto_leituras").upsert(
+      { lancamento_id: l.id, sync_em: ultimaSync, dia: hoje, investimento: Math.round(gastoHoje * 100) / 100 },
+      { onConflict: "lancamento_id,sync_em", ignoreDuplicates: true },
+    );
+    const [{ data: lei }, { data: ult }] = await Promise.all([
+      db().from("ads_gasto_leituras").select("sync_em, investimento").eq("lancamento_id", l.id).eq("dia", hoje),
+      db().from("alertas").select("criado_em").eq("lancamento_id", l.id).eq("tipo", "ads_gasto_baixo")
+        .order("criado_em", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    const leituras: LeituraGasto[] = ((lei ?? []) as { sync_em: string; investimento: number | string }[])
+      .map((x) => ({ syncEm: x.sync_em, investimento: Number(x.investimento) || 0 }));
+    const a = avaliarGastoMinimo({
+      lancamentoId: l.id, nome: l.nome, moeda, limiar30: minimo, horaInicio, leituras,
+      ultimoAlertaEm: (ult as { criado_em: string } | null)?.criado_em ?? null, agora,
+    });
+    if (a) extra.push(a);
+  }
+
+  return [...extra, ...avaliarAds(
     {
-      lancamentoId: l.id, nome: l.nome, moeda: linhas.find((x) => x.moeda)?.moeda ?? "USD",
+      lancamentoId: l.id, nome: l.nome, moeda, horaInicio,
       cplMaximo: Number(l.ads_cpl_maximo) || 8,
       dias: [...porDia.values()], ultimaSync,
       leads: { [ontem]: leadsOntem, [hoje]: leadsHoje },
       jaExistem: new Set(((existentes ?? []) as { chave: string }[]).map((x) => x.chave)),
       agora,
     },
-    l.tipo !== "grupo_gratuito",
-  );
+    false, // lançamento: todos os leads (não só qualificados)
+  )];
 }
 
-/** Uma rodada (cron de hora em hora). Só lançamentos com monitor ligado e campanha configurada. */
+/** Uma rodada (cron a cada 30 min). Só lançamentos com monitor ligado e campanha configurada. */
 export async function executarAlertasAds(agora = new Date()) {
   const { data, error } = await db().from("lancamentos")
-    .select("id, nome, tipo, alerta_telefones, ads_campanha_filtro, ads_cpl_maximo")
+    .select("id, nome, tipo, alerta_telefones, ads_campanha_filtro, ads_cpl_maximo, ads_gasto_minimo_30min, ads_hora_inicio")
     .eq("monitor_ativo", true).not("ads_campanha_filtro", "is", null);
   if (error) {
-    if (error.code === "42703") return { lancamentos: 0, alertas: [], aviso: "migração 028 ainda não aplicada" };
+    if (error.code === "42703") return { lancamentos: 0, alertas: [], aviso: "migração 047 ainda não aplicada" };
     throw new Error(`[meta-ads] lançamentos: ${error.message}`);
   }
   const criados: unknown[] = [];
