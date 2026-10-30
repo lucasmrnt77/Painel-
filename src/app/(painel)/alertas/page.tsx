@@ -106,6 +106,7 @@ async function ContaMeta({ filtro, t }: { filtro: string | null; t: T }) {
       </div>
       <p className="text-xs text-zinc-500">
         {t("{n} campanhas ativas do lançamento (de {t} ativas na conta) · filtro {f}", { n: r.campanhas.length, t: r.campanhasDaConta, f: filtro })} · {t("lido às {h}", { h: dataHora(r.lidoEm) })}
+        {r.limiteDiario == null && <> · {t("limite diário na API: {v}", { v: r.limiteBruto })}</>}
       </p>
       {r.campanhas.length > 0 && (
         <Tabela cabecalho={[t("Campanha"), t("Orçamento/dia"), t("Gasto hoje")]} vazio={false}>

@@ -52,7 +52,11 @@ type Camp = { id: string; name: string; daily_budget?: string; effective_status?
 type Conj = { campaign_id: string; daily_budget?: string };
 type Ins = { campaign_id: string; campaign_name?: string; spend?: string };
 
-export type ResultadoConta = LeituraConta & { nomeConta: string | null; fuso: string | null; limiteDisponivel: boolean; campanhasDaConta: number };
+export type ResultadoConta = LeituraConta & {
+  nomeConta: string | null; fuso: string | null; limiteDisponivel: boolean; campanhasDaConta: number;
+  /** O que a API devolveu no campo do limite (para diagnóstico): valor bruto ou o erro. */
+  limiteBruto: string;
+};
 
 /** Lê a conta, as campanhas ativas cujo nome casa com o filtro do lançamento, os orçamentos e o gasto de hoje. */
 export async function lerContaMeta(filtro: string): Promise<ResultadoConta> {
@@ -60,11 +64,14 @@ export async function lerContaMeta(filtro: string): Promise<ResultadoConta> {
   // adtrust_dsl = limite de gasto diário definido pela Meta (campo pouco documentado: se a API recusar, segue sem ele)
   let c: Conta;
   let limiteDisponivel = true;
+  let limiteBruto = "";
   try {
     c = await chamar<Conta>(url(conta, { fields: "name,account_status,disable_reason,currency,adtrust_dsl,timezone_name" }));
+    limiteBruto = c.adtrust_dsl === undefined ? "campo ausente na resposta" : JSON.stringify(c.adtrust_dsl);
   } catch (e) {
     if (!(e instanceof ErroMeta) || e.codigo !== 100) throw e;
     limiteDisponivel = false;
+    limiteBruto = `campo recusado: ${e.message}`;
     c = await chamar<Conta>(url(conta, { fields: "name,account_status,disable_reason,currency,timezone_name" }));
   }
   const ativas = JSON.stringify(["ACTIVE"]);
@@ -89,6 +96,6 @@ export async function lerContaMeta(filtro: string): Promise<ResultadoConta> {
     status: c.account_status, motivo: c.disable_reason ?? null,
     limiteDiario: dsl != null && Number.isFinite(dsl) && dsl > 0 ? dsl : null,
     moeda: c.currency ?? "USD", campanhas, lidoEm: new Date().toISOString(),
-    nomeConta: c.name ?? null, fuso: c.timezone_name ?? null, limiteDisponivel, campanhasDaConta: camps.length,
+    nomeConta: c.name ?? null, fuso: c.timezone_name ?? null, limiteDisponivel, campanhasDaConta: camps.length, limiteBruto,
   };
 }

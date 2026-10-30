@@ -376,6 +376,7 @@ export const ES_LANCAMENTO: Dic = {
   "Campanha": "Campaña",
   "Orçamento/dia": "Presupuesto/día",
   "lido às {h}": "leído a las {h}",
+  "limite diário na API: {v}": "límite diario en la API: {v}",
   // Server actions (lib/acoes.ts)
   "Senha incorreta": "Contraseña incorrecta",
   "Alerta: entre 5 minutos e 48 horas sem entrada": "Alerta: entre 5 minutos y 48 horas sin entradas",
