@@ -47,33 +47,21 @@ async function todas<T>(primeira: string, limite = 10): Promise<T[]> {
   return saida;
 }
 
-type Conta = { name?: string; account_status: number; disable_reason?: number; currency?: string; adtrust_dsl?: number | string; timezone_name?: string };
+type Conta = { name?: string; account_status: number; disable_reason?: number; currency?: string; timezone_name?: string };
 type Camp = { id: string; name: string; daily_budget?: string; effective_status?: string };
 type Conj = { campaign_id: string; daily_budget?: string };
 type Ins = { campaign_id: string; campaign_name?: string; spend?: string };
 
 export type ResultadoConta = LeituraConta & {
-  nomeConta: string | null; fuso: string | null; limiteDisponivel: boolean; campanhasDaConta: number;
-  /** O que a API devolveu no campo do limite (para diagnóstico): valor bruto ou o erro. */
-  limiteBruto: string;
+  nomeConta: string | null; fuso: string | null; campanhasDaConta: number;
 };
 
 /** Lê a conta, as campanhas ativas cujo nome casa com o filtro do lançamento, os orçamentos e o gasto de hoje. */
 export async function lerContaMeta(filtro: string): Promise<ResultadoConta> {
   const conta = `act_${process.env.META_AD_ACCOUNT_ID!.trim().replace(/^act_/, "")}`;
-  // adtrust_dsl = limite de gasto diário definido pela Meta (campo pouco documentado: se a API recusar, segue sem ele)
-  let c: Conta;
-  let limiteDisponivel = true;
-  let limiteBruto = "";
-  try {
-    c = await chamar<Conta>(url(conta, { fields: "name,account_status,disable_reason,currency,adtrust_dsl,timezone_name" }));
-    limiteBruto = c.adtrust_dsl === undefined ? "campo ausente na resposta" : JSON.stringify(c.adtrust_dsl);
-  } catch (e) {
-    if (!(e instanceof ErroMeta) || e.codigo !== 100) throw e;
-    limiteDisponivel = false;
-    limiteBruto = `campo recusado: ${e.message}`;
-    c = await chamar<Conta>(url(conta, { fields: "name,account_status,disable_reason,currency,timezone_name" }));
-  }
+  // O "limite de gastos diário definido pela Meta" não existe na API (testado em 30/10/2026: adtrust_dsl
+  // recusado, "nonexisting field"). O corte desse limite aparece no alerta de ritmo (gasto abaixo do orçamento).
+  const c = await chamar<Conta>(url(conta, { fields: "name,account_status,disable_reason,currency,timezone_name" }));
   const ativas = JSON.stringify(["ACTIVE"]);
   const [camps, conjs, ins] = await Promise.all([
     todas<Camp>(url(`${conta}/campaigns`, { fields: "id,name,daily_budget,effective_status", effective_status: ativas, limit: "200" })),
@@ -91,11 +79,10 @@ export async function lerContaMeta(filtro: string): Promise<ResultadoConta> {
       orcamentoDia: x.daily_budget ? Number(x.daily_budget) / 100 : porConj.get(x.id) ?? 0,
       gastoHoje: gasto.get(x.id) ?? 0,
     }));
-  const dsl = c.adtrust_dsl == null ? null : Number(c.adtrust_dsl);
   return {
     status: c.account_status, motivo: c.disable_reason ?? null,
-    limiteDiario: dsl != null && Number.isFinite(dsl) && dsl > 0 ? dsl : null,
+    limiteDiario: null,
     moeda: c.currency ?? "USD", campanhas, lidoEm: new Date().toISOString(),
-    nomeConta: c.name ?? null, fuso: c.timezone_name ?? null, limiteDisponivel, campanhasDaConta: camps.length, limiteBruto,
+    nomeConta: c.name ?? null, fuso: c.timezone_name ?? null, campanhasDaConta: camps.length,
   };
 }

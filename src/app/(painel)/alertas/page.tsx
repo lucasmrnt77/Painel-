@@ -99,14 +99,13 @@ async function ContaMeta({ filtro, t }: { filtro: string | null; t: T }) {
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {item(t("Conta"), r.nomeConta ?? "—")}
         {item(t("Situação"), t(SITUACAO_CONTA[r.status] ?? `status ${r.status}`), r.status === 1 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600")}
-        {item(t("Limite diário (Meta)"), r.limiteDiario != null ? din(r.limiteDiario) : t("não informado pela API"))}
+        {item(t("Limite diário (Meta)"), r.limiteDiario != null ? din(r.limiteDiario) : t("não disponível na API — coberto pelo alerta de ritmo"))}
         {item(t("Orçamento do dia"), din(orc))}
         {item(t("Gasto hoje"), din(gasto))}
         {item(t("Esperado até agora"), `${din(esperado)}${esperado > 0 ? ` · ${Math.round((100 * gasto) / esperado)}%` : ""}`)}
       </div>
       <p className="text-xs text-zinc-500">
         {t("{n} campanhas ativas do lançamento (de {t} ativas na conta) · filtro {f}", { n: r.campanhas.length, t: r.campanhasDaConta, f: filtro })} · {t("lido às {h}", { h: dataHora(r.lidoEm) })}
-        {r.limiteDiario == null && <> · {t("limite diário na API: {v}", { v: r.limiteBruto })}</>}
       </p>
       {r.campanhas.length > 0 && (
         <Tabela cabecalho={[t("Campanha"), t("Orçamento/dia"), t("Gasto hoje")]} vazio={false}>

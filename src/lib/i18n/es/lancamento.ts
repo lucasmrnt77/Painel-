@@ -368,7 +368,7 @@ export const ES_LANCAMENTO: Dic = {
   "Conta": "Cuenta",
   "Situação": "Situación",
   "Limite diário (Meta)": "Límite diario (Meta)",
-  "não informado pela API": "no informado por la API",
+  "não disponível na API — coberto pelo alerta de ritmo": "no disponible en la API — cubierto por la alerta de ritmo",
   "Orçamento do dia": "Presupuesto del día",
   "Gasto hoje": "Gasto hoy",
   "Esperado até agora": "Esperado hasta ahora",
@@ -376,7 +376,6 @@ export const ES_LANCAMENTO: Dic = {
   "Campanha": "Campaña",
   "Orçamento/dia": "Presupuesto/día",
   "lido às {h}": "leído a las {h}",
-  "limite diário na API: {v}": "límite diario en la API: {v}",
   // Server actions (lib/acoes.ts)
   "Senha incorreta": "Contraseña incorrecta",
   "Alerta: entre 5 minutos e 48 horas sem entrada": "Alerta: entre 5 minutos y 48 horas sin entradas",

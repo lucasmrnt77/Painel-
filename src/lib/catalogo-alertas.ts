@@ -348,8 +348,8 @@ export const CATALOGO: ItemCatalogo[] = [
     nome: { pt: "Limite diário da Meta reduzido", es: "Límite diario de Meta reducido" },
     envioDetalhe: { pt: "Sempre.", es: "Siempre." },
     quando: {
-      pt: "Lido direto da API da Meta a cada 30 min. (1) A Meta baixou o \"limite de gastos diário\" da conta (mais de 2% abaixo da leitura anterior). (2) O limite ficou abaixo da soma dos orçamentos das campanhas ativas do lançamento — aí as campanhas não conseguem gastar o planejado.",
-      es: "Leído directo de la API de Meta cada 30 min. (1) Meta bajó el \"límite de gastos diario\" de la cuenta (más de 2% debajo de la lectura anterior). (2) El límite quedó debajo de la suma de los presupuestos de las campañas activas del lanzamiento — así las campañas no pueden gastar lo planificado.",
+      pt: "ATENÇÃO: a API da Meta não informa esse limite (testado em 30/10/2026), então este alerta fica sem efeito; o corte do limite é pego pelo alerta \"Gasto abaixo do orçamento\". Se a Meta passar a informar: (1) A Meta baixou o \"limite de gastos diário\" da conta (mais de 2% abaixo da leitura anterior). (2) O limite ficou abaixo da soma dos orçamentos das campanhas ativas do lançamento — aí as campanhas não conseguem gastar o planejado.",
+      es: "ATENCIÓN: la API de Meta no informa ese límite (probado el 30/10/2026), así que esta alerta queda sin efecto; el corte del límite lo detecta la alerta \"Gasto debajo del presupuesto\". Si Meta pasa a informarlo: (1) Meta bajó el \"límite de gastos diario\" de la cuenta (más de 2% debajo de la lectura anterior). (2) El límite quedó debajo de la suma de los presupuestos de las campañas activas del lanzamiento — así las campañas no pueden gastar lo planificado.",
     },
     repeticao: { pt: "(1) Uma vez por redução. (2) Uma vez por dia.", es: "(1) Una vez por reducción. (2) Una vez por día." },
     diagnostico: { pt: "A própria Meta reduz o limite quando vê risco na conta (pagamentos, políticas, conta nova). Foi o problema do lançamento anterior.", es: "La propia Meta reduce el límite cuando ve riesgo en la cuenta (pagos, políticas, cuenta nueva). Fue el problema del lanzamiento anterior." },
