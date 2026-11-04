@@ -43,7 +43,9 @@ export const MODELOS_PADRAO: Record<string, string> = {
   ads_sem_gasto: "🚨 *{nome}: a Meta {titulo}*\n{periodo}: {investimento} gastos com {ativos} anúncio(s) ativo(s) — média dos dias anteriores: {media}.\n\nConferir no Gerenciador de Anúncios: pagamento/saldo da conta, anúncios reprovados ou limitados e se a campanha está mesmo ativa.",
   ads_conta_bloqueada: "🆘 *{nome}: conta de anúncios com problema na Meta*\nSituação da conta: *{situacao}*{motivo}.\nEnquanto isso os anúncios podem não entregar.\n\nConferir agora no Gerenciador de Anúncios: Qualidade da conta, Cobrança e avisos da Meta.",
   ads_limite_reduzido: "🚨 *{nome}: o limite de gasto diário da Meta {titulo}*\nLimite definido pela Meta: *{limite}*{antes}.\nSoma dos orçamentos das campanhas ativas do lançamento: {orcamento}.\nCom o limite abaixo dos orçamentos, as campanhas não conseguem gastar o planejado.\n\nConferir Qualidade da conta e pagamentos no Gerenciador de Anúncios.",
-  ads_ritmo_baixo: "🚨 *{nome}: a Meta está gastando abaixo do orçamento*\nAté {hora}: {gasto} gastos — pelo orçamento do dia ({orcamento}) o esperado era ~{esperado} ({pct} do esperado).\n{campanhas}\n\nConferir no Gerenciador de Anúncios: pagamento/saldo, limite de gasto da conta, anúncios reprovados ou limitados.",
+  ads_ritmo_baixo: "🚨 *{nome}: a Meta está gastando abaixo do normal*\nAté {hora}: {gasto} gastos — pelo ritmo normal da conta a esta hora (orçamento do dia {orcamento}) o esperado era ~{esperado}. Está em {pct} do normal há pelo menos 30 min.\n{campanhas}\n\nConferir no Gerenciador de Anúncios: pagamento/saldo, limite de gasto da conta, anúncios reprovados ou limitados.",
+  ads_campanha_parada: "⚠️ *{nome}: campanha sem gastar há {minutos} min*\n{campanha}\nGasto hoje: {gasto} (orçamento do dia {orcamento}) — as outras campanhas continuam gastando.\n\nConferir no Gerenciador: anúncio reprovado, limitado, pausado ou sem público.",
+  ads_dia_abaixo: "🚨 *{nome}: ontem a Meta gastou só {pct} do orçamento*\n{dia}: {gasto} de {orcamento}.\nGastar abaixo do orçamento atrasa a escala (a Meta não sobe o limite da conta).\n\nConferir no Gerenciador: entrega das campanhas, limite de gasto da conta e pagamento.",
   ads_cpl_alto: "🚨 *{nome}: custo por lead acima de {limite}*\n{periodo}: {investimento} investidos ÷ {leads} lead(s){qualificados} = *{cpl}*.\nO normal é bem abaixo disso: algo está errado.\n\nConferir: página de captura funcionando (fazer uma inscrição de teste), anúncio levando para a página certa, eventos chegando à Meta (Alertas → Saúde na Meta) e público/criativo cansado.",
 };
 
@@ -85,6 +87,10 @@ export const VARIAVEIS: Record<string, Variavel[]> = {
   ads_ritmo_baixo: [NOME, v("hora", "hora da leitura", "hora de la lectura"), v("gasto", "gasto de hoje até agora", "gasto de hoy hasta ahora"),
     v("orcamento", "soma dos orçamentos do dia", "suma de los presupuestos del día"), v("esperado", "gasto esperado até agora", "gasto esperado hasta ahora"),
     v("pct", "gasto ÷ esperado", "gasto ÷ esperado"), v("campanhas", "campanhas mais atrasadas (até 6)", "campañas más atrasadas (hasta 6)")],
+  ads_campanha_parada: [NOME, v("campanha", "nome da campanha", "nombre de la campaña"), v("minutos", "minutos sem gastar", "minutos sin gastar"),
+    v("hora", "hora da leitura", "hora de la lectura"), v("gasto", "gasto de hoje da campanha", "gasto de hoy de la campaña"), v("orcamento", "orçamento do dia da campanha", "presupuesto del día de la campaña")],
+  ads_dia_abaixo: [NOME, v("dia", "dia (DD/MM/AAAA)", "día (DD/MM/AAAA)"), v("gasto", "gasto do dia", "gasto del día"),
+    v("orcamento", "orçamento do dia", "presupuesto del día"), v("pct", "gasto ÷ orçamento", "gasto ÷ presupuesto")],
   ads_cpl_alto: [NOME, v("limite", "limite de custo por lead", "límite de costo por lead"), v("periodo", "\"Hoje até 13:10\" ou \"Dia 06/12\"", "\"Hoje até 13:10\" o \"Dia 06/12\""),
     v("investimento", "valor investido", "monto invertido"), v("leads", "leads do dia", "leads del día"),
     v("qualificados", "\" qualificado(s)\" no lançamento (vazio no grupo gratuito)", "\" qualificado(s)\" en el lanzamiento (vacío en el grupo gratuito)"),

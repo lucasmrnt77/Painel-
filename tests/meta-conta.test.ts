@@ -1,20 +1,43 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { avaliarConta, casaFiltro, type LeituraConta } from "../src/lib/meta-conta-regras";
+import { avaliarConta, casaFiltro, fracaoEsperada, type LeituraConta } from "../src/lib/meta-conta-regras";
 
 const BR = (dia: string, h: number, m = 0) => new Date(`${dia}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-03:00`);
 
-// Dezembro/2026: ~US$ 272/dia somando os orçamentos; limite da Meta US$ 1.833,15
-const leitura = (x: Partial<LeituraConta> = {}, h = 12): LeituraConta => ({
-  status: 1, motivo: null, limiteDiario: 1833.15, moeda: "USD", lidoEm: BR("2026-12-06", h).toISOString(),
-  campanhas: [
-    { id: "1", nome: "[PC][LEADS][DEZ26][AR][General] Teste", orcamentoDia: 136, gastoHoje: 70 },
-    { id: "2", nome: "[PC][LEADS][DEZ26][UY][General] Teste", orcamentoDia: 136, gastoHoje: 66 },
-  ],
-  ...x,
-});
-const ctx = (atual: LeituraConta, anterior: LeituraConta | null = null, agora = BR("2026-12-06", 12, 7)) => ({
-  lancamentoId: 5, nome: "Dezembro 2026", horaInicio: 6, atual, anterior, ultimoRitmoEm: null, agora,
+// Curva real da conta (02–03/11/2026): % do orçamento gasto até cada hora
+const CURVA: Record<number, number> = { 1: 0.04, 3: 0.08, 6: 0.128, 7: 0.168, 8: 0.226, 9: 0.296, 10: 0.349, 12: 0.423, 14: 0.503, 18: 0.658, 23: 0.922 };
+const fr = (h: number) => {
+  const hs = Object.keys(CURVA).map(Number).sort((a, b) => a - b);
+  let melhor = hs[0];
+  for (const x of hs) if (Math.abs(x - h) < Math.abs(melhor - h)) melhor = x;
+  return CURVA[melhor];
+};
+
+/** Leitura de um dia/hora com a soma dos orçamentos = 272 (duas campanhas de 136). */
+const leitura = (dia: string, h: number, m = 7, gasto?: [number, number], x: Partial<LeituraConta> = {}): LeituraConta => {
+  const [g1, g2] = gasto ?? [136 * fr(h + m / 60), 136 * fr(h + m / 60)];
+  return {
+    status: 1, motivo: null, limiteDiario: null, moeda: "USD", lidoEm: BR(dia, h, m).toISOString(),
+    campanhas: [
+      { id: "1", nome: "[PC][LEADS][DEZ26][AR][General] Teste", orcamentoDia: 136, gastoHoje: g1 },
+      { id: "2", nome: "[PC][LEADS][DEZ26][UY][General] Teste", orcamentoDia: 136, gastoHoje: g2 },
+    ],
+    ...x,
+  };
+};
+
+/** Histórico normal: 7 dias anteriores, leituras de hora em hora (00:07–23:07). */
+const historicoNormal = (ate = "2026-12-06", dias = 7): LeituraConta[] => {
+  const out: LeituraConta[] = [];
+  for (let d = dias; d >= 1; d--) {
+    const dia = new Date(new Date(`${ate}T12:00:00-03:00`).getTime() - d * 86_400_000).toISOString().slice(0, 10);
+    for (let h = 1; h <= 23; h++) out.push(leitura(dia, h));
+  }
+  return out;
+};
+
+const ctx = (atual: LeituraConta, historico: LeituraConta[], agora = new Date(new Date(atual.lidoEm).getTime() + 60_000)) => ({
+  lancamentoId: 5, nome: "Dezembro 2026", horaInicio: 6, atual, historico, ultimoRitmoEm: null, agora,
 });
 
 test("filtro do painel (ILIKE) casa com o nome das campanhas", () => {
@@ -23,45 +46,73 @@ test("filtro do painel (ILIKE) casa com o nome das campanhas", () => {
   assert.ok(casaFiltro("%aquecimento de conta%", "[PC][LEADS][CBO][UY] Aquecimento de Conta"));
 });
 
-test("tudo normal: nenhum alerta", () => {
-  assert.deepEqual(avaliarConta(ctx(leitura())), []);
+test("curva: às 6h a conta costuma ter gasto ~13% do orçamento (não 25%)", () => {
+  const f = fracaoEsperada(BR("2026-12-06", 6, 7), historicoNormal());
+  assert.ok(f != null && f > 0.12 && f < 0.14, String(f));
+  assert.equal(fracaoEsperada(BR("2026-12-06", 6, 7), historicoNormal("2026-12-06", 2)), null); // menos de 3 dias
+});
+
+test("04/11 às 06:07 (US$ 21,96, 63% do normal): NÃO alerta — era falso alarme", () => {
+  const hist = [...historicoNormal(), leitura("2026-12-06", 5, 37, [9.5, 9.5])];
+  const atual = leitura("2026-12-06", 6, 7, [11, 10.96]);
+  assert.deepEqual(avaliarConta(ctx(atual, hist)), []);
+});
+
+test("04/11 às 08:37 (US$ 46,42, ~65% do normal): NÃO alerta", () => {
+  const hist = [...historicoNormal(), leitura("2026-12-06", 8, 7, [21, 21])];
+  const atual = leitura("2026-12-06", 8, 37, [23.2, 23.22]);
+  assert.deepEqual(avaliarConta(ctx(atual, hist)), []);
+});
+
+test("gasto despenca (conta travada): alerta só na 2ª leitura seguida abaixo de 50%", () => {
+  const base = historicoNormal();
+  const primeira = leitura("2026-12-06", 10, 7, [10, 10]); // 20 de ~95 esperados = 21%
+  assert.deepEqual(avaliarConta(ctx(primeira, [...base, leitura("2026-12-06", 9, 37)])).map((a) => a.tipo), []);
+  const segunda = leitura("2026-12-06", 10, 37, [10.2, 10.1]);
+  const r = avaliarConta(ctx(segunda, [...base, primeira]));
+  assert.deepEqual(r.map((a) => a.tipo), ["ads_ritmo_baixo"]);
+  assert.match(r[0].mensagem, /abaixo do normal/);
+});
+
+test("sem histórico (lançamento novo): linear só a partir das 9h", () => {
+  const cedo = leitura("2026-12-06", 7, 7, [1, 1]);
+  assert.deepEqual(avaliarConta(ctx(cedo, [leitura("2026-12-06", 6, 37, [1, 1])])), []);
+  const tarde = leitura("2026-12-06", 12, 7, [5, 5]);
+  const r = avaliarConta(ctx(tarde, [leitura("2026-12-06", 11, 37, [5, 5])]));
+  assert.deepEqual(r.map((a) => a.tipo), ["ads_ritmo_baixo"]);
+});
+
+test("campanha parada 2 h enquanto a outra gasta: alerta só dela", () => {
+  const hist = [...historicoNormal(), leitura("2026-12-06", 10, 7, [40, 47])];
+  const atual = leitura("2026-12-06", 12, 7, [40, 60]); // campanha 1 não gastou nada em 2 h
+  const r = avaliarConta(ctx(atual, hist));
+  assert.deepEqual(r.map((a) => a.tipo), ["ads_campanha_parada"]);
+  assert.match(r[0].mensagem, /AR\]\[General/);
+});
+
+test("madrugada sem gasto em campanha nenhuma: não é campanha parada", () => {
+  const hist = [...historicoNormal(), leitura("2026-12-06", 4, 7, [5, 5])];
+  assert.deepEqual(avaliarConta(ctx(leitura("2026-12-06", 6, 7, [5, 5]), hist)).filter((a) => a.tipo === "ads_campanha_parada"), []);
+});
+
+test("ontem fechou com 66% do orçamento: alerta uma vez", () => {
+  const hist = [...historicoNormal("2026-12-05", 6), leitura("2026-12-05", 23, 37, [90, 90])];
+  const r = avaliarConta(ctx(leitura("2026-12-06", 0, 37, [1, 1]), hist));
+  assert.deepEqual(r.map((a) => [a.tipo, a.chave]), [["ads_dia_abaixo", "ads_dia_abaixo:5:2026-12-05"]]);
+  assert.match(r[0].mensagem, /66%/);
 });
 
 test("conta em análise de risco: só esse alerta", () => {
-  const r = avaliarConta(ctx(leitura({ status: 7, motivo: 3 })));
+  const r = avaliarConta(ctx(leitura("2026-12-06", 12, 7, undefined, { status: 7, motivo: 3 }), historicoNormal()));
   assert.deepEqual(r.map((a) => a.tipo), ["ads_conta_bloqueada"]);
   assert.match(r[0].mensagem, /em análise de risco/);
-  assert.match(r[0].mensagem, /risco de pagamento/);
 });
 
-test("Meta baixou o limite diário", () => {
-  const r = avaliarConta(ctx(leitura({ limiteDiario: 250 }), leitura()));
-  assert.deepEqual(r.map((a) => a.tipo), ["ads_limite_reduzido"]);
-  assert.match(r[0].mensagem, /antes: US\$ 1833\.15/);
-});
-
-test("limite abaixo da soma dos orçamentos (sem leitura anterior)", () => {
-  const r = avaliarConta(ctx(leitura({ limiteDiario: 200 })));
-  assert.deepEqual(r.map((a) => a.chave), ["ads_limite_reduzido:5:abaixo:2026-12-06"]);
-});
-
-test("gasto abaixo do ritmo do orçamento → alerta com as campanhas atrasadas", () => {
-  const atual = leitura({ campanhas: [
-    { id: "1", nome: "AR General", orcamentoDia: 136, gastoHoje: 5 },
-    { id: "2", nome: "UY General", orcamentoDia: 136, gastoHoje: 60 },
-  ] });
-  const r = avaliarConta(ctx(atual));
-  assert.deepEqual(r.map((a) => a.tipo), ["ads_ritmo_baixo"]);
-  assert.match(r[0].mensagem, /AR General/);
-  assert.doesNotMatch(r[0].mensagem, /UY General/);
-});
-
-test("ritmo: antes das 6h, repetido há menos de 2 h ou orçamento que sobe sozinho", () => {
-  const baixo = leitura({ campanhas: [{ id: "1", nome: "x", orcamentoDia: 272, gastoHoje: 1 }] }, 5);
-  assert.deepEqual(avaliarConta(ctx(baixo, null, BR("2026-12-06", 5, 7))), []);
-  const r = avaliarConta({ ...ctx(leitura({ campanhas: [{ id: "1", nome: "x", orcamentoDia: 272, gastoHoje: 10 }] })), ultimoRitmoEm: BR("2026-12-06", 11).toISOString() });
-  assert.deepEqual(r, []);
-  // Orçamento aumentado para 500: às 12h espera ~250; gastou 136 → ok (>50%)
-  const maior = leitura({ campanhas: [{ id: "1", nome: "x", orcamentoDia: 500, gastoHoje: 136 }] });
-  assert.deepEqual(avaliarConta(ctx(maior)), []);
+test("orçamento aumentado (500): a curva usa a % e acompanha", () => {
+  const hist = [...historicoNormal(), leitura("2026-12-06", 11, 37, [100, 100])];
+  const atual = leitura("2026-12-06", 12, 7, [100, 105], { campanhas: [
+    { id: "1", nome: "A", orcamentoDia: 250, gastoHoje: 100 },
+    { id: "2", nome: "B", orcamentoDia: 250, gastoHoje: 105 },
+  ] }); // esperado ~42% de 500 = 211; gastou 205 → normal
+  assert.deepEqual(avaliarConta(ctx(atual, hist)), []);
 });

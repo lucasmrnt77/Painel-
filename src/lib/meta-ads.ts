@@ -90,7 +90,9 @@ async function avaliarLancamento(l: Lanc, agora: Date) {
     ultimaRef = atual.lidoEm;
     leadsHoje = await leadsNoPeriodo(l, inicioDia(hoje), new Date(atual.lidoEm));
     const [{ data: ant }, { data: ult }] = await Promise.all([
-      db().from("meta_conta_leituras").select("leitura").eq("lancamento_id", l.id).order("lido_em", { ascending: false }).limit(1).maybeSingle(),
+      // Últimos 8 dias de leituras: curva de gasto por horário, confirmação em 2 leituras e campanha parada
+      db().from("meta_conta_leituras").select("leitura").eq("lancamento_id", l.id)
+        .gte("lido_em", new Date(agora.getTime() - 8 * 86_400_000).toISOString()).order("lido_em", { ascending: false }).limit(1000),
       db().from("alertas").select("criado_em").eq("lancamento_id", l.id).eq("tipo", "ads_ritmo_baixo")
         .order("criado_em", { ascending: false }).limit(1).maybeSingle(),
     ]);
@@ -100,7 +102,7 @@ async function avaliarLancamento(l: Lanc, agora: Date) {
     });
     extra.push(...avaliarConta({
       lancamentoId: l.id, nome: l.nome, horaInicio, atual,
-      anterior: (ant as { leitura: LeituraConta } | null)?.leitura ?? null,
+      historico: ((ant ?? []) as { leitura: LeituraConta }[]).map((x) => x.leitura).filter((x) => x?.lidoEm),
       ultimoRitmoEm: (ult as { criado_em: string } | null)?.criado_em ?? null, agora,
     }));
   }
@@ -139,7 +141,7 @@ export async function executarAlertasAds(agora = new Date()) {
       continue;
     }
     for (const a0 of alertas) {
-      const a = { ...a0, mensagem: a0.tipo.startsWith("ads_conta") || a0.tipo === "ads_limite_reduzido" || a0.tipo === "ads_ritmo_baixo"
+      const a = { ...a0, mensagem: ["ads_conta_bloqueada", "ads_limite_reduzido", "ads_ritmo_baixo", "ads_campanha_parada", "ads_dia_abaixo"].includes(a0.tipo)
         ? mensagemConta(a0.tipo as AlertaConta["tipo"], l.nome, a0.dados, modelos)
         : mensagemAds(a0.tipo as Parameters<typeof mensagemAds>[0], l.nome, a0.dados, modelos) };
       const { data: id, error: e2 } = await db().rpc("monitor_registrar_alerta", {

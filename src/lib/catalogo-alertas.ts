@@ -361,11 +361,11 @@ export const CATALOGO: ItemCatalogo[] = [
   },
   {
     tipo: "ads_ritmo_baixo", area: "ads", envio: "whatsapp",
-    nome: { pt: "Gasto abaixo do orçamento", es: "Gasto debajo del presupuesto" },
+    nome: { pt: "Gasto abaixo do normal", es: "Gasto debajo de lo normal" },
     envioDetalhe: { pt: "Sempre.", es: "Siempre." },
     quando: {
-      pt: "Lido direto da API da Meta a cada 30 min, a partir da hora de início do lançamento (dezembro: 6h). Soma os orçamentos diários das campanhas ativas do lançamento (lidos da Meta, então acompanham quando o gestor aumenta) e calcula quanto já devia ter sido gasto até agora. Se o gasto real está abaixo de 50% disso, alerta e lista as campanhas mais atrasadas.",
-      es: "Leído directo de la API de Meta cada 30 min, a partir de la hora de inicio del lanzamiento (diciembre: 6 h). Suma los presupuestos diarios de las campañas activas del lanzamiento (leídos de Meta, así acompañan cuando el gestor aumenta) y calcula cuánto ya debería haberse gastado hasta ahora. Si el gasto real está debajo del 50% de eso, alerta y lista las campañas más atrasadas.",
+      pt: "Lido direto da API da Meta a cada 30 min, a partir da hora de início do lançamento (dezembro: 6h). O esperado é quanto a conta COSTUMA ter gasto até este horário: mediana dos últimos 7 dias (% do orçamento na mesma hora), aplicada ao orçamento de hoje (lido da Meta, acompanha os aumentos). A Meta gasta pouco de madrugada e acelera de dia, por isso não se usa divisão linear das 24 h. Alerta se o gasto ficar abaixo de 50% do normal em DUAS leituras seguidas (30 min). Sem 3 dias de histórico (lançamento novo), usa a divisão linear a partir das 9h.",
+      es: "Leído directo de la API de Meta cada 30 min, a partir de la hora de inicio del lanzamiento (diciembre: 6 h). Lo esperado es cuánto la cuenta SUELE haber gastado hasta esta hora: mediana de los últimos 7 días (% del presupuesto a la misma hora), aplicada al presupuesto de hoy (leído de Meta, acompaña los aumentos). Meta gasta poco de madrugada y acelera de día, por eso no se usa una división lineal de las 24 h. Alerta si el gasto queda debajo del 50% de lo normal en DOS lecturas seguidas (30 min). Sin 3 días de historial (lanzamiento nuevo), usa la división lineal a partir de las 9 h.",
     },
     repeticao: { pt: "No máximo uma a cada 2 h enquanto continuar.", es: "Como máximo una cada 2 h mientras continúe." },
     diagnostico: { pt: "A Meta não está entregando no ritmo do orçamento: limite da conta, pagamento, anúncios reprovados/limitados ou público pequeno.", es: "Meta no está entregando al ritmo del presupuesto: límite de la cuenta, pago, anuncios rechazados/limitados o público chico." },
@@ -374,6 +374,38 @@ export const CATALOGO: ItemCatalogo[] = [
       es: ["Campañas listadas en la alerta: estado y entrega en el Administrador.", "Límite de gasto diario y Facturación de la cuenta."],
     },
     exemplo: (m?: Modelos) => mensagemConta("ads_ritmo_baixo", "Dezembro 2026", { moeda: "USD", gasto: 40, esperado: 136, orcamento: 272, pct: 0.29, lido_em: "2026-12-06T15:00:00Z", atrasadas: [{ nome: "[PC][LEADS][DEZ26][AR][General]", gasto: 3.1, esperado: 25 }] }, m),
+  },
+  {
+    tipo: "ads_campanha_parada", area: "ads", envio: "whatsapp",
+    nome: { pt: "Campanha sem gastar", es: "Campaña sin gastar" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: {
+      pt: "Lido direto da API da Meta a cada 30 min, de 8h em diante. Uma campanha ativa do lançamento não gastou nada nas últimas ~2 h enquanto as outras continuaram gastando.",
+      es: "Leído directo de la API de Meta cada 30 min, desde las 8 h. Una campaña activa del lanzamiento no gastó nada en las últimas ~2 h mientras las otras siguieron gastando.",
+    },
+    repeticao: { pt: "Uma vez por dia por campanha.", es: "Una vez por día por campaña." },
+    diagnostico: { pt: "Problema só daquela campanha: anúncio reprovado, limitado, em análise, pausado por engano ou público esgotado.", es: "Problema solo de esa campaña: anuncio rechazado, limitado, en revisión, pausado por error o público agotado." },
+    verificar: {
+      pt: ["Status dos anúncios e conjuntos da campanha no Gerenciador.", "Avisos de entrega (\"aprendizado limitado\", \"rejeitado\")."],
+      es: ["Estado de los anuncios y conjuntos de la campaña en el Administrador.", "Avisos de entrega (\"aprendizaje limitado\", \"rechazado\")."],
+    },
+    exemplo: (m?: Modelos) => mensagemConta("ads_campanha_parada", "Dezembro 2026", { moeda: "USD", campanha: "[PC][LEADS][DEZ26][AR][Trader]", minutos: 120, gasto: 6.2, orcamento: 55, lido_em: "2026-12-06T15:00:00Z" }, m),
+  },
+  {
+    tipo: "ads_dia_abaixo", area: "ads", envio: "whatsapp",
+    nome: { pt: "Dia anterior abaixo do orçamento", es: "Día anterior debajo del presupuesto" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: {
+      pt: "Logo depois da meia-noite: o dia anterior fechou com gasto abaixo de 75% da soma dos orçamentos das campanhas ativas. Foi o que travou a escala no lançamento anterior: a Meta gastava menos que o orçamento e não liberava limite maior.",
+      es: "Apenas pasada la medianoche: el día anterior cerró con gasto debajo del 75% de la suma de los presupuestos de las campañas activas. Fue lo que trabó la escala en el lanzamiento anterior: Meta gastaba menos que el presupuesto y no liberaba un límite mayor.",
+    },
+    repeticao: { pt: "Uma vez por dia.", es: "Una vez por día." },
+    diagnostico: { pt: "Entrega abaixo do orçamento durante o dia: limite da conta, pagamento, anúncios limitados ou leilão mais caro.", es: "Entrega debajo del presupuesto durante el día: límite de la cuenta, pago, anuncios limitados o subasta más cara." },
+    verificar: {
+      pt: ["Entrega das campanhas no Gerenciador (gasto por campanha no dia).", "Limite de gasto diário da conta e Cobrança."],
+      es: ["Entrega de las campañas en el Administrador (gasto por campaña en el día).", "Límite de gasto diario de la cuenta y Facturación."],
+    },
+    exemplo: (m?: Modelos) => mensagemConta("ads_dia_abaixo", "Dezembro 2026", { moeda: "USD", dia: "2026-12-05", gasto: 180.4, orcamento: 272, pct: 0.66 }, m),
   },
   {
     tipo: "ads_sem_dados", area: "ads", envio: "whatsapp",

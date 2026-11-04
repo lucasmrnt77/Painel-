@@ -127,6 +127,9 @@ export const ES_CAPTACAO: Dic = {
   "Conta da Meta com problema": "Cuenta de Meta con problema",
   "Limite diário da Meta reduzido": "Límite diario de Meta reducido",
   "Gasto abaixo do orçamento": "Gasto debajo del presupuesto",
+  "Gasto abaixo do normal": "Gasto debajo de lo normal",
+  "Campanha sem gastar": "Campaña sin gastar",
+  "Dia abaixo do orçamento": "Día debajo del presupuesto",
   "Dados da Meta parados": "Datos de Meta detenidos",
   // envio
   "enviado": "enviado",
