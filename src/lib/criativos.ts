@@ -68,6 +68,8 @@ export type Celula = {
   taxaNoGrupo: number | null; // entraram no grupo do WhatsApp ÷ visitas
   cpl: number | null; // gasto ÷ leads
   cplQualificado: number | null; // gasto ÷ qualificados
+  /** Taxa impossível (mais da metade das visitas se inscrevendo): réguas diferentes, não entra no ★ */
+  inconsistente: boolean;
 };
 export type Melhor = { taxaInscricao: string | null; taxaQualificados: string | null; cpl: string | null };
 export type RankingSite = {
@@ -80,8 +82,10 @@ export type RankingSite = {
   gastoSemVariacao: boolean;
 };
 
-/** Mínimos para uma variação disputar o "melhor" (evita vencer com 3 visitas). */
-export const MIN_VISITAS = 30;
+/** Mínimos para uma variação disputar o "melhor" (05/11/2026: 300 visitas — antes disso a diferença pode ser acaso). */
+export const MIN_VISITAS = 300;
+/** Acima disso a taxa de inscrição é tratada como dado inconsistente (visita e lead medidos com réguas diferentes). */
+export const TAXA_INSCRICAO_MAXIMA = 0.5;
 export const MIN_LEADS_CPL = 5;
 
 export function paisDoGasto(p: string): PaisGrupo {
@@ -137,6 +141,7 @@ export function montarRanking(linhas: LinhaPais[], gastos: Gasto[], criativos: C
           taxaNoGrupo: l.visitas > 0 ? (l.noGrupo ?? 0) / l.visitas : null,
           cpl: g != null && g > 0 && l.leads > 0 ? g / l.leads : null,
           cplQualificado: g != null && g > 0 && l.qualificados > 0 ? g / l.qualificados : null,
+          inconsistente: l.leads > l.visitas || (l.visitas > 0 && l.leads / l.visitas > TAXA_INSCRICAO_MAXIMA),
         };
       }
     }
@@ -147,7 +152,7 @@ export function montarRanking(linhas: LinhaPais[], gastos: Gasto[], criativos: C
         let best: { v: string; n: number } | null = null;
         for (const { v, c } of cands) {
           const n = f(c);
-          if (n == null || !ok(c)) continue;
+          if (n == null || !ok(c) || c.inconsistente) continue;
           if (!best || n > best.n) best = { v, n };
         }
         return best?.v ?? null;

@@ -34,25 +34,33 @@ const l = (site: string, landing: string, pais: LinhaPais["pais"], visitas: numb
 
 test("ranking: melhor variação por país e resumo", () => {
   const linhas = [
-    l("Trader", "/v1", "AR", 100, 10, 5), l("Trader", "/v2", "AR", 100, 20, 6),
-    l("Trader", "/v1", "UY", 100, 12, 8), l("Trader", "/v2", "UY", 100, 25, 4),
-    l("Trader", "/v1", "CL", 100, 30, 9), l("Trader", "/v2", "CL", 10, 9, 9), // /v2 em CL com poucas visitas
+    l("Trader", "/v1", "AR", 300, 10, 5), l("Trader", "/v2", "AR", 300, 20, 6),
+    l("Trader", "/v1", "UY", 300, 12, 8), l("Trader", "/v2", "UY", 300, 25, 4),
+    l("Trader", "/v1", "CL", 300, 30, 9), l("Trader", "/v2", "CL", 100, 9, 9), // /v2 em CL com poucas visitas
   ];
   const [r] = montarRanking(linhas, [], []);
   assert.equal(r.melhor.AR?.taxaInscricao, "/v2");
   assert.equal(r.melhor.UY?.taxaQualificados, "/v1");
   // calif. = qualificados ÷ leads (todos os leads, respondendo ou não), não ÷ visitas
   assert.equal(r.celulas["/v1"].UY?.taxaQualificados, 8 / 12);
-  assert.equal(r.celulas["/v1"].UY?.taxaInscricao, 12 / 100);
-  assert.equal(r.celulas["/v1"].UY?.taxaQualificadosVisitas, 8 / 100);
+  assert.equal(r.celulas["/v1"].UY?.taxaInscricao, 12 / 300);
+  assert.equal(r.celulas["/v1"].UY?.taxaQualificadosVisitas, 8 / 300);
   assert.equal(r.celulas["/v1"].UY?.taxaNoGrupo, 0); // sem a coluna no_grupo, conta 0
   const [g] = montarRanking([{ site: "General", landing: "/v1", pais: "UY", visitas: 82, leads: 15, qualificados: 12, noGrupo: 10, responderam: 13 }], [], []);
   assert.equal(g.celulas["/v1"].UY?.taxaNoGrupo, 10 / 82);
   assert.equal(g.celulas["/v1"].UY?.responderam, 13);
   assert.equal(g.celulas["/v1"].UY?.taxaResponderam, 13 / 15);
-  assert.equal(r.melhor.CL?.taxaInscricao, "/v1"); // /v2 não disputa (menos de 30 visitas)
+  assert.equal(r.melhor.CL?.taxaInscricao, "/v1"); // /v2 não disputa (menos de 300 visitas)
   assert.deepEqual(r.resumo, [{ variacao: "/v1", paises: ["CL"] }, { variacao: "/v2", paises: ["AR", "UY"] }]);
   assert.equal(listaPaises(["AR", "UY"]), "Argentina e Uruguai");
+});
+
+test("ranking: taxa impossível (visita pelo IP × lead pelo telefone) fica marcada e não ganha ★", () => {
+  const [r] = montarRanking([l("General", "/", "UY", 400, 216), l("General", "/v1", "UY", 400, 44), l("General", "/v2", "UY", 50, 60)], [], []);
+  assert.equal(r.celulas["/"].UY?.inconsistente, true); // 54%
+  assert.equal(r.celulas["/v2"].UY?.inconsistente, true); // mais leads que visitas
+  assert.equal(r.celulas["/v1"].UY?.inconsistente, false);
+  assert.equal(r.melhor.UY?.taxaInscricao, "/v1");
 });
 
 test("ranking: custo por lead pelo criativo (variação fixa e divisão pelas visitas)", () => {

@@ -114,13 +114,31 @@ export function pesoNome(nome: string): number {
  */
 type LinhaPaisBanco = { site: string | null; landing: string; pais: PaisGrupo; visitas: unknown; leads: unknown; qualificados: unknown; no_grupo?: unknown; responderam?: unknown };
 
+/**
+ * Medição precisa (052): a partir deste dia as páginas mandam o código da visita e a inscrição leva o mesmo
+ * código. Período que começa nesse dia ou depois usa só visitas com código e os leads ligados a elas
+ * (país, página e campanha da própria visita). Antes disso, o país é aproximado: visita pelo IP × lead pelo telefone.
+ */
+export const MEDICAO_PRECISA_DESDE = "2026-11-06";
+export const medicaoPrecisa = (p: Periodo) => !!p.de && p.de >= MEDICAO_PRECISA_DESDE;
+
+/** Leads do período (1ª inscrição) e quantos estão ligados a uma visita com código. */
+export async function coberturaMedicao(lancamentoId: number, periodo: Periodo) {
+  const { data, error } = await db().rpc("cobertura_medicao_periodo", argsPeriodo(lancamentoId, periodo));
+  if (error) return null;
+  const r = ((data ?? []) as { leads: unknown; ligados: unknown }[])[0];
+  return r ? { leads: Number(r.leads ?? 0), ligados: Number(r.ligados ?? 0) } : null;
+}
+
 export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SEM_PERIODO, paginas: string[] | null = null) {
   const comPeriodo = temPeriodo(periodo);
+  const precisa = medicaoPrecisa(periodo);
+  const funcaoPais = precisa ? "metricas_landing_pais_precisa_periodo" : "metricas_landing_pais_periodo";
   const { data: lanc } = await db().from("lancamentos").select("ads_lancamento").eq("id", lancamentoId).maybeSingle();
   const adsLanc = (lanc as { ads_lancamento?: string | null } | null)?.ads_lancamento ?? null;
   const [linhas, criativos, gastos] = await Promise.all([
     comPeriodo
-      ? todas<LinhaPaisBanco>((de, ate) => db().rpc("metricas_landing_pais_periodo", argsPeriodo(lancamentoId, periodo)).select("site, landing, pais, visitas, leads, responderam, qualificados, no_grupo")
+      ? todas<LinhaPaisBanco>((de, ate) => db().rpc(funcaoPais, argsPeriodo(lancamentoId, periodo)).select("site, landing, pais, visitas, leads, responderam, qualificados, no_grupo")
           .order("site").order("landing").order("pais").range(de, ate) as unknown as PromiseLike<{ data: LinhaPaisBanco[] | null; error: { message: string } | null }>)
       : todas<LinhaPaisBanco>((de, ate) => db().from("v_metricas_landing_pais").select("site, landing, pais, visitas, leads, responderam, qualificados, no_grupo").eq("lancamento_id", lancamentoId)
           .order("site").order("landing").order("pais").range(de, ate)),
@@ -134,7 +152,7 @@ export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SE
         })
       : Promise.resolve({ data: [], error: null }),
   ]);
-  if (linhas.error) return { erro: linhas.error.message, ranking: [], comGasto: false };
+  if (linhas.error) return { erro: linhas.error.message, ranking: [], comGasto: false, precisa };
   const n = (v: unknown) => Number(v ?? 0);
   const ranking = montarRanking(
     (linhas.data ?? []).filter((r) => !paginas || paginas.includes(nomePagina(r.site ?? "—", r.landing))).map((r) => ({ site: r.site ?? "—", landing: r.landing, pais: r.pais, visitas: n(r.visitas), leads: n(r.leads), qualificados: n(r.qualificados), noGrupo: n(r.no_grupo), responderam: n(r.responderam) })),
@@ -142,7 +160,7 @@ export async function rankingPaginas(lancamentoId: number, periodo: Periodo = SE
       .filter((g) => g.criativo).map((g) => ({ criativo: g.criativo!, pais: g.pais ?? "", investimento: n(g.investimento) })),
     ((criativos.data ?? []) as { nome: string; pagina: "general" | "trader" | "jubilar" | "genjub" | null; variacao: string | null }[]),
   );
-  return { erro: null, ranking, comGasto: !!adsLanc && (gastos.data ?? []).length > 0 };
+  return { erro: null, ranking, comGasto: !!adsLanc && (gastos.data ?? []).length > 0, precisa };
 }
 
 /** Cadastros, leads (clicaram no grupo) e leads calificados por página no período (037). */

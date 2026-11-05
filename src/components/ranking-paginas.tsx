@@ -23,11 +23,32 @@ function CelulaPais({ c, melhor, t }: { c: Celula | undefined; melhor: { insc: b
       <div className="tabular text-zinc-500">{pctN(c.taxaNoGrupo)} {t("no grupo (visitas)")}{n(c.noGrupo)}</div>
       {c.gasto != null && <div className="tabular text-zinc-500">{usd(c.cpl)} {t("por lead")}{melhor.cpl && <Selo>★</Selo>}</div>}
       <div className="tabular text-[10px] text-zinc-400">{numero(c.visitas)} {t("visitas")}</div>
+      {c.inconsistente && <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">⚠ {t("dado inconsistente (país aproximado)")}</div>}
     </div>
   );
 }
 
-export function RankingPaginas({ ranking, comGasto, idioma, t }: { ranking: RankingSite[]; comGasto: boolean; idioma: "pt" | "es"; t: T }) {
+type Cobertura = { leads: number; ligados: number } | null;
+
+/** Medição precisa (por visita) ou aproximada (visita pelo IP × lead pelo telefone). */
+function AvisoMedicao({ precisa, desde, cobertura, t }: { precisa: boolean; desde: string; cobertura: Cobertura; t: T }) {
+  if (precisa) {
+    const pc = cobertura && cobertura.leads > 0 ? Math.round((100 * cobertura.ligados) / cobertura.leads) : null;
+    return (
+      <p className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+        ✓ {t("Medição precisa: cada inscrição está ligada à visita que a gerou (país, página e campanha da própria visita).")}
+        {pc != null && <> {t("{p}% dos leads do período estão ligados a uma visita ({l} de {n}).", { p: pc, l: numero(cobertura!.ligados), n: numero(cobertura!.leads) })}</>}
+      </p>
+    );
+  }
+  return (
+    <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+      ⚠ {t("País aproximado: a visita usa o país do IP e a inscrição o DDI do telefone, então a taxa por país pode distorcer. Use para tendência; para decidir, compare variações dentro do mesmo teste. A medição precisa vale para períodos a partir de {d}.", { d: desde.split("-").reverse().join("/") })}
+    </p>
+  );
+}
+
+export function RankingPaginas({ ranking, comGasto, idioma, t, precisa = false, desde = "", cobertura = null }: { ranking: RankingSite[]; comGasto: boolean; idioma: "pt" | "es"; t: T; precisa?: boolean; desde?: string; cobertura?: Cobertura }) {
   if (ranking.length === 0) return null;
   const nomes = idioma === "es"
     ? ({ AR: "Argentina", UY: "Uruguay", CL: "Chile", Outros: "Otros países" } as Record<PaisGrupo, string>)
@@ -36,6 +57,7 @@ export function RankingPaginas({ ranking, comGasto, idioma, t }: { ranking: Rank
   return (
     <div className="space-y-4">
       <h2 className="pt-2 text-base font-semibold">{t("Melhor variação por país")}</h2>
+      <AvisoMedicao precisa={precisa} desde={desde} cobertura={cobertura} t={t} />
       {ranking.map((r) => {
         const paises = PAISES.filter((p) => r.variacoes.some((v) => r.celulas[v]?.[p]));
         return (
