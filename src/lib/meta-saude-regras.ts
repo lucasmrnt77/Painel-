@@ -28,12 +28,27 @@ export function dedupEventId(e: EventoQualidade): Dedup | null {
   return e.dedup.find((d) => /event_?id/i.test(d.chave)) ?? null;
 }
 
-export function avaliarSaude(r: RespostaSaude | null, erroConsulta?: string): { problemas: string[]; avisos: string[] } {
-  if (!r || !r.ok) return { problemas: [`Não consegui consultar a Meta: ${erroConsulta ?? (r && !r.ok ? r.erro : "sem resposta")}`], avisos: [] };
+/**
+ * Erro passageiro da Meta ("An unexpected error has occurred. Please retry…", instabilidade, tempo esgotado):
+ * não é problema nos eventos. O painel tenta de novo na hora e, se continuar, só avisa no painel — vira
+ * alerta no WhatsApp apenas se a consulta seguinte (no dia seguinte) também falhar (05/11/2026).
+ */
+export function erroPassageiro(erro: string | null | undefined): boolean {
+  return /unexpected error|please retry|try again|temporar|unavailable|timeout|timed out|ETIMEDOUT|ECONNRESET|fetch failed|\b50[0234]\b/i.test(erro ?? "");
+}
+
+export function avaliarSaude(r: RespostaSaude | null, erroConsulta?: string, falhouAntes = false): { problemas: string[]; avisos: string[] } {
+  if (!r || !r.ok) {
+    const erro = erroConsulta ?? (r && !r.ok ? r.erro : "sem resposta");
+    const msg = `Não consegui consultar a Meta: ${erro}`;
+    return erroPassageiro(erro) && !falhouAntes ? { problemas: [], avisos: [`${msg} (instabilidade da Meta; tenta de novo na próxima consulta)`] } : { problemas: [msg], avisos: [] };
+  }
   const problemas: string[] = [];
   const avisos: string[] = [];
   if (!r.qualidade.ok) {
-    problemas.push(`A Meta recusou a consulta de qualidade: ${r.qualidade.erro}`);
+    const msg = `A Meta recusou a consulta de qualidade: ${r.qualidade.erro}`;
+    if (erroPassageiro(r.qualidade.erro) && !falhouAntes) avisos.push(`${msg} (instabilidade da Meta; tenta de novo na próxima consulta)`);
+    else problemas.push(msg);
   } else {
     const monitorados = r.qualidade.eventos.filter((e) => EVENTOS_MONITORADOS.includes(e.evento));
     if (monitorados.length === 0) avisos.push("A Meta ainda não tem dados de qualidade dos eventos de lead (últimos 7 dias).");

@@ -59,3 +59,12 @@ test("divergência: só vai para o WhatsApp quando a Meta recebe MENOS do que en
   assert.equal(divergenciaCritica([{ evento: "Lead Qualificado", total: 10 }], {}, { "Lead Qualificado": 30 }).length, 1);
   assert.deepEqual(divergenciaCritica([{ evento: "Lead Qualificado", total: 25 }], {}, { "Lead Qualificado": 30 }), []);
 });
+
+test("erro passageiro da Meta: só aviso no painel; vira problema se a consulta anterior também falhou", () => {
+  const instavel = { ok: true as const, pixel: "1", consultado_em: "x", qualidade: { ok: false as const, erro: "An unexpected error has occurred. Please retry your request later." }, volume_24h: { ok: true as const, eventos: [] } };
+  const a = avaliarSaude(instavel);
+  assert.deepEqual(a.problemas, []);
+  assert.match(a.avisos[0], /instabilidade da Meta/);
+  assert.match(avaliarSaude(instavel, undefined, true).problemas[0], /recusou/);
+  assert.deepEqual(avaliarSaude(null, "fetch failed").problemas, []);
+});

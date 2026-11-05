@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
-import { avaliarSaude, mensagemSaude, type RespostaSaude } from "./meta-saude-regras";
+import { avaliarSaude, erroPassageiro, mensagemSaude, type RespostaSaude } from "./meta-saude-regras";
 import { divergenciaCritica, divergenciaEventos } from "./meta-ads-regras";
 import { modelosAlertas } from "./textos-alertas";
 import { grupoConfigurado, rpcGrupo } from "./grupo";
@@ -69,9 +69,30 @@ async function nossos24h(): Promise<Record<string, number> | null> {
   }
 }
 
+/** Erro passageiro na consulta? (rede, Meta instável) — vale tentar de novo. */
+function falhaPassageira(x: { r: RespostaSaude | null; erro?: string }): boolean {
+  if (!x.r) return erroPassageiro(x.erro);
+  if (!x.r.ok) return erroPassageiro(x.r.erro);
+  return !x.r.qualidade.ok && erroPassageiro(x.r.qualidade.erro);
+}
+
+/** Consulta a Meta e, se o erro for passageiro e der tempo (função tem 60 s), tenta de novo 10 s depois. */
+async function buscarComRetentativa(): Promise<{ r: RespostaSaude | null; erro?: string }> {
+  const inicio = Date.now();
+  const res = await buscar();
+  if (!falhaPassageira(res) || Date.now() - inicio > 20_000) return res;
+  await new Promise((ok) => setTimeout(ok, 10_000));
+  return buscar();
+}
+
 export async function atualizarSaudeMeta(disparo: "agendado" | "manual"): Promise<RegistroSaude> {
-  const [{ r, erro }, testes, nossos] = await Promise.all([buscar(), testes24h(), nossos24h()]);
-  const { problemas, avisos } = avaliarSaude(r, erro);
+  const [{ r, erro }, testes, nossos, anterior] = await Promise.all([
+    buscarComRetentativa(), testes24h(), nossos24h(),
+    db().from("meta_saude").select("avisos").order("criado_em", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  // A consulta anterior também falhou por instabilidade? Então agora é problema de verdade (vai para o WhatsApp).
+  const falhouAntes = ((anterior.data?.avisos as string[] | null) ?? []).some((a) => /instabilidade da Meta/.test(a));
+  const { problemas, avisos } = avaliarSaude(r, erro, falhouAntes);
   // Meta × nosso (margem de 20%)
   // WhatsApp só com o que é crítico: os problemas de qualidade (consulta recusada, deduplicação baixa)
   // e a Meta recebendo MENOS do que enviamos. A diferença para mais fica só no painel.
