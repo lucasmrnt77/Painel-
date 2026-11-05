@@ -19,7 +19,7 @@ import { modelosAlertas } from "./textos-alertas";
 
 type Lanc = {
   id: number; nome: string; tipo: string | null; alerta_telefones: string[] | null; ads_campanha_filtro: string; ads_cpl_maximo: number | null;
-  ads_hora_inicio: number | null;
+  ads_hora_inicio: number | null; ads_orcamento_planejado: number | string | null;
 };
 type Linha = { data: string; investimento: number | string | null; ad_status: string | null; moeda: string | null; atualizado_em: string | null };
 
@@ -104,6 +104,7 @@ async function avaliarLancamento(l: Lanc, agora: Date) {
       lancamentoId: l.id, nome: l.nome, horaInicio, atual,
       historico: ((ant ?? []) as { leitura: LeituraConta }[]).map((x) => x.leitura).filter((x) => x?.lidoEm),
       ultimoRitmoEm: (ult as { criado_em: string } | null)?.criado_em ?? null, agora,
+      orcamentoPlanejado: l.ads_orcamento_planejado == null ? null : Number(l.ads_orcamento_planejado),
     }));
   }
 
@@ -123,10 +124,10 @@ async function avaliarLancamento(l: Lanc, agora: Date) {
 /** Uma rodada (cron a cada 30 min). Só lançamentos com monitor ligado e campanha configurada. */
 export async function executarAlertasAds(agora = new Date()) {
   const { data, error } = await db().from("lancamentos")
-    .select("id, nome, tipo, alerta_telefones, ads_campanha_filtro, ads_cpl_maximo, ads_hora_inicio")
+    .select("id, nome, tipo, alerta_telefones, ads_campanha_filtro, ads_cpl_maximo, ads_hora_inicio, ads_orcamento_planejado")
     .eq("monitor_ativo", true).not("ads_campanha_filtro", "is", null);
   if (error) {
-    if (error.code === "42703") return { lancamentos: 0, alertas: [], aviso: "migração 047 ainda não aplicada" };
+    if (error.code === "42703") return { lancamentos: 0, alertas: [], aviso: "migração 051 ainda não aplicada" };
     throw new Error(`[meta-ads] lançamentos: ${error.message}`);
   }
   const criados: unknown[] = [];
@@ -141,7 +142,7 @@ export async function executarAlertasAds(agora = new Date()) {
       continue;
     }
     for (const a0 of alertas) {
-      const a = { ...a0, mensagem: ["ads_conta_bloqueada", "ads_limite_reduzido", "ads_ritmo_baixo", "ads_campanha_parada", "ads_dia_abaixo"].includes(a0.tipo)
+      const a = { ...a0, mensagem: ["ads_conta_bloqueada", "ads_limite_reduzido", "ads_ritmo_baixo", "ads_campanha_parada", "ads_dia_abaixo", "ads_orcamento_divergente"].includes(a0.tipo)
         ? mensagemConta(a0.tipo as AlertaConta["tipo"], l.nome, a0.dados, modelos)
         : mensagemAds(a0.tipo as Parameters<typeof mensagemAds>[0], l.nome, a0.dados, modelos) };
       const { data: id, error: e2 } = await db().rpc("monitor_registrar_alerta", {

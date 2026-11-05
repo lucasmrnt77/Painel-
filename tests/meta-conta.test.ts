@@ -116,3 +116,19 @@ test("orçamento aumentado (500): a curva usa a % e acompanha", () => {
   ] }); // esperado ~42% de 500 = 211; gastou 205 → normal
   assert.deepEqual(avaliarConta(ctx(atual, hist)), []);
 });
+
+test("orçamento na Meta diferente do planejado: alerta só na 2ª leitura seguida", () => {
+  const hist = historicoNormal();
+  const primeira = leitura("2026-12-06", 12, 7); // Meta: 272
+  const ctxPlan = (a: LeituraConta, h: LeituraConta[], plan: number | null) => ({ ...ctx(a, h), orcamentoPlanejado: plan });
+  // acabou de mudar o planejado para 400: a 1ª leitura (sem leitura anterior de hoje divergente) não alerta
+  assert.deepEqual(avaliarConta(ctxPlan(primeira, hist, 400)).map((a) => a.tipo), []);
+  const segunda = leitura("2026-12-06", 12, 37);
+  const r = avaliarConta(ctxPlan(segunda, [...hist, primeira], 400));
+  assert.deepEqual(r.map((a) => a.tipo), ["ads_orcamento_divergente"]);
+  assert.match(r[0].mensagem, /Planejado no painel: US\$ 400\.00/);
+  assert.match(r[0].mensagem, /abaixo do planejado/);
+  // dentro da tolerância (272 × 275 = 1%) ou sem planejado: nada
+  assert.deepEqual(avaliarConta(ctxPlan(segunda, [...hist, primeira], 275)), []);
+  assert.deepEqual(avaliarConta(ctxPlan(segunda, [...hist, primeira], null)), []);
+});

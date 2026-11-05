@@ -130,6 +130,7 @@ export const ES_CAPTACAO: Dic = {
   "Gasto abaixo do normal": "Gasto debajo de lo normal",
   "Campanha sem gastar": "Campaña sin gastar",
   "Dia abaixo do orçamento": "Día debajo del presupuesto",
+  "Orçamento diferente do planejado": "Presupuesto distinto del planificado",
   "Dados da Meta parados": "Datos de Meta detenidos",
   // envio
   "enviado": "enviado",

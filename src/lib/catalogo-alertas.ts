@@ -392,6 +392,22 @@ export const CATALOGO: ItemCatalogo[] = [
     exemplo: (m?: Modelos) => mensagemConta("ads_campanha_parada", "Dezembro 2026", { moeda: "USD", campanha: "[PC][LEADS][DEZ26][AR][Trader]", minutos: 120, gasto: 6.2, orcamento: 55, lido_em: "2026-12-06T15:00:00Z" }, m),
   },
   {
+    tipo: "ads_orcamento_divergente", area: "ads", envio: "whatsapp",
+    nome: { pt: "Orçamento diferente do planejado", es: "Presupuesto distinto del planificado" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: {
+      pt: "Só com o \"Orçamento planejado do dia\" preenchido no painel (Alertas → Configuração). A cada 30 min compara com a soma dos orçamentos das campanhas ativas do lançamento na Meta; se a diferença passar de 5% (mínimo US$ 5) em duas leituras seguidas, alerta. Dá ~30 min para ajustar o Gerenciador e o painel.",
+      es: "Solo con el \"Presupuesto planificado del día\" cargado en el panel (Alertas → Configuración). Cada 30 min lo compara con la suma de los presupuestos de las campañas activas del lanzamiento en Meta; si la diferencia pasa del 5% (mínimo US$ 5) en dos lecturas seguidas, alerta. Da ~30 min para ajustar el Administrador y el panel.",
+    },
+    repeticao: { pt: "Uma vez por dia para cada combinação planejado × Meta.", es: "Una vez por día para cada combinación planificado × Meta." },
+    diagnostico: { pt: "Campanha esquecida sem ajustar, pausada, duplicada ou com nome fora do filtro do lançamento — ou o planejado do painel desatualizado.", es: "Campaña olvidada sin ajustar, pausada, duplicada o con nombre fuera del filtro del lanzamiento — o el planificado del panel desactualizado." },
+    verificar: {
+      pt: ["Orçamento de cada campanha (listado no alerta) no Gerenciador.", "Se o planejado mudou, atualizar em Alertas → Configuração."],
+      es: ["Presupuesto de cada campaña (listado en la alerta) en el Administrador.", "Si el planificado cambió, actualizarlo en Alertas → Configuración."],
+    },
+    exemplo: (m?: Modelos) => mensagemConta("ads_orcamento_divergente", "Dezembro 2026", { moeda: "USD", planejado: 400, orcamento: 272, diferenca: -128, lido_em: "2026-12-06T15:00:00Z", campanhas: [{ nome: "[PC][LEADS][DEZ26][AR][Trader]", orcamento: 55 }] }, m),
+  },
+  {
     tipo: "ads_dia_abaixo", area: "ads", envio: "whatsapp",
     nome: { pt: "Dia anterior abaixo do orçamento", es: "Día anterior debajo del presupuesto" },
     envioDetalhe: { pt: "Sempre.", es: "Siempre." },

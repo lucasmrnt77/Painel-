@@ -11,6 +11,8 @@
  *    (04/11/2026). Sem 3 dias de histórico, cai no linear a partir das 9h.
  *  - ads_campanha_parada: de 8h em diante, uma campanha ativa não gastou nada em ~2 h enquanto as outras gastaram.
  *  - ads_dia_abaixo: o dia anterior fechou abaixo de 75% do orçamento (o atraso que travou a escala em setembro).
+ *  - ads_orcamento_divergente: a soma dos orçamentos na Meta não bate com o orçamento planejado no painel
+ *    (diferença > 5% ou US$ 5) em duas leituras seguidas — pega campanha esquecida, pausada ou orçamento não ajustado.
  */
 import { diaLocal, horaLocal } from "./meta-ads-regras";
 import { montar, type Modelos } from "./modelos-alertas";
@@ -36,7 +38,7 @@ export type LeituraConta = {
   lidoEm: string;
 };
 export type AlertaConta = {
-  tipo: "ads_conta_bloqueada" | "ads_limite_reduzido" | "ads_ritmo_baixo" | "ads_campanha_parada" | "ads_dia_abaixo";
+  tipo: "ads_conta_bloqueada" | "ads_limite_reduzido" | "ads_ritmo_baixo" | "ads_campanha_parada" | "ads_dia_abaixo" | "ads_orcamento_divergente";
   chave: string; mensagem: string; dados: Record<string, unknown>;
 };
 
@@ -95,6 +97,16 @@ export function mensagemConta(tipo: AlertaConta["tipo"], nome: string, d: Record
       gasto: dinheiro(Number(d.gasto), moeda), orcamento: dinheiro(Number(d.orcamento), moeda),
     }, modelos);
   }
+  if (tipo === "ads_orcamento_divergente") {
+    const dif = Number(d.diferenca);
+    const camps = (d.campanhas as { nome: string; orcamento: number }[] | undefined) ?? [];
+    return montar(tipo, {
+      nome, planejado: dinheiro(Number(d.planejado), moeda), orcamento: dinheiro(Number(d.orcamento), moeda),
+      diferenca: `${dif > 0 ? "+" : "−"}${dinheiro(Math.abs(dif), moeda)}`, situacao: dif > 0 ? "acima" : "abaixo",
+      hora: hhmm(String(d.lido_em)),
+      campanhas: camps.map((c) => `• ${c.nome}: ${dinheiro(c.orcamento, moeda)}`).join("\n"),
+    }, modelos);
+  }
   if (tipo === "ads_dia_abaixo") {
     const [a, m, dd] = String(d.dia).split("-");
     return montar(tipo, {
@@ -126,6 +138,15 @@ export const PARADA_MIN = 120;
 export const PARADA_HORA_INICIO = 8;
 /** Dia anterior que fechou abaixo desta fração do orçamento = alerta. */
 export const DIA_MINIMO = 0.75;
+/** Orçamento da Meta × planejado no painel: diferença tolerada (o maior dos dois). */
+export const DIVERGENCIA_PCT = 0.05;
+export const DIVERGENCIA_MIN_USD = 5;
+
+/** O orçamento lido da Meta difere do planejado no painel além da tolerância? */
+export function orcamentoDiverge(meta: number, planejado: number | null): boolean {
+  if (planejado == null || planejado <= 0) return false;
+  return Math.abs(meta - planejado) > Math.max(planejado * DIVERGENCIA_PCT, DIVERGENCIA_MIN_USD);
+}
 
 const mediana = (v: number[]) => {
   const o = [...v].sort((a, b) => a - b);
@@ -186,6 +207,8 @@ export function avaliarConta(e: {
   /** Leituras anteriores (últimos ~8 dias), qualquer ordem, sem a atual. */
   historico: LeituraConta[];
   ultimoRitmoEm: string | null; agora: Date;
+  /** Orçamento do dia planejado no painel (null = sem conferência). */
+  orcamentoPlanejado?: number | null;
 }): AlertaConta[] {
   const { atual } = e;
   const historico = [...e.historico].sort((a, b) => new Date(a.lidoEm).getTime() - new Date(b.lidoEm).getTime());
@@ -213,6 +236,16 @@ export function avaliarConta(e: {
       saida.push(alerta("ads_limite_reduzido", `ads_limite_reduzido:${id}:abaixo:${hoje}`, e.nome,
         { moeda, limite: atual.limiteDiario, anterior: null, orcamento, abaixo: true }));
     }
+  }
+
+  // Orçamento na Meta × planejado no painel — confirmado em duas leituras seguidas (dá ~30 min para ajustar os dois)
+  const plan = e.orcamentoPlanejado ?? null;
+  if (orcamentoDiverge(orcamento, plan) && anterior && diaLocal(new Date(anterior.lidoEm)) === hoje
+      && (tAtual - new Date(anterior.lidoEm).getTime()) / 60_000 <= 75 && orcamentoDiverge(somaOrcamento(anterior), plan)) {
+    saida.push(alerta("ads_orcamento_divergente",
+      `ads_orcamento_divergente:${id}:${hoje}:${Math.round(plan! * 100)}:${Math.round(orcamento * 100)}`, e.nome,
+      { moeda, planejado: plan, orcamento, diferenca: orcamento - plan!, lido_em: atual.lidoEm,
+        campanhas: atual.campanhas.map((c) => ({ nome: c.nome, orcamento: c.orcamentoDia })) }));
   }
 
   // Dia anterior fechou bem abaixo do orçamento (uma vez por dia)

@@ -76,6 +76,12 @@ export async function salvarAlertas(_: EstadoForm, fd: FormData): Promise<Estado
     linha.ads_campanha_filtro = texto(fd, "ads_campanha_filtro") || null;
     linha.ads_cpl_maximo = cpl;
     linha.ads_hora_inicio = hora;
+    if (fd.has("ads_orcamento_planejado")) {
+      const pTxt = (texto(fd, "ads_orcamento_planejado") ?? "").replace(",", ".");
+      const plan = pTxt ? Number(pTxt) : null;
+      if (plan != null && (!Number.isFinite(plan) || plan <= 0 || plan > 1_000_000)) return { erro: t("Orçamento planejado inválido") };
+      linha.ads_orcamento_planejado = plan;
+    }
   }
   const { error } = await db().from("lancamentos").update(linha).eq("id", id);
   if (error) {

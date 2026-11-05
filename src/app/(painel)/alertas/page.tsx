@@ -10,7 +10,7 @@ import { duracao } from "@/lib/mensagens";
 import { CartaoMonitor } from "@/components/monitor";
 import { FormAlertas, type ConfigAds } from "@/components/formularios";
 import { lerContaMeta, metaContaConfigurada, type ResultadoConta } from "@/lib/meta-conta";
-import { fracaoEsperada, minutosDoDia, SITUACAO_CONTA, somaGasto, somaOrcamento, type LeituraConta } from "@/lib/meta-conta-regras";
+import { fracaoEsperada, minutosDoDia, orcamentoDiverge, SITUACAO_CONTA, somaGasto, somaOrcamento, type LeituraConta } from "@/lib/meta-conta-regras";
 import { CartaoEnvioAlertas } from "@/components/envio-alertas";
 import { AutoAtualizar } from "@/components/auto-atualizar";
 import { Cartao, Tabela, td } from "@/components/ui";
@@ -49,6 +49,7 @@ const ROTULO_TIPO: Record<string, { rotulo: string; cor: string }> = {
   ads_ritmo_baixo: { rotulo: "Gasto abaixo do normal", cor: "text-rose-600 dark:text-rose-400" },
   ads_campanha_parada: { rotulo: "Campanha sem gastar", cor: "text-amber-600 dark:text-amber-400" },
   ads_dia_abaixo: { rotulo: "Dia abaixo do orçamento", cor: "text-rose-600 dark:text-rose-400" },
+  ads_orcamento_divergente: { rotulo: "Orçamento diferente do planejado", cor: "text-amber-600 dark:text-amber-400" },
   ads_sem_dados: { rotulo: "Dados da Meta parados", cor: "text-amber-600 dark:text-amber-400" },
 };
 const ENVIO: Record<string, string> = { enviado: "enviado", parcial: "envio parcial", falhou: "falhou", sem_envio: "só no painel", pendente: "enviando" };
@@ -70,17 +71,18 @@ async function inscricoesGrupo(): Promise<{ ultimos20: number; ultimos60: number
 /** Configuração dos alertas das campanhas na Meta (migração 047). */
 async function configAds(id: number): Promise<ConfigAds | null> {
   const { data, error } = await db().from("lancamentos")
-    .select("ads_campanha_filtro, ads_cpl_maximo, ads_hora_inicio").eq("id", id).maybeSingle();
+    .select("ads_campanha_filtro, ads_cpl_maximo, ads_hora_inicio, ads_orcamento_planejado").eq("id", id).maybeSingle();
   if (error || !data) return null; // antes da migração 047
-  const d = data as { ads_campanha_filtro: string | null; ads_cpl_maximo: number | string; ads_hora_inicio: number };
+  const d = data as { ads_campanha_filtro: string | null; ads_cpl_maximo: number | string; ads_hora_inicio: number; ads_orcamento_planejado: number | string | null };
   return {
     filtro: d.ads_campanha_filtro, cplMaximo: Number(d.ads_cpl_maximo) || 8,
     horaInicio: d.ads_hora_inicio,
+    orcamentoPlanejado: d.ads_orcamento_planejado == null ? null : Number(d.ads_orcamento_planejado),
   };
 }
 
 /** Leitura direta da conta na Meta, para conferir o token e os números (migração 048). */
-async function ContaMeta({ filtro, lancamentoId, t }: { filtro: string | null; lancamentoId: number; t: T }) {
+async function ContaMeta({ filtro, lancamentoId, planejado, t }: { filtro: string | null; lancamentoId: number; planejado: number | null; t: T }) {
   if (!metaContaConfigurada()) return <p className="text-sm text-zinc-500">{t("Leitura direta desligada: cadastre META_ADS_TOKEN e META_AD_ACCOUNT_ID na Vercel e faça o redeploy.")}</p>;
   if (!filtro) return null;
   let r: ResultadoConta;
@@ -106,13 +108,20 @@ async function ContaMeta({ filtro, lancamentoId, t }: { filtro: string | null; l
         {item(t("Conta"), r.nomeConta ?? "—")}
         {item(t("Situação"), t(SITUACAO_CONTA[r.status] ?? `status ${r.status}`), r.status === 1 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600")}
         {item(t("Limite diário (Meta)"), r.limiteDiario != null ? din(r.limiteDiario) : t("não disponível na API — coberto pelos alertas de ritmo"))}
-        {item(t("Orçamento do dia"), din(orc))}
+        {item(t("Orçamento do dia"), din(orc), orcamentoDiverge(orc, planejado) ? "text-amber-600 dark:text-amber-400" : "")}
         {item(t("Gasto hoje"), din(gasto))}
         {item(t("Normal até esta hora"), `${din(esperado)}${esperado > 0 ? ` · ${Math.round((100 * gasto) / esperado)}%` : ""}`)}
       </div>
       <p className="text-xs text-zinc-500">
         {t("{n} campanhas ativas do lançamento (de {t} ativas na conta) · filtro {f}", { n: r.campanhas.length, t: r.campanhasDaConta, f: filtro })} · {t("lido às {h}", { h: dataHora(r.lidoEm) })}
       </p>
+      {planejado != null && (
+        <p className={`text-xs ${orcamentoDiverge(orc, planejado) ? "font-semibold text-amber-700 dark:text-amber-400" : "text-zinc-500"}`}>
+          {orcamentoDiverge(orc, planejado)
+            ? t("⚠️ Planejado no painel: {p} · na Meta: {m} — não bate (diferença {d})", { p: din(planejado), m: din(orc), d: din(Math.abs(orc - planejado)) })
+            : t("✓ Orçamento na Meta bate com o planejado no painel ({p})", { p: din(planejado) })}
+        </p>
+      )}
       {r.campanhas.length > 0 && (
         <Tabela cabecalho={[t("Campanha"), t("Orçamento/dia"), t("Gasto hoje")]} vazio={false}>
           {r.campanhas.map((c) => (
@@ -237,7 +246,7 @@ export default async function Alertas({ searchParams }: PageProps<"/alertas">) {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">{t("Lançamento")} · {atual.nome}</h2>
           <CartaoMonitor s={sLanc} alertas={aLanc} modo={modo} titulo={`${t("Monitor")} — ${atual.nome}`} />
           <Cartao titulo={t("Conta de anúncios na Meta (leitura direta)")}>
-            <ContaMeta filtro={ads?.filtro ?? null} lancamentoId={atual.lancamento_id} t={t} />
+            <ContaMeta filtro={ads?.filtro ?? null} lancamentoId={atual.lancamento_id} planejado={ads?.orcamentoPlanejado ?? null} t={t} />
           </Cartao>
           <Cartao titulo={t("Configuração dos alertas do lançamento")}>
             <FormAlertas id={atual.lancamento_id} alertaMinutos={sLanc.alerta_minutos_sem_entrada} resumoMinutos={sLanc.resumo_minutos} telefones={sLanc.alerta_telefones} ads={ads ?? undefined} />

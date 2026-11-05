@@ -129,7 +129,7 @@ const RESUMOS = [
 
 /** Configuração dos alertas de um monitor (aba Alertas). Com `referencia`, mostra o campo da campanha do Sendflow. */
 /** Configuração dos alertas das campanhas na Meta (só lançamento). */
-export type ConfigAds = { filtro: string | null; cplMaximo: number; horaInicio: number };
+export type ConfigAds = { filtro: string | null; cplMaximo: number; horaInicio: number; orcamentoPlanejado: number | null };
 
 export function FormAlertas({ id, alertaMinutos, resumoMinutos, telefones, referencia, ads }: {
   id: number; alertaMinutos: number; resumoMinutos: number; telefones: string[]; referencia?: { valor: string | null }; ads?: ConfigAds;
@@ -172,6 +172,10 @@ export function FormAlertas({ id, alertaMinutos, resumoMinutos, telefones, refer
           <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
             {t("Custo máximo por lead (US$): investimento ÷ todos os leads do dia")}
             <input name="ads_cpl_maximo" type="number" min="0.5" step="0.01" required defaultValue={ads.cplMaximo} className={campo} />
+          </label>
+          <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+            {t("Orçamento planejado do dia (US$) — confere com a Meta; vazio = sem conferência")}
+            <input name="ads_orcamento_planejado" type="number" min="1" step="0.01" defaultValue={ads.orcamentoPlanejado ?? ""} placeholder="272" className={campo} />
           </label>
           <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
             {t("Começar a checar o dia a partir das (hora UY/AR)")}

@@ -45,6 +45,7 @@ export const MODELOS_PADRAO: Record<string, string> = {
   ads_limite_reduzido: "🚨 *{nome}: o limite de gasto diário da Meta {titulo}*\nLimite definido pela Meta: *{limite}*{antes}.\nSoma dos orçamentos das campanhas ativas do lançamento: {orcamento}.\nCom o limite abaixo dos orçamentos, as campanhas não conseguem gastar o planejado.\n\nConferir Qualidade da conta e pagamentos no Gerenciador de Anúncios.",
   ads_ritmo_baixo: "🚨 *{nome}: a Meta está gastando abaixo do normal*\nAté {hora}: {gasto} gastos — pelo ritmo normal da conta a esta hora (orçamento do dia {orcamento}) o esperado era ~{esperado}. Está em {pct} do normal há pelo menos 30 min.\n{campanhas}\n\nConferir no Gerenciador de Anúncios: pagamento/saldo, limite de gasto da conta, anúncios reprovados ou limitados.",
   ads_campanha_parada: "⚠️ *{nome}: campanha sem gastar há {minutos} min*\n{campanha}\nGasto hoje: {gasto} (orçamento do dia {orcamento}) — as outras campanhas continuam gastando.\n\nConferir no Gerenciador: anúncio reprovado, limitado, pausado ou sem público.",
+  ads_orcamento_divergente: "⚠️ *{nome}: orçamento na Meta diferente do planejado*\nPlanejado no painel: {planejado} · Na Meta agora ({hora}): {orcamento} ({diferenca}, {situacao} do planejado).\n{campanhas}\n\nConferir no Gerenciador se alguma campanha ficou sem ajustar, pausada ou duplicada — ou atualizar o planejado no painel (Alertas → Configuração).",
   ads_dia_abaixo: "🚨 *{nome}: ontem a Meta gastou só {pct} do orçamento*\n{dia}: {gasto} de {orcamento}.\nGastar abaixo do orçamento atrasa a escala (a Meta não sobe o limite da conta).\n\nConferir no Gerenciador: entrega das campanhas, limite de gasto da conta e pagamento.",
   ads_cpl_alto: "🚨 *{nome}: custo por lead acima de {limite}*\n{periodo}: {investimento} investidos ÷ {leads} lead(s){qualificados} = *{cpl}*.\nO normal é bem abaixo disso: algo está errado.\n\nConferir: página de captura funcionando (fazer uma inscrição de teste), anúncio levando para a página certa, eventos chegando à Meta (Alertas → Saúde na Meta) e público/criativo cansado.",
 };
@@ -89,6 +90,10 @@ export const VARIAVEIS: Record<string, Variavel[]> = {
     v("pct", "gasto ÷ esperado", "gasto ÷ esperado"), v("campanhas", "campanhas mais atrasadas (até 6)", "campañas más atrasadas (hasta 6)")],
   ads_campanha_parada: [NOME, v("campanha", "nome da campanha", "nombre de la campaña"), v("minutos", "minutos sem gastar", "minutos sin gastar"),
     v("hora", "hora da leitura", "hora de la lectura"), v("gasto", "gasto de hoje da campanha", "gasto de hoy de la campaña"), v("orcamento", "orçamento do dia da campanha", "presupuesto del día de la campaña")],
+  ads_orcamento_divergente: [NOME, v("planejado", "orçamento planejado no painel", "presupuesto planificado en el panel"),
+    v("orcamento", "soma dos orçamentos na Meta", "suma de los presupuestos en Meta"), v("diferenca", "diferença (Meta − planejado)", "diferencia (Meta − planificado)"),
+    v("situacao", "\"acima\" ou \"abaixo\"", "\"acima\" o \"abaixo\""), v("hora", "hora da leitura", "hora de la lectura"),
+    v("campanhas", "orçamento de cada campanha", "presupuesto de cada campaña")],
   ads_dia_abaixo: [NOME, v("dia", "dia (DD/MM/AAAA)", "día (DD/MM/AAAA)"), v("gasto", "gasto do dia", "gasto del día"),
     v("orcamento", "orçamento do dia", "presupuesto del día"), v("pct", "gasto ÷ orçamento", "gasto ÷ presupuesto")],
   ads_cpl_alto: [NOME, v("limite", "limite de custo por lead", "límite de costo por lead"), v("periodo", "\"Hoje até 13:10\" ou \"Dia 06/12\"", "\"Hoje até 13:10\" o \"Dia 06/12\""),
