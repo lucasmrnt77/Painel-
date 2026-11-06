@@ -36,7 +36,7 @@ test("ranking: melhor variação por país e resumo", () => {
   const linhas = [
     l("Trader", "/v1", "AR", 300, 10, 5), l("Trader", "/v2", "AR", 300, 20, 6),
     l("Trader", "/v1", "UY", 300, 12, 8), l("Trader", "/v2", "UY", 300, 25, 4),
-    l("Trader", "/v1", "CL", 300, 30, 9), l("Trader", "/v2", "CL", 100, 9, 9), // /v2 em CL com poucas visitas
+    l("Trader", "/v1", "CL", 300, 30, 9), l("Trader", "/v2", "CL", 50, 9, 9), // /v2 em CL com poucas visitas
   ];
   const [r] = montarRanking(linhas, [], []);
   assert.equal(r.melhor.AR?.taxaInscricao, "/v2");
@@ -50,7 +50,7 @@ test("ranking: melhor variação por país e resumo", () => {
   assert.equal(g.celulas["/v1"].UY?.taxaNoGrupo, 10 / 82);
   assert.equal(g.celulas["/v1"].UY?.responderam, 13);
   assert.equal(g.celulas["/v1"].UY?.taxaResponderam, 13 / 15);
-  assert.equal(r.melhor.CL?.taxaInscricao, "/v1"); // /v2 não disputa (menos de 300 visitas)
+  assert.equal(r.melhor.CL?.taxaInscricao, "/v1"); // /v2 não disputa (menos de 100 visitas)
   assert.deepEqual(r.resumo, [{ variacao: "/v1", paises: ["CL"] }, { variacao: "/v2", paises: ["AR", "UY"] }]);
   assert.equal(listaPaises(["AR", "UY"]), "Argentina e Uruguai");
 });

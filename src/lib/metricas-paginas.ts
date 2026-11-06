@@ -4,6 +4,7 @@ import { montarRanking, type PaisGrupo } from "./criativos";
 import { montarDesempenho, type Registro } from "./anuncios";
 import { temPeriodo, type Periodo } from "./periodo";
 import { nomePagina, type ContagemTeste } from "./teste-paginas";
+import { ordenarEngajamento, type LinhaEngajamento } from "./engajamento";
 
 const SEM_PERIODO: Periodo = { de: null, ate: null };
 /** Parâmetros das funções *_periodo (migração 035). */
@@ -218,4 +219,21 @@ export async function desempenhoAnuncios(lancamentoId: number, periodo: Periodo 
       .filter((l) => l.anuncio).map((l) => ({ anuncio: l.anuncio!, site: l.site, landing: l.landing, leads: n(l.leads), qualificados: n(l.qualificados) })),
   );
   return { erro: null, desempenho, registros, comMeta: (meta.data ?? []).length > 0 };
+}
+
+/** Comportamento na página por site × página × país (053). Só existe para visitas com código (a partir de 06/11/2026). */
+export async function engajamentoPaginas(lancamentoId: number, periodo: Periodo, paginas: string[] | null = null): Promise<{ erro: string | null; linhas: LinhaEngajamento[] }> {
+  const { data, error } = await db().rpc("engajamento_paginas_periodo", argsPeriodo(lancamentoId, periodo));
+  if (error) return { erro: error.message, linhas: [] };
+  const n = (v: unknown) => Number(v ?? 0);
+  const ou = (v: unknown) => (v == null ? null : Number(v));
+  type Banco = Record<string, unknown> & { site: string | null; landing: string; pais: string };
+  const linhas = ((data ?? []) as Banco[])
+    .filter((r) => !paginas || paginas.includes(nomePagina(r.site ?? "—", r.landing)))
+    .map((r) => ({
+      site: r.site ?? "—", landing: r.landing, pais: r.pais, visitas: n(r.visitas), comDado: n(r.com_dado), inscreveu: n(r.inscreveu),
+      abandonouForm: n(r.abandonou_form), saiuRapido: n(r.saiu_rapido), ficouSemForm: n(r.ficou_sem_form), rolouMetade: n(r.rolou_metade),
+      medianaSegundos: ou(r.mediana_segundos), medianaCarregamentoMs: ou(r.mediana_carregamento_ms), medianaCarregamentoSaiuRapidoMs: ou(r.mediana_carregamento_saiu_rapido),
+    }));
+  return { erro: null, linhas: ordenarEngajamento(linhas) };
 }

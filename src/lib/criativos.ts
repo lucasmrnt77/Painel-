@@ -82,8 +82,8 @@ export type RankingSite = {
   gastoSemVariacao: boolean;
 };
 
-/** Mínimos para uma variação disputar o "melhor" (05/11/2026: 300 visitas — antes disso a diferença pode ser acaso). */
-export const MIN_VISITAS = 300;
+/** Mínimos para uma variação disputar o "melhor" (05/11/2026: 100 visitas por variação e país; antes 30). */
+export const MIN_VISITAS = 100;
 /** Acima disso a taxa de inscrição é tratada como dado inconsistente (visita e lead medidos com réguas diferentes). */
 export const TAXA_INSCRICAO_MAXIMA = 0.5;
 export const MIN_LEADS_CPL = 5;

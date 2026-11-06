@@ -10,7 +10,7 @@ export const SITES_TESTE = ["General", "Trader", "Jubilar", "Gen-Jubilados"] as 
 export const VARIACOES_TESTE = ["/", "/v1", "/v2", "/v3", "/v4", "/v5", "/v6"] as const;
 
 /** Mínimos para ganhar a ★ (evita vencer com poucos dados). */
-export const MIN_VISITAS_TESTE = 300; // 05/11/2026: antes 100
+export const MIN_VISITAS_TESTE = 100;
 export const MIN_LEADS_TESTE = 5;
 
 const PAGINA = /^(General|Trader|Jubilar|Gen-Jubilados)(\/v\d{1,2})?$/;

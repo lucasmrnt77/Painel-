@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { contexto, param } from "@/lib/contexto";
 import { escolherLancamento } from "@/lib/dados";
-import { coberturaMedicao, contagensTeste, desempenhoAnuncios, MEDICAO_PRECISA_DESDE, medicaoPrecisa, metricasPaginas, pct, pesoNome, rankingPaginas, testesPaginas, type LinhaFunil } from "@/lib/metricas-paginas";
+import { coberturaMedicao, contagensTeste, engajamentoPaginas, desempenhoAnuncios, MEDICAO_PRECISA_DESDE, medicaoPrecisa, metricasPaginas, pct, pesoNome, rankingPaginas, testesPaginas, type LinhaFunil } from "@/lib/metricas-paginas";
 import { lerPeriodo, rotuloPeriodo, temPeriodo, type Periodo } from "@/lib/periodo";
 import { resumoTeste } from "@/lib/teste-paginas";
 import { ResultadoTeste, SeletorTestes } from "@/components/testes-paginas";
 import { RankingPaginas } from "@/components/ranking-paginas";
+import { EngajamentoPaginas } from "@/components/engajamento-paginas";
 import { numero } from "@/lib/formato";
 import { Cartao, Kpi, Tabela, montarHref, td } from "@/components/ui";
 import { SemLancamento } from "@/components/cabecalho";
@@ -25,11 +26,12 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
   const comPeriodo = temPeriodo(periodo);
   // Com teste, só as páginas do teste: funil, gracias (dos leads dessas páginas) e ranking por país
   const paginasTeste = teste?.paginas ?? null;
-  const [{ landings, gracias, cruzado }, rk, idioma, anuncios, contagens, cobertura] = await Promise.all([
+  const [{ landings, gracias, cruzado }, rk, idioma, anuncios, contagens, cobertura, engajamento] = await Promise.all([
     metricasPaginas(atual.lancamento_id, periodo, paginasTeste), rankingPaginas(atual.lancamento_id, periodo, paginasTeste), idiomaAtual(),
     teste ? desempenhoAnuncios(atual.lancamento_id, periodo) : Promise.resolve(null),
     teste ? contagensTeste(atual.lancamento_id, periodo) : Promise.resolve([]),
     medicaoPrecisa(periodo) ? coberturaMedicao(atual.lancamento_id, periodo) : Promise.resolve(null),
+    medicaoPrecisa(periodo) ? engajamentoPaginas(atual.lancamento_id, periodo, paginasTeste) : Promise.resolve(null),
   ]);
   const resultado = teste ? resumoTeste(teste.paginas, landings, contagens, anuncios?.desempenho?.linhas ?? []) : null;
 
@@ -147,6 +149,13 @@ export default async function Paginas({ searchParams }: PageProps<"/paginas">) {
         <Cartao titulo={t("Melhor variação por país")}><p className="text-sm text-rose-600">{t("Aplique a migração {m} no Supabase.", { m: "030-jubilar-criativos-ranking.sql" })}</p></Cartao>
       ) : (
         <RankingPaginas ranking={rk.ranking} comGasto={rk.comGasto} idioma={idioma === "es" ? "es" : "pt"} t={t} precisa={rk.precisa} desde={MEDICAO_PRECISA_DESDE} cobertura={cobertura} />
+      )}
+
+      {engajamento?.erro ? (
+        <p className="text-sm text-rose-600">{t("Aplique a migração {m} no Supabase.", { m: "053-comportamento-na-pagina.sql" })}</p>
+      ) : (
+        <EngajamentoPaginas linhas={engajamento?.linhas ?? []} disponivel={medicaoPrecisa(periodo)} desde={MEDICAO_PRECISA_DESDE} t={t}
+          nomesPais={idioma === "es" ? { AR: "Argentina", UY: "Uruguay", CL: "Chile", Outros: "Otros países" } : { AR: "Argentina", UY: "Uruguai", CL: "Chile", Outros: "Outros países" }} />
       )}
 
       <p className="text-xs text-zinc-500">
