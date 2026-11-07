@@ -27,7 +27,12 @@ export function testesVaiProWhatsapp(ok: boolean): boolean {
   return !ok;
 }
 
-/** Campanhas na Meta (gasto parado, custo por lead alto, sincronização parada): sempre são problema. */
+/**
+ * Campanhas na Meta (07/11/2026): só vai para o WhatsApp o que PARA o orçamento — conta bloqueada/em análise,
+ * conta sem gastar, limite de gasto reduzido pela Meta, gasto zerado. Ritmo baixo, dia abaixo, CPL alto,
+ * orçamento divergente e sincronização parada ficam só no painel (aba Alertas).
+ */
+export const ADS_NO_WHATSAPP = ["ads_conta_bloqueada", "ads_conta_sem_gasto", "ads_limite_reduzido", "ads_sem_gasto"];
 export function metaAdsVaiProWhatsapp(tipo: string): boolean {
-  return tipo.startsWith("ads_");
+  return ADS_NO_WHATSAPP.includes(tipo);
 }

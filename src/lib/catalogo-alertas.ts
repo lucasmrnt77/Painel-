@@ -312,9 +312,9 @@ export const CATALOGO: ItemCatalogo[] = [
     exemplo: (m?: Modelos) => mensagemAds("ads_sem_gasto", "OP Futuros (grupo gratuito)", { moeda: "USD", dia: "2026-12-06", investimento: 0.4, ativos: 4, media: 10.2 }, m),
   },
   {
-    tipo: "ads_cpl_alto", area: "ads", envio: "whatsapp",
+    tipo: "ads_cpl_alto", area: "ads", envio: "painel",
     nome: { pt: "Custo por lead acima do limite", es: "Costo por lead arriba del límite" },
-    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    envioDetalhe: { pt: "Só no painel (07/11/2026: o WhatsApp recebe só o que para o orçamento).", es: "Solo en el panel (07/11/2026: el WhatsApp recibe solo lo que frena el presupuesto)." },
     quando: {
       pt: "Investimento do dia ÷ leads do dia acima do limite configurado no lançamento (dezembro/2026: US$ 6). Grupo gratuito: leads = inscrições da página do grupo; lançamento: todos os leads do dia (General + Jubilados + GenJub + Trader). Checado a cada 30 min. (1) Dia de ontem fechado. (2) Parcial de hoje: só com dados sincronizados a partir da hora de início configurada (dezembro: 6h; padrão 12h) e com pelo menos 1 limite inteiro já gasto — assim as primeiras horas do dia não dão falso alarme.",
       es: "Inversión del día ÷ leads del día arriba del límite configurado en el lanzamiento (diciembre/2026: US$ 6). Grupo gratuito: leads = inscripciones de la página del grupo; lanzamiento: todos los leads del día (General + Jubilados + GenJub + Trader). Se revisa cada 30 min. (1) Día de ayer cerrado. (2) Parcial de hoy: solo con datos sincronizados a partir de la hora de inicio configurada (diciembre: 6 h; por defecto 12 h) y con al menos 1 límite entero ya gastado — así las primeras horas del día no dan falsa alarma.",
@@ -360,9 +360,9 @@ export const CATALOGO: ItemCatalogo[] = [
     exemplo: (m?: Modelos) => mensagemConta("ads_limite_reduzido", "Dezembro 2026", { moeda: "USD", limite: 250, anterior: 1833.15, orcamento: 272 }, m),
   },
   {
-    tipo: "ads_ritmo_baixo", area: "ads", envio: "whatsapp",
+    tipo: "ads_ritmo_baixo", area: "ads", envio: "painel",
     nome: { pt: "Gasto abaixo do normal", es: "Gasto debajo de lo normal" },
-    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    envioDetalhe: { pt: "Só no painel (07/11/2026: o WhatsApp recebe só o que para o orçamento).", es: "Solo en el panel (07/11/2026: el WhatsApp recibe solo lo que frena el presupuesto)." },
     quando: {
       pt: "Lido direto da API da Meta a cada 30 min, a partir da hora de início do lançamento (dezembro: 6h). O esperado é quanto a conta COSTUMA ter gasto até este horário: mediana dos últimos 7 dias (% do orçamento na mesma hora), aplicada ao orçamento de hoje (lido da Meta, acompanha os aumentos). A Meta gasta pouco de madrugada e acelera de dia, por isso não se usa divisão linear das 24 h. Alerta se o gasto ficar abaixo de 50% do normal em DUAS leituras seguidas (30 min). Sem 3 dias de histórico (lançamento novo), usa a divisão linear a partir das 9h.",
       es: "Leído directo de la API de Meta cada 30 min, a partir de la hora de inicio del lanzamiento (diciembre: 6 h). Lo esperado es cuánto la cuenta SUELE haber gastado hasta esta hora: mediana de los últimos 7 días (% del presupuesto a la misma hora), aplicada al presupuesto de hoy (leído de Meta, acompaña los aumentos). Meta gasta poco de madrugada y acelera de día, por eso no se usa una división lineal de las 24 h. Alerta si el gasto queda debajo del 50% de lo normal en DOS lecturas seguidas (30 min). Sin 3 días de historial (lanzamiento nuevo), usa la división lineal a partir de las 9 h.",
@@ -392,9 +392,9 @@ export const CATALOGO: ItemCatalogo[] = [
     exemplo: (m?: Modelos) => mensagemConta("ads_conta_sem_gasto", "Dezembro 2026", { moeda: "USD", minutos: 120, campanhas: 8, gasto: 61.2, orcamento: 760, lido_em: "2026-12-06T15:00:00Z" }, m),
   },
   {
-    tipo: "ads_orcamento_divergente", area: "ads", envio: "whatsapp",
+    tipo: "ads_orcamento_divergente", area: "ads", envio: "painel",
     nome: { pt: "Orçamento diferente do planejado", es: "Presupuesto distinto del planificado" },
-    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    envioDetalhe: { pt: "Só no painel (07/11/2026: o WhatsApp recebe só o que para o orçamento).", es: "Solo en el panel (07/11/2026: el WhatsApp recibe solo lo que frena el presupuesto)." },
     quando: {
       pt: "Só com o \"Orçamento planejado do dia\" preenchido no painel (Alertas → Configuração). A cada 30 min compara com a soma dos orçamentos das campanhas ativas do lançamento na Meta; se a diferença passar de 5% (mínimo US$ 5) em duas leituras seguidas, alerta. Dá ~30 min para ajustar o Gerenciador e o painel.",
       es: "Solo con el \"Presupuesto planificado del día\" cargado en el panel (Alertas → Configuración). Cada 30 min lo compara con la suma de los presupuestos de las campañas activas del lanzamiento en Meta; si la diferencia pasa del 5% (mínimo US$ 5) en dos lecturas seguidas, alerta. Da ~30 min para ajustar el Administrador y el panel.",
@@ -408,9 +408,9 @@ export const CATALOGO: ItemCatalogo[] = [
     exemplo: (m?: Modelos) => mensagemConta("ads_orcamento_divergente", "Dezembro 2026", { moeda: "USD", planejado: 400, orcamento: 272, diferenca: -128, lido_em: "2026-12-06T15:00:00Z", campanhas: [{ nome: "[PC][LEADS][DEZ26][AR][Trader]", orcamento: 55 }] }, m),
   },
   {
-    tipo: "ads_dia_abaixo", area: "ads", envio: "whatsapp",
+    tipo: "ads_dia_abaixo", area: "ads", envio: "painel",
     nome: { pt: "Dia anterior abaixo do orçamento", es: "Día anterior debajo del presupuesto" },
-    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    envioDetalhe: { pt: "Só no painel (07/11/2026: o WhatsApp recebe só o que para o orçamento).", es: "Solo en el panel (07/11/2026: el WhatsApp recibe solo lo que frena el presupuesto)." },
     quando: {
       pt: "Logo depois da meia-noite: o dia anterior fechou com gasto abaixo de 75% da soma dos orçamentos das campanhas ativas. Foi o que travou a escala no lançamento anterior: a Meta gastava menos que o orçamento e não liberava limite maior.",
       es: "Apenas pasada la medianoche: el día anterior cerró con gasto debajo del 75% de la suma de los presupuestos de las campañas activas. Fue lo que trabó la escala en el lanzamiento anterior: Meta gastaba menos que el presupuesto y no liberaba un límite mayor.",
@@ -424,9 +424,9 @@ export const CATALOGO: ItemCatalogo[] = [
     exemplo: (m?: Modelos) => mensagemConta("ads_dia_abaixo", "Dezembro 2026", { moeda: "USD", dia: "2026-12-05", gasto: 180.4, orcamento: 272, pct: 0.66 }, m),
   },
   {
-    tipo: "ads_sem_dados", area: "ads", envio: "whatsapp",
+    tipo: "ads_sem_dados", area: "ads", envio: "painel",
     nome: { pt: "Dados das campanhas sem atualizar", es: "Datos de las campañas sin actualizar" },
-    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    envioDetalhe: { pt: "Só no painel (07/11/2026: o WhatsApp recebe só o que para o orçamento).", es: "Solo en el panel (07/11/2026: el WhatsApp recibe solo lo que frena el presupuesto)." },
     quando: { pt: "A sincronização das campanhas da Meta (feita pela Paola) não atualiza há 20 h ou mais. Enquanto isso as outras alertas de campanha ficam paradas.", es: "La sincronización de las campañas de Meta (hecha por Paola) no se actualiza hace 20 h o más. Mientras tanto las otras alertas de campaña quedan detenidas." },
     repeticao: { pt: "Uma vez por parada.", es: "Una vez por parada." },
     diagnostico: { pt: "A automação da Paola que copia os dados da Meta para o banco parou.", es: "La automatización de Paola que copia los datos de Meta a la base se detuvo." },

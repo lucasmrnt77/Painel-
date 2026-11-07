@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "./supabase";
 import { enviarWhatsapp } from "./whatsapp";
+import { metaAdsVaiProWhatsapp } from "./politica-alertas";
 import { grupoConfigurado, rpcGrupo } from "./grupo";
 import { avaliarAds, diaLocal, inicioDia, mensagemAds, somarDia, type DiaAds } from "./meta-ads-regras";
 import { avaliarConta, mensagemConta, somaGasto, somaOrcamento, type AlertaConta, type LeituraConta } from "./meta-conta-regras";
@@ -150,7 +151,9 @@ export async function executarAlertasAds(agora = new Date()) {
       });
       if (e2) { erros.push(`${l.nome}: ${e2.message}`); continue; }
       if (id == null) continue; // já registrado em outra rodada
-      const envio = await enviarWhatsapp(l.alerta_telefones ?? [], a.mensagem, a.tipo);
+      const envio = metaAdsVaiProWhatsapp(a.tipo)
+        ? await enviarWhatsapp(l.alerta_telefones ?? [], a.mensagem, a.tipo)
+        : { status: "sem_envio" as const, detalhe: { motivo: "só no painel (não para o orçamento)" } };
       await db().from("alertas").update({ envio_status: envio.status, envio_detalhe: envio.detalhe, enviado_em: new Date().toISOString() }).eq("id", id);
       criados.push({ id, tipo: a.tipo, envio: envio.status });
     }
