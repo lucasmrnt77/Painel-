@@ -9,6 +9,9 @@
  *    (mediana dos últimos 7 dias, proporcional ao orçamento atual), em DUAS leituras seguidas. A Meta gasta
  *    pouco de madrugada e acelera de dia: comparar com uma divisão linear das 24 h dava falso alarme de manhã
  *    (04/11/2026). Sem 3 dias de histórico, cai no linear a partir das 9h.
+ *    Cada campanha conta a partir de quando COMEÇOU a gastar hoje (07/11/2026: campanhas novas que entraram às
+ *    5h30 eram cobradas pelo gasto da madrugada inteira → "39% do normal" falso). Campanha que começou há menos de
+ *    2 h (aprendizado) ou que ainda não gastou nada hoje fica fora — conta parada é o alerta ads_conta_sem_gasto.
  *  - ads_conta_sem_gasto: de 8h em diante, a CONTA (todas as campanhas ativas do lançamento somadas) não gastou nada
  *    em ~2 h, com campanha ativa e orçamento. Sem nada rodando, não avisa. (07/11/2026, Emi: antes era por campanha —
  *    campanha nova agendada ou em análise disparava alerta enquanto a conta gastava normal.)
@@ -184,12 +187,42 @@ export function fracaoEsperada(momento: Date, historico: LeituraConta[]): number
   return mediana(dias.map(([, v]) => v.frac));
 }
 
-/** Ritmo de uma leitura: gasto ÷ esperado (curva real; sem histórico, linear a partir da HORA_LINEAR). */
-export function ritmoDaLeitura(l: LeituraConta, historico: LeituraConta[], horaInicio: number):
-  { ritmo: number; esperado: number; fracao: number; fonte: "curva" | "linear" } | null {
+/** Campanha que começou a gastar há menos disso fica fora do ritmo (fase de aprendizado). */
+export const RITMO_CARENCIA_MIN = 120;
+
+/**
+ * Quando cada campanha começou a gastar hoje: null = desde 00:00 (já gastava na 1ª leitura do dia);
+ * Date = leitura em que apareceu gastando pela 1ª vez (−15 min); ausente do mapa = ainda não gastou hoje.
+ */
+export function inicioDoGasto(l: LeituraConta, historico: LeituraConta[]): Map<string, Date | null> {
   const t = new Date(l.lidoEm);
-  const orc = somaOrcamento(l);
-  if (orc <= 0) return null;
+  const dia = diaLocal(t);
+  const doDia = [...historico, l]
+    .filter((x) => diaLocal(new Date(x.lidoEm)) === dia && new Date(x.lidoEm).getTime() <= t.getTime())
+    .sort((a, b) => new Date(a.lidoEm).getTime() - new Date(b.lidoEm).getTime());
+  const out = new Map<string, Date | null>();
+  doDia.forEach((x, i) => {
+    for (const c of x.campanhas) {
+      if (out.has(c.id) || c.gastoHoje <= 0) continue;
+      out.set(c.id, i === 0 ? null : new Date(new Date(x.lidoEm).getTime() - 15 * 60_000));
+    }
+  });
+  return out;
+}
+
+/** Fração do orçamento que a conta costuma ter gasto até um horário (curva; sem curva, linear). */
+function fracaoAte(momento: Date, historico: LeituraConta[]): number {
+  return fracaoEsperada(momento, historico) ?? minutosDoDia(momento) / 1440;
+}
+
+/**
+ * Ritmo de uma leitura: gasto ÷ esperado (curva real; sem histórico, linear a partir da HORA_LINEAR).
+ * Só entram as campanhas que já gastavam há pelo menos RITMO_CARENCIA_MIN, cada uma cobrada desde que começou.
+ */
+export function ritmoDaLeitura(l: LeituraConta, historico: LeituraConta[], horaInicio: number):
+  { ritmo: number; esperado: number; fracao: number; fonte: "curva" | "linear"; porCampanha: Map<string, number> } | null {
+  const t = new Date(l.lidoEm);
+  if (somaOrcamento(l) <= 0) return null;
   const curva = fracaoEsperada(t, historico);
   let fracao: number;
   let fonte: "curva" | "linear";
@@ -202,9 +235,21 @@ export function ritmoDaLeitura(l: LeituraConta, historico: LeituraConta[], horaI
     fracao = minutosDoDia(t) / 1440;
     fonte = "linear";
   }
-  const esperado = orc * fracao;
+  const inicio = inicioDoGasto(l, historico);
+  const porCampanha = new Map<string, number>();
+  let esperado = 0;
+  let gasto = 0;
+  for (const c of l.campanhas) {
+    if (c.orcamentoDia <= 0 || !inicio.has(c.id)) continue;
+    const ini = inicio.get(c.id) ?? null;
+    if (ini && (t.getTime() - ini.getTime()) / 60_000 < RITMO_CARENCIA_MIN) continue;
+    const e = c.orcamentoDia * Math.max(fracao - (ini ? fracaoAte(ini, historico) : 0), 0);
+    porCampanha.set(c.id, e);
+    esperado += e;
+    gasto += c.gastoHoje;
+  }
   if (esperado < ESPERADO_MINIMO) return null;
-  return { ritmo: somaGasto(l) / esperado, esperado, fracao, fonte };
+  return { ritmo: gasto / esperado, esperado, fracao, fonte, porCampanha };
 }
 
 export function avaliarConta(e: {
@@ -280,12 +325,13 @@ export function avaliarConta(e: {
     const repetido = e.ultimoRitmoEm && e.agora.getTime() - new Date(e.ultimoRitmoEm).getTime() < REPETIR_RITMO_MIN * 60_000;
     if (rPrev && rPrev.ritmo < TOLERANCIA_RITMO && !repetido) {
       const atrasadas = atual.campanhas
-        .map((c) => ({ nome: c.nome, gasto: c.gastoHoje, esperado: c.orcamentoDia * r.fracao }))
+        .filter((c) => r.porCampanha.has(c.id))
+        .map((c) => ({ nome: c.nome, gasto: c.gastoHoje, esperado: r.porCampanha.get(c.id)! }))
         .filter((c) => c.esperado > 0 && c.gasto < c.esperado * TOLERANCIA_RITMO)
         .sort((a, b) => a.gasto / a.esperado - b.gasto / b.esperado)
         .slice(0, 6);
       saida.push(alerta("ads_ritmo_baixo", `ads_ritmo_baixo:${id}:${Math.floor(tAtual / 60_000)}`, e.nome,
-        { moeda, gasto: somaGasto(atual), esperado: r.esperado, orcamento, pct: r.ritmo, lido_em: atual.lidoEm, atrasadas, fonte: r.fonte }));
+        { moeda, gasto: r.esperado * r.ritmo, esperado: r.esperado, orcamento, pct: r.ritmo, lido_em: atual.lidoEm, atrasadas, fonte: r.fonte }));
     }
   }
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { avaliarConta, casaFiltro, fracaoEsperada, type LeituraConta } from "../src/lib/meta-conta-regras";
+import { avaliarConta, casaFiltro, fracaoEsperada, ritmoDaLeitura, type LeituraConta } from "../src/lib/meta-conta-regras";
 
 const BR = (dia: string, h: number, m = 0) => new Date(`${dia}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-03:00`);
 
@@ -72,6 +72,28 @@ test("gasto despenca (conta travada): alerta só na 2ª leitura seguida abaixo d
   const r = avaliarConta(ctx(segunda, [...base, primeira]));
   assert.deepEqual(r.map((a) => a.tipo), ["ads_ritmo_baixo"]);
   assert.match(r[0].mensagem, /abaixo do normal/);
+});
+
+test("07/11 06:37: campanhas novas que começaram às 05:37 não entram no ritmo (era o falso '39% do normal')", () => {
+  // 2 campanhas antigas gastando normal desde a madrugada + 9 novas (orçamento 525) que só começaram a gastar às 05:37
+  const novas = (gasto: number) => Array.from({ length: 9 }, (_, i) => ({ id: `n${i}`, nome: `[PC][LEADS][DEZ26][UY][X] Escala 0${i}`, orcamentoDia: i === 0 ? 245 : 35, gastoHoje: gasto }));
+  const dia = "2026-12-06";
+  const l = (h: number, m: number, gNova: number): LeituraConta => {
+    const g = 136 * fr(h + m / 60);
+    return { ...leitura(dia, h, m, [g, g]), campanhas: [...leitura(dia, h, m, [g, g]).campanhas, ...novas(gNova)] };
+  };
+  // novas começam a gastar entre 06:07 e 06:37 (início = 06:22); leituras às :07 e :37 como na produção
+  const hist = [...historicoNormal(), l(0, 7, 0), l(3, 7, 0), l(5, 7, 0), l(6, 7, 0), l(6, 37, 0.5), l(7, 7, 1), l(7, 37, 1.2)];
+  const agora = l(8, 7, 1.5); // novas começaram há ~1h45
+  const r1 = ritmoDaLeitura(agora, hist, 6)!;
+  assert.equal(r1.porCampanha.size, 2); // só as 2 antigas: as novas começaram há ~1 h
+  assert.ok(r1.ritmo > 0.9, String(r1.ritmo));
+  assert.deepEqual(avaliarConta(ctx(agora, hist)).map((a) => a.tipo), []);
+  // passadas 2 h do início, as novas entram, cobradas só desde que começaram, não desde 00:00
+  const hist2 = [...hist, agora, l(8, 37, 1.7)];
+  const r2 = ritmoDaLeitura(l(9, 7, 1.9), hist2, 6)!;
+  assert.equal(r2.porCampanha.size, 11);
+  assert.ok(r2.porCampanha.get("n1")! < 35 * 0.296 * 0.8, String(r2.porCampanha.get("n1")));
 });
 
 test("sem histórico (lançamento novo): linear só a partir das 9h", () => {
