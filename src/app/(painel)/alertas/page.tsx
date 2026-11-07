@@ -47,7 +47,7 @@ const ROTULO_TIPO: Record<string, { rotulo: string; cor: string }> = {
   ads_conta_bloqueada: { rotulo: "Conta da Meta com problema", cor: "text-rose-600 dark:text-rose-400" },
   ads_limite_reduzido: { rotulo: "Limite diário da Meta reduzido", cor: "text-rose-600 dark:text-rose-400" },
   ads_ritmo_baixo: { rotulo: "Gasto abaixo do normal", cor: "text-rose-600 dark:text-rose-400" },
-  ads_campanha_parada: { rotulo: "Campanha sem gastar", cor: "text-amber-600 dark:text-amber-400" },
+  ads_conta_sem_gasto: { rotulo: "Conta da Meta sem gastar", cor: "text-rose-600 dark:text-rose-400" },
   ads_dia_abaixo: { rotulo: "Dia abaixo do orçamento", cor: "text-rose-600 dark:text-rose-400" },
   ads_orcamento_divergente: { rotulo: "Orçamento diferente do planejado", cor: "text-amber-600 dark:text-amber-400" },
   ads_sem_dados: { rotulo: "Dados da Meta parados", cor: "text-amber-600 dark:text-amber-400" },

@@ -9,8 +9,12 @@
  *    (mediana dos últimos 7 dias, proporcional ao orçamento atual), em DUAS leituras seguidas. A Meta gasta
  *    pouco de madrugada e acelera de dia: comparar com uma divisão linear das 24 h dava falso alarme de manhã
  *    (04/11/2026). Sem 3 dias de histórico, cai no linear a partir das 9h.
- *  - ads_campanha_parada: de 8h em diante, uma campanha ativa não gastou nada em ~2 h enquanto as outras gastaram.
+ *  - ads_conta_sem_gasto: de 8h em diante, a CONTA (todas as campanhas ativas do lançamento somadas) não gastou nada
+ *    em ~2 h, com campanha ativa e orçamento. Sem nada rodando, não avisa. (07/11/2026, Emi: antes era por campanha —
+ *    campanha nova agendada ou em análise disparava alerta enquanto a conta gastava normal.)
  *  - ads_dia_abaixo: o dia anterior fechou abaixo de 75% do orçamento (o atraso que travou a escala em setembro).
+ *    Orçamento do dia = média das leituras do dia (campanha criada às 22h pesa só o tempo em que existiu; antes
+ *    pegava a última leitura e campanhas novas da noite davam falso alarme, 06/11/2026).
  *  - ads_orcamento_divergente: a soma dos orçamentos na Meta não bate com o orçamento planejado no painel
  *    (diferença > 5% ou US$ 5) em duas leituras seguidas — pega campanha esquecida, pausada ou orçamento não ajustado.
  */
@@ -38,7 +42,7 @@ export type LeituraConta = {
   lidoEm: string;
 };
 export type AlertaConta = {
-  tipo: "ads_conta_bloqueada" | "ads_limite_reduzido" | "ads_ritmo_baixo" | "ads_campanha_parada" | "ads_dia_abaixo" | "ads_orcamento_divergente";
+  tipo: "ads_conta_bloqueada" | "ads_limite_reduzido" | "ads_ritmo_baixo" | "ads_conta_sem_gasto" | "ads_dia_abaixo" | "ads_orcamento_divergente";
   chave: string; mensagem: string; dados: Record<string, unknown>;
 };
 
@@ -91,10 +95,10 @@ export function mensagemConta(tipo: AlertaConta["tipo"], nome: string, d: Record
       titulo: d.abaixo ? "ficou abaixo dos orçamentos" : "foi reduzido",
     }, modelos);
   }
-  if (tipo === "ads_campanha_parada") {
+  if (tipo === "ads_conta_sem_gasto") {
     return montar(tipo, {
-      nome, campanha: String(d.campanha), minutos: String(d.minutos), hora: hhmm(String(d.lido_em)),
-      gasto: dinheiro(Number(d.gasto), moeda), orcamento: dinheiro(Number(d.orcamento), moeda),
+      nome, minutos: String(d.minutos), hora: hhmm(String(d.lido_em)),
+      gasto: dinheiro(Number(d.gasto), moeda), orcamento: dinheiro(Number(d.orcamento), moeda), campanhas: String(d.campanhas),
     }, modelos);
   }
   if (tipo === "ads_orcamento_divergente") {
@@ -136,6 +140,8 @@ export const HORA_LINEAR = 9;
 /** Campanha sem gastar nada por este tempo (com as outras gastando) = parada. */
 export const PARADA_MIN = 120;
 export const PARADA_HORA_INICIO = 8;
+/** Menos que isso em ~2 h = conta parada (centavos de ajuste da Meta não contam como gasto). */
+export const PARADA_GASTO_MINIMO = 0.5;
 /** Dia anterior que fechou abaixo desta fração do orçamento = alerta. */
 export const DIA_MINIMO = 0.75;
 /** Orçamento da Meta × planejado no painel: diferença tolerada (o maior dos dois). */
@@ -252,7 +258,9 @@ export function avaliarConta(e: {
   const ontemLeituras = historico.filter((l) => diaLocal(new Date(l.lidoEm)) < hoje);
   const ultimaOntem = ontemLeituras[ontemLeituras.length - 1];
   if (ultimaOntem && minutosDoDia(new Date(ultimaOntem.lidoEm)) >= 23 * 60 && ultimaOntem.status === 1) {
-    const orcOntem = somaOrcamento(ultimaOntem);
+    const diaOntem = diaLocal(new Date(ultimaOntem.lidoEm));
+    const doDia = ontemLeituras.filter((l) => diaLocal(new Date(l.lidoEm)) === diaOntem);
+    const orcOntem = doDia.reduce((t, l) => t + somaOrcamento(l), 0) / doDia.length;
     const gastoOntem = somaGasto(ultimaOntem);
     if (orcOntem > 0 && gastoOntem < orcOntem * DIA_MINIMO) {
       const dia = diaLocal(new Date(ultimaOntem.lidoEm));
@@ -281,24 +289,16 @@ export function avaliarConta(e: {
     }
   }
 
-  // Campanha parada: sem gastar nada por 2 h enquanto as outras gastam (uma vez por dia por campanha)
-  if (horaLocal(new Date(atual.lidoEm)) >= PARADA_HORA_INICIO) {
+  // Conta parada: a soma das campanhas ativas não gastou nada em ~2 h (uma vez a cada 2 h enquanto continuar parada)
+  if (orcamento > 0 && horaLocal(new Date(atual.lidoEm)) >= PARADA_HORA_INICIO) {
     const antes = [...historico].reverse().find((l) => {
       const dt = (tAtual - new Date(l.lidoEm).getTime()) / 60_000;
       return dt >= PARADA_MIN - 10 && dt <= PARADA_MIN + 30 && diaLocal(new Date(l.lidoEm)) === hoje;
     });
-    if (antes) {
-      const gastoAntes = new Map(antes.campanhas.map((c) => [c.id, c.gastoHoje]));
-      const totalDelta = somaGasto(atual) - somaGasto(antes);
-      for (const c of atual.campanhas) {
-        if (c.orcamentoDia <= 0 || !gastoAntes.has(c.id)) continue;
-        const delta = c.gastoHoje - (gastoAntes.get(c.id) ?? 0);
-        const outras = totalDelta - delta;
-        if (delta < 0.01 && outras >= 2) {
-          saida.push(alerta("ads_campanha_parada", `ads_campanha_parada:${id}:${c.id}:${hoje}`, e.nome,
-            { moeda, campanha: c.nome, gasto: c.gastoHoje, orcamento: c.orcamentoDia, minutos: Math.round((tAtual - new Date(antes.lidoEm).getTime()) / 60_000), lido_em: atual.lidoEm }));
-        }
-      }
+    if (antes && antes.status === 1 && somaOrcamento(antes) > 0 && somaGasto(atual) - somaGasto(antes) < PARADA_GASTO_MINIMO) {
+      saida.push(alerta("ads_conta_sem_gasto", `ads_conta_sem_gasto:${id}:${hoje}:${Math.floor(minutosDoDia(new Date(atual.lidoEm)) / PARADA_MIN)}`, e.nome,
+        { moeda, gasto: somaGasto(atual), orcamento, campanhas: atual.campanhas.filter((c) => c.orcamentoDia > 0).length,
+          minutos: Math.round((tAtual - new Date(antes.lidoEm).getTime()) / 60_000), lido_em: atual.lidoEm }));
     }
   }
   return saida;

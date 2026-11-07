@@ -82,17 +82,25 @@ test("sem histórico (lançamento novo): linear só a partir das 9h", () => {
   assert.deepEqual(r.map((a) => a.tipo), ["ads_ritmo_baixo"]);
 });
 
-test("campanha parada 2 h enquanto a outra gasta: alerta só dela", () => {
+test("uma campanha parada 2 h enquanto a outra gasta (ex.: campanha nova agendada): NÃO alerta — a conta está gastando", () => {
   const hist = [...historicoNormal(), leitura("2026-12-06", 10, 7, [40, 47])];
-  const atual = leitura("2026-12-06", 12, 7, [40, 60]); // campanha 1 não gastou nada em 2 h
-  const r = avaliarConta(ctx(atual, hist));
-  assert.deepEqual(r.map((a) => a.tipo), ["ads_campanha_parada"]);
-  assert.match(r[0].mensagem, /AR\]\[General/);
+  const atual = leitura("2026-12-06", 12, 7, [40, 60]);
+  assert.deepEqual(avaliarConta(ctx(atual, hist)).filter((a) => a.tipo === "ads_conta_sem_gasto"), []);
 });
 
-test("madrugada sem gasto em campanha nenhuma: não é campanha parada", () => {
+test("a conta inteira sem gastar 2 h (de 8h em diante): alerta da conta", () => {
+  const hist = [...historicoNormal(), leitura("2026-12-06", 10, 7, [40, 47])];
+  const r = avaliarConta(ctx(leitura("2026-12-06", 12, 7, [40, 47.2]), hist)).filter((a) => a.tipo === "ads_conta_sem_gasto");
+  assert.equal(r.length, 1);
+  assert.match(r[0].mensagem, /a conta da Meta parou de gastar/);
+  assert.match(r[0].mensagem, /2 campanhas ativas/);
+});
+
+test("nada rodando (sem campanha ativa) ou madrugada: não alerta", () => {
+  const vazia = (h: number) => leitura("2026-12-06", h, 7, [0, 0], { campanhas: [] });
+  assert.deepEqual(avaliarConta(ctx(vazia(12), [...historicoNormal(), vazia(10)])).filter((a) => a.tipo === "ads_conta_sem_gasto"), []);
   const hist = [...historicoNormal(), leitura("2026-12-06", 4, 7, [5, 5])];
-  assert.deepEqual(avaliarConta(ctx(leitura("2026-12-06", 6, 7, [5, 5]), hist)).filter((a) => a.tipo === "ads_campanha_parada"), []);
+  assert.deepEqual(avaliarConta(ctx(leitura("2026-12-06", 6, 7, [5, 5]), hist)).filter((a) => a.tipo === "ads_conta_sem_gasto"), []);
 });
 
 test("ontem fechou com 66% do orçamento: alerta uma vez", () => {
@@ -100,6 +108,21 @@ test("ontem fechou com 66% do orçamento: alerta uma vez", () => {
   const r = avaliarConta(ctx(leitura("2026-12-06", 0, 37, [1, 1]), hist));
   assert.deepEqual(r.map((a) => [a.tipo, a.chave]), [["ads_dia_abaixo", "ads_dia_abaixo:5:2026-12-05"]]);
   assert.match(r[0].mensagem, /66%/);
+});
+
+test("ontem: campanhas novas criadas às 22h não inflam o orçamento do dia (06/11/2026)", () => {
+  // dia todo com 272 de orçamento e gasto normal; às 22h entram campanhas novas (+488) que ainda não gastam
+  const ontem = "2026-12-05";
+  const dia = [];
+  for (let h = 1; h <= 23; h++) {
+    const g = 136 * fr(h + 7 / 60);
+    const extra = h >= 22 ? [{ id: "9", nome: "[PC][LEADS][DEZ26][AR][Trader] Escala 01", orcamentoDia: 488, gastoHoje: 0 }] : [];
+    const l = leitura(ontem, h, 7, [g, g]);
+    dia.push({ ...l, campanhas: [...l.campanhas, ...extra] });
+  }
+  const hist = [...historicoNormal(ontem, 6), ...dia, leitura(ontem, 23, 37, [125, 125])];
+  const r = avaliarConta(ctx(leitura("2026-12-06", 0, 37, [1, 1]), hist));
+  assert.deepEqual(r.filter((a) => a.tipo === "ads_dia_abaixo"), []);
 });
 
 test("conta em análise de risco: só esse alerta", () => {

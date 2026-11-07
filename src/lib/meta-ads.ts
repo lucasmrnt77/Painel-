@@ -142,7 +142,7 @@ export async function executarAlertasAds(agora = new Date()) {
       continue;
     }
     for (const a0 of alertas) {
-      const a = { ...a0, mensagem: ["ads_conta_bloqueada", "ads_limite_reduzido", "ads_ritmo_baixo", "ads_campanha_parada", "ads_dia_abaixo", "ads_orcamento_divergente"].includes(a0.tipo)
+      const a = { ...a0, mensagem: ["ads_conta_bloqueada", "ads_limite_reduzido", "ads_ritmo_baixo", "ads_conta_sem_gasto", "ads_dia_abaixo", "ads_orcamento_divergente"].includes(a0.tipo)
         ? mensagemConta(a0.tipo as AlertaConta["tipo"], l.nome, a0.dados, modelos)
         : mensagemAds(a0.tipo as Parameters<typeof mensagemAds>[0], l.nome, a0.dados, modelos) };
       const { data: id, error: e2 } = await db().rpc("monitor_registrar_alerta", {
