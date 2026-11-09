@@ -4,7 +4,7 @@ import { montarRanking, type PaisGrupo } from "./criativos";
 import { montarDesempenho, type Registro } from "./anuncios";
 import { temPeriodo, type Periodo } from "./periodo";
 import { nomePagina, type ContagemTeste } from "./teste-paginas";
-import { ordenarEngajamento, type LinhaEngajamento } from "./engajamento";
+import { ordenarEngajamento, type LinhaEngajamento, type TempoFunil } from "./engajamento";
 import { resumirCusto, type Funil, type ResumoCusto } from "./custo-grupo";
 
 const SEM_PERIODO: Periodo = { de: null, ate: null };
@@ -246,4 +246,19 @@ export async function custoNoGrupo(lancamentoId: number): Promise<{ erro: string
   const linhas = ((data ?? []) as { dia: string; funil: Funil; investimento: unknown; leads: unknown; no_grupo: unknown }[])
     .map((r) => ({ dia: String(r.dia).slice(0, 10), funil: r.funil, investimento: Number(r.investimento ?? 0), leads: Number(r.leads ?? 0), noGrupo: Number(r.no_grupo ?? 0) }));
   return { erro: null, resumo: resumirCusto(linhas) };
+}
+
+/** Tempo na página por funil × país (058), todas as variações juntas. */
+export async function tempoPorFunil(lancamentoId: number, periodo: Periodo): Promise<{ erro: string | null; linhas: TempoFunil[] }> {
+  const { data, error } = await db().rpc("engajamento_funil_periodo", argsPeriodo(lancamentoId, periodo));
+  if (error) return { erro: error.message, linhas: [] };
+  const n = (v: unknown) => Number(v ?? 0);
+  const ou = (v: unknown) => (v == null ? null : Number(v));
+  return {
+    erro: null,
+    linhas: ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+      site: String(r.site ?? "—"), pais: String(r.pais ?? "Todos"), visitas: n(r.visitas), comTempo: n(r.com_tempo), saiuRapido: n(r.saiu_rapido),
+      rolouMetade: n(r.rolou_metade), inscreveu: n(r.inscreveu), medianaSegundos: ou(r.mediana_segundos), mediaSegundos: ou(r.media_segundos),
+    })),
+  };
 }

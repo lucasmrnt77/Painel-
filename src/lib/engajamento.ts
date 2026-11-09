@@ -62,3 +62,11 @@ export function ordenarEngajamento(ls: LinhaEngajamento[]): LinhaEngajamento[] {
   const ol = (s: string) => (s === "/" ? 0 : /^\/v\d+$/.test(s) ? 1 : 2);
   return [...ls].sort((a, b) => os(a.site) - os(b.site) || ol(a.landing) - ol(b.landing) || a.landing.localeCompare(b.landing, undefined, { numeric: true }) || op(a.pais) - op(b.pais));
 }
+
+/** Tempo na página por funil (site) × país, todas as variações juntas (058). pais "Todos" = o site inteiro. */
+export type TempoFunil = {
+  site: string; pais: string; visitas: number; comTempo: number; saiuRapido: number; rolouMetade: number;
+  inscreveu: number; medianaSegundos: number | null; mediaSegundos: number | null;
+};
+export const PAISES_TEMPO = ["AR", "UY", "CL", "Outros", "Todos"] as const;
+export const SITES_TEMPO = ["General", "Trader", "Jubilar", "Gen-Jubilados"] as const;
