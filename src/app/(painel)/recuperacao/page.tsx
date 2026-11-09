@@ -5,8 +5,9 @@ import { Cartao, Chips, Kpi, Tabela, montarHref, td } from "@/components/ui";
 import { CabecalhoPagina, SemLancamento } from "@/components/cabecalho";
 import { GraficoRecuperacao } from "@/components/grafico-recuperacao";
 import { tradutor } from "@/lib/i18n/servidor";
+import { MIN_POR_TIPO, totaisPorTipo, type LinhaCaminho, type TotalTipo } from "@/lib/recuperacao-caminhos";
 import {
-  PERIODOS_REC, filtrarPeriodo, funilDe, resumoRecuperacao, serieRecuperacao,
+  PERIODOS_REC, filtrarPeriodo, inicioPeriodo, funilDe, resumoRecuperacao, serieRecuperacao,
   type Grupo, type LinhaRecuperacao, type PeriodoRec, type ResumoRecuperacao,
 } from "@/lib/recuperacao";
 
@@ -39,6 +40,13 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
     if (!data || data.length < 1000) break;
   }
   const doPeriodo = filtrarPeriodo(todas, periodo);
+  // Caminhos do fluxo (056): qual caminho do Randomizador cada pessoa recebeu (bloco HTTP no Unnichat)
+  const rc = await db().rpc("recuperacao_caminhos_resumo", { p_lancamento: atual.lancamento_id, p_de: inicioPeriodo(periodo), p_ate: null });
+  const caminhos: LinhaCaminho[] = ((rc.data ?? []) as Record<string, unknown>[]).map((x) => ({
+    caminho: String(x.caminho), tipo: x.tipo === "link" ? "link" : "botao", receberam: Number(x.receberam ?? 0), clicaram: Number(x.clicaram ?? 0),
+    entraram: Number(x.entraram ?? 0), jaEstavam: Number(x.ja_estavam ?? 0), medianaHoras: x.mediana_horas == null ? null : Number(x.mediana_horas),
+  }));
+  const porTipo = totaisPorTipo(caminhos);
   const linhas = funil ? doPeriodo.filter((l) => funilDe(l.site) === funil) : doPeriodo;
   const r = resumoRecuperacao(linhas);
   const porFunil: [string, ResumoRecuperacao][] = [
@@ -116,6 +124,44 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
                 </tr>
               ))}
             </Tabela>
+          </Cartao>
+
+          <Cartao titulo={t("Fluxos do Unnichat: botão × link direto · {p}", { p: rotuloPeriodo[periodo] })}>
+            {rc.error ? (
+              <p className="text-sm text-rose-600">{t("Aplique a migração {m} no Supabase.", { m: "056-recuperacao-caminhos.sql" })}</p>
+            ) : caminhos.length === 0 ? (
+              <p className="text-sm text-zinc-500">{t("Ainda sem avisos do Unnichat. Os dados aparecem quando os blocos de Requisição HTTP estiverem nos caminhos do Randomizador.")}</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {([porTipo.botao, porTipo.link] as TotalTipo[]).map((x) => (
+                    <Kpi key={x.tipo}
+                      rotulo={`${x.tipo === "botao" ? t("Botão \"QUIERO SABER\" (A–E)") : t("Link direto (F–J)")}${porTipo.vencedor === x.tipo ? " ★" : ""}`}
+                      valor={pctN(x.taxa)} destaque={porTipo.vencedor === x.tipo ? "verde" : undefined}
+                      detalhe={x.tipo === "botao"
+                        ? t("{e} de {r} entraram no grupo · {c} clicaram no botão ({pc})", { e: numero(x.entraram), r: numero(x.receberam), c: numero(x.clicaram), pc: pctN(x.taxaClique) })
+                        : t("{e} de {r} entraram no grupo", { e: numero(x.entraram), r: numero(x.receberam) })} />
+                  ))}
+                </div>
+                <Tabela cabecalho={[t("Caminho"), t("Tipo"), t("Receberam"), t("Clicaram no botão"), t("Entraram no grupo depois"), t("Taxa"), t("Tempo até entrar (mediana)"), t("Já estavam no grupo")]}>
+                  {caminhos.map((x) => (
+                    <tr key={x.caminho}>
+                      <td className={`${td} font-medium`}>{x.caminho}</td>
+                      <td className={td}>{x.tipo === "botao" ? t("Botão") : t("Link direto")}</td>
+                      <td className={`${td} tabular text-right`}>{numero(x.receberam)}</td>
+                      <td className={`${td} tabular text-right`}>{x.tipo === "botao" ? `${numero(x.clicaram)} (${pctN(x.receberam ? x.clicaram / x.receberam : null)})` : "—"}</td>
+                      <td className={`${td} tabular text-right`}>{numero(x.entraram)}</td>
+                      <td className={`${td} tabular text-right font-semibold`}>{pctN(x.receberam ? x.entraram / x.receberam : null)}</td>
+                      <td className={`${td} tabular text-right`}>{x.medianaHoras == null ? "—" : `${x.medianaHoras.toFixed(1)} h`}</td>
+                      <td className={`${td} tabular text-right text-zinc-500`}>{numero(x.jaEstavam)}</td>
+                    </tr>
+                  ))}
+                </Tabela>
+                <p className="text-xs text-zinc-500">
+                  {t("Receberam = caíram no caminho do Randomizador (aviso do bloco HTTP no Unnichat, antes do template). Entraram no grupo depois = primeira entrada num grupo do lançamento depois desse aviso (Sendflow). Já estavam no grupo = entraram antes do envio (contam em Receberam, não em Entraram). O ★ só aparece com pelo menos {n} pessoas em cada tipo.", { n: MIN_POR_TIPO })}
+                </p>
+              </div>
+            )}
           </Cartao>
 
           {tabela(t("Por dia do envio"), t("Dia"), r.porDia)}
