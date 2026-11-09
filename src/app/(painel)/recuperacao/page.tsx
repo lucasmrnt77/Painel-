@@ -41,7 +41,7 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
   }
   const doPeriodo = filtrarPeriodo(todas, periodo);
   // Caminhos do fluxo (056): qual caminho do Randomizador cada pessoa recebeu (bloco HTTP no Unnichat)
-  const rc = await db().rpc("recuperacao_caminhos_resumo", { p_lancamento: atual.lancamento_id, p_de: inicioPeriodo(periodo), p_ate: null });
+  const rc = await db().rpc("recuperacao_caminhos_resumo", { p_lancamento: atual.lancamento_id, p_de: inicioPeriodo(periodo), p_ate: null, p_funil: funil });
   const caminhos: LinhaCaminho[] = ((rc.data ?? []) as Record<string, unknown>[]).map((x) => ({
     caminho: String(x.caminho), tipo: x.tipo === "link" ? "link" : "botao", receberam: Number(x.receberam ?? 0), clicaram: Number(x.clicaram ?? 0),
     entraram: Number(x.entraram ?? 0), jaEstavam: Number(x.ja_estavam ?? 0), medianaHoras: x.mediana_horas == null ? null : Number(x.mediana_horas),
@@ -126,9 +126,9 @@ export default async function Recuperacao({ searchParams }: { searchParams: Prom
             </Tabela>
           </Cartao>
 
-          <Cartao titulo={t("Fluxos do Unnichat: botão × link direto · {p}", { p: rotuloPeriodo[periodo] })}>
+          <Cartao titulo={t("Fluxos do Unnichat: botão × link direto · {p}", { p: `${rotuloPeriodo[periodo]}${funil ? ` · ${funil}` : ""}` })}>
             {rc.error ? (
-              <p className="text-sm text-rose-600">{t("Aplique a migração {m} no Supabase.", { m: "056-recuperacao-caminhos.sql" })}</p>
+              <p className="text-sm text-rose-600">{t("Aplique a migração {m} no Supabase.", { m: "057-recuperacao-caminhos-funil.sql" })}</p>
             ) : caminhos.length === 0 ? (
               <p className="text-sm text-zinc-500">{t("Ainda sem avisos do Unnichat. Os dados aparecem quando os blocos de Requisição HTTP estiverem nos caminhos do Randomizador.")}</p>
             ) : (
