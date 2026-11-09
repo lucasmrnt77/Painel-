@@ -16,6 +16,8 @@ import { grupoConfigurado, ultimoLeadGrupo } from "@/lib/grupo";
 import { BotaoCaptacao } from "@/components/botao-captacao";
 import { tradutor } from "@/lib/i18n/servidor";
 import { dadosOp } from "@/lib/op-futuros";
+import { custoNoGrupo } from "@/lib/metricas-paginas";
+import { CustoGrupo } from "@/components/custo-grupo";
 
 export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
@@ -57,7 +59,7 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
   if (!atual) {
     return (<><CabecalhoPagina titulo={t("Visão geral")} resumos={resumos} atual={null} extras={extras} /><SemLancamento /></>);
   }
-  const [serie, horas, situacao, situacaoGrupo, paginas, funis, grupoGratuitoResumo, links] = await Promise.all([
+  const [serie, horas, situacao, situacaoGrupo, paginas, funis, grupoGratuitoResumo, links, custo] = await Promise.all([
     serieDiaria(atual.lancamento_id),
     serieHoraria(atual.lancamento_id, 24),
     situacaoMonitor(atual.lancamento_id),
@@ -66,6 +68,7 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
     resumoFunis(),
     resumoGrupoGratuito(),
     resumoLinks(),
+    custoNoGrupo(atual.lancamento_id),
   ]);
   const maximo = Math.max(1, ...serie.map((s) => s.inscricoes));
   const pct = (n: number) => (atual.inscritos ? t("{p}% dos inscritos", { p: Math.round((100 * n) / atual.inscritos) }) : undefined);
@@ -104,6 +107,8 @@ export default async function VisaoGeral({ searchParams }: PageProps<"/">) {
         <Kpi rotulo={t("Membros no grupo (total)")} valor={numero(atual.membros_no_grupo)} detalhe={t("segundo o Sendflow")} />
         <Kpi rotulo={t("No grupo sem inscrição")} valor={numero(atual.membros_sem_inscricao)} detalhe={t("entraram sem passar pela captura")} />
       </section>
+
+      <CustoGrupo resumo={custo.resumo} erro={custo.erro} t={t} />
 
       <CartaoPaginas linhas={paginas} slug={atual.slug} />
 

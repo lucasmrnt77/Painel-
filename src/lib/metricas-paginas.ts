@@ -5,6 +5,7 @@ import { montarDesempenho, type Registro } from "./anuncios";
 import { temPeriodo, type Periodo } from "./periodo";
 import { nomePagina, type ContagemTeste } from "./teste-paginas";
 import { ordenarEngajamento, type LinhaEngajamento } from "./engajamento";
+import { resumirCusto, type Funil, type ResumoCusto } from "./custo-grupo";
 
 const SEM_PERIODO: Periodo = { de: null, ate: null };
 /** Parâmetros das funções *_periodo (migração 035). */
@@ -236,4 +237,13 @@ export async function engajamentoPaginas(lancamentoId: number, periodo: Periodo,
       medianaSegundos: ou(r.mediana_segundos), medianaCarregamentoMs: ou(r.mediana_carregamento_ms), medianaCarregamentoSaiuRapidoMs: ou(r.mediana_carregamento_saiu_rapido),
     }));
   return { erro: null, linhas: ordenarEngajamento(linhas) };
+}
+
+/** Custo por lead no grupo (055): gasto na Meta e leads que entraram no grupo, por dia e funil. */
+export async function custoNoGrupo(lancamentoId: number): Promise<{ erro: string | null; resumo: ResumoCusto | null }> {
+  const { data, error } = await db().rpc("custo_grupo_dia", { p_lancamento: lancamentoId });
+  if (error) return { erro: error.message, resumo: null };
+  const linhas = ((data ?? []) as { dia: string; funil: Funil; investimento: unknown; leads: unknown; no_grupo: unknown }[])
+    .map((r) => ({ dia: String(r.dia).slice(0, 10), funil: r.funil, investimento: Number(r.investimento ?? 0), leads: Number(r.leads ?? 0), noGrupo: Number(r.no_grupo ?? 0) }));
+  return { erro: null, resumo: resumirCusto(linhas) };
 }
