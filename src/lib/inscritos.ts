@@ -12,7 +12,7 @@ export const SITES_INSCRITOS = [
   { site: "Gen-Jubilados", rotulo: "Gen-Jubilados" },
 ] as const;
 
-export const VARIACOES_INSCRITOS = ["/", "/v1", "/v2", "/v3", "/v4", "/v5", "/v6"] as const;
+export const VARIACOES_INSCRITOS = ["/", "/v1", "/v2", "/v3", "/v4", "/v5", "/v6", "/v7"] as const;
 
 /** País pelo DDI do WhatsApp (o mesmo critério da planilha "Pagina_captura"). */
 export const PAISES_INSCRITOS = [

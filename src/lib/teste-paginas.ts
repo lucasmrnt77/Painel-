@@ -7,7 +7,7 @@ import type { LinhaFunil } from "./metricas-paginas";
 import type { Linha as LinhaAnuncio } from "./anuncios";
 
 export const SITES_TESTE = ["General", "Trader", "Jubilar", "Gen-Jubilados"] as const;
-export const VARIACOES_TESTE = ["/", "/v1", "/v2", "/v3", "/v4", "/v5", "/v6"] as const;
+export const VARIACOES_TESTE = ["/", "/v1", "/v2", "/v3", "/v4", "/v5", "/v6", "/v7"] as const;
 
 /** Mínimos para ganhar a ★ (evita vencer com poucos dados). */
 export const MIN_VISITAS_TESTE = 100;
