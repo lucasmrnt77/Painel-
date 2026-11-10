@@ -359,6 +359,8 @@ export const ES_CAPTACAO: Dic = {
     "Falta conectar el webhook de Sendflow de la campaña OP - FUTUROS al panel; con él, esta pantalla muestra quién entró y quién salió del grupo.",
   "{n} pessoa(s) se inscreveram mais de 1 vez nos últimos 7 dias.": "{n} persona(s) se inscribieron más de 1 vez en los últimos 7 días.",
   "Inscrições por dia — últimos 30 dias (horário do Uruguai)": "Inscripciones por día — últimos 30 días (horario de Uruguay)",
+  "entraram no grupo": "entraron al grupo",
+  "{e} de {b}": "{e} de {b}",
   "Inscrições por dia": "Inscripciones por día",
   "Anúncio (utm_content) · 7 dias": "Anuncio (utm_content) · 7 días",
   "Público / conjunto (utm_source) · 7 dias": "Público / conjunto (utm_source) · 7 días",

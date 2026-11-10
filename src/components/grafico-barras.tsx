@@ -3,13 +3,19 @@
 import { useState } from "react";
 import { useT } from "@/lib/i18n/cliente";
 
-export type Ponto = { chave: string; rotulo: string; rotuloLongo: string; n: number };
+export type Ponto = {
+  chave: string; rotulo: string; rotuloLongo: string; n: number;
+  /** Taxa opcional do dia (0–1), mostrada no balão e na tabela. Ex.: % dos inscritos do dia que entraram no grupo. */
+  taxa?: number | null;
+  /** Detalhe da taxa (ex.: "8 de 9"). */
+  taxaDetalhe?: string;
+};
 
 /**
  * Barras verticais de uma série só (quantidade por dia ou por hora).
  * Passe o mouse/foco numa barra para ver o valor; a área de toque é a coluna inteira.
  */
-export function GraficoBarras({ pontos, titulo, unidade }: { pontos: Ponto[]; titulo: string; unidade: string }) {
+export function GraficoBarras({ pontos, titulo, unidade, rotuloTaxa }: { pontos: Ponto[]; titulo: string; unidade: string; rotuloTaxa?: string }) {
   const t = useT();
   const [ativo, setAtivo] = useState<number | null>(null);
   const max = Math.max(1, ...pontos.map((p) => p.n));
@@ -56,6 +62,11 @@ export function GraficoBarras({ pontos, titulo, unidade }: { pontos: Ponto[]; ti
               style={{ left: `${((ativo + 0.5) / pontos.length) * 100}%` }}
             >
               <strong className="tabular text-sm">{p.n}</strong> <span className="text-zinc-500">{unidade} · {p.rotuloLongo}</span>
+              {rotuloTaxa && p.n > 0 && (
+                <div className="tabular mt-0.5 text-emerald-600 dark:text-emerald-400">
+                  {p.taxa == null ? `— ${rotuloTaxa}` : `${(100 * p.taxa).toFixed(0)}% ${rotuloTaxa}`}{p.taxaDetalhe ? ` (${p.taxaDetalhe})` : ""}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -70,7 +81,10 @@ export function GraficoBarras({ pontos, titulo, unidade }: { pontos: Ponto[]; ti
         <table className="tabular mt-2 w-full max-w-xs">
           <tbody>
             {pontos.map((pt) => (
-              <tr key={pt.chave} className="border-b border-zinc-100 dark:border-zinc-800"><td className="py-0.5">{pt.rotuloLongo}</td><td className="py-0.5 text-right">{pt.n}</td></tr>
+              <tr key={pt.chave} className="border-b border-zinc-100 dark:border-zinc-800">
+                <td className="py-0.5">{pt.rotuloLongo}</td><td className="py-0.5 text-right">{pt.n}</td>
+                {rotuloTaxa && <td className="py-0.5 pl-3 text-right">{pt.n > 0 && pt.taxa != null ? `${(100 * pt.taxa).toFixed(0)}%` : "—"}</td>}
+              </tr>
             ))}
           </tbody>
         </table>

@@ -9,6 +9,7 @@ import type { DadosOp } from "@/lib/op-futuros";
 import { montarHref } from "@/components/ui";
 import type { SituacaoMonitor } from "@/lib/dados";
 import { tradutor } from "@/lib/i18n/servidor";
+import { diaUY } from "@/lib/recuperacao";
 
 const filtro = (chave: string) => (v: string | null) => (v ? `/grupo?periodo=7d&${chave}=${encodeURIComponent(v)}` : "/grupo?periodo=7d");
 
@@ -19,6 +20,21 @@ export async function VisaoGrupo({ d, monitor, op }: { d: DadosCampanhaGrupo; mo
   const pctBase = (n: number) => (r.base ? t("{p}% dos inscritos", { p: Math.round((100 * n) / r.base) }) : undefined);
   const lk = (status?: string) => montarHref("/inscricoes", { l: "op-futuros", status });
   const media = d.mediaSemana.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  // Taxa por dia da inscrição: % dos inscritos do dia que entraram no grupo (ficou ou saiu depois).
+  // Só quem conta nas taxas (depois do corte do webhook) e já passou do tempo de espera ("aguardando" fica de fora).
+  const porDia = new Map<string, { base: number; entraram: number }>();
+  for (const l of op.leads) {
+    if (!l.conta || l.status === "aguardando" || l.status === "sem_dado") continue;
+    const k = diaUY(l.inscrito_em);
+    const x = porDia.get(k) ?? { base: 0, entraram: 0 };
+    x.base += 1;
+    if (l.status === "no_grupo" || l.status === "saiu") x.entraram += 1;
+    porDia.set(k, x);
+  }
+  const serieComTaxa = d.serie.map((p) => {
+    const x = porDia.get(p.chave);
+    return x && x.base > 0 ? { ...p, taxa: x.entraram / x.base, taxaDetalhe: t("{e} de {b}", { e: x.entraram, b: x.base }) } : { ...p, taxa: null };
+  });
   return (
     <>
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -69,7 +85,8 @@ export async function VisaoGrupo({ d, monitor, op }: { d: DadosCampanhaGrupo; mo
       </section>
 
       <Cartao titulo={t("Inscrições por dia — últimos 30 dias (horário do Uruguai)")}>
-        <GraficoBarras pontos={d.serie} titulo={t("Inscrições por dia")} unidade={t("inscrições")} />
+        <GraficoBarras pontos={serieComTaxa} titulo={t("Inscrições por dia")} unidade={t("inscrições")}
+          rotuloTaxa={op.webhookLigado ? t("entraram no grupo") : undefined} />
       </Cartao>
 
       <div className="grid gap-3 lg:grid-cols-3">
