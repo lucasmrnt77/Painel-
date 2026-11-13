@@ -43,6 +43,7 @@ const MENU: Grupo[] = [
       { href: "/base-leads/tpp", rotulo: "TPP → Expert Trader", icone: "tendencia" },
       { href: "/eventos", rotulo: "Sendflow e importação", icone: "camadas" },
       { href: "/lancamentos", rotulo: "Lançamentos", icone: "calendario" },
+      { href: "/linhas", rotulo: "Linhas telefônicas", icone: "chat" },
     ],
   },
   {
