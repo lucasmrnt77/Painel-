@@ -252,6 +252,22 @@ export function ritmoDaLeitura(l: LeituraConta, historico: LeituraConta[], horaI
   return { ritmo: gasto / esperado, esperado, fracao, fonte, porCampanha };
 }
 
+/**
+ * A conta não gastou nada entre as duas leituras? Compara CAMPANHA POR CAMPANHA (10/11/2026): trocar campanhas no
+ * meio do dia (pausar as antigas, criar novas) tirava o gasto das pausadas da soma e a conta "parecia" parada.
+ *  - gasto no período = o que cada campanha ativa agora gastou a mais desde a leitura anterior (campanha nova: tudo
+ *    o que já gastou hoje); campanha pausada no meio do caminho não puxa nada para baixo;
+ *  - só conta como parada se havia campanha com orçamento ativa nas DUAS leituras (campanhas novas ainda em análise
+ *    ou agendadas, sozinhas, não são "conta parada").
+ */
+export function contaParada(atual: LeituraConta, antes: LeituraConta): boolean {
+  const gastoAntes = new Map(antes.campanhas.map((c) => [c.id, c.gastoHoje]));
+  const emAmbas = atual.campanhas.filter((c) => c.orcamentoDia > 0 && gastoAntes.has(c.id));
+  if (emAmbas.length === 0) return false;
+  const gastoNoPeriodo = atual.campanhas.reduce((s, c) => s + Math.max(0, c.gastoHoje - (gastoAntes.get(c.id) ?? 0)), 0);
+  return gastoNoPeriodo < PARADA_GASTO_MINIMO;
+}
+
 export function avaliarConta(e: {
   lancamentoId: number; nome: string; horaInicio: number;
   atual: LeituraConta;
@@ -335,13 +351,13 @@ export function avaliarConta(e: {
     }
   }
 
-  // Conta parada: a soma das campanhas ativas não gastou nada em ~2 h (uma vez a cada 2 h enquanto continuar parada)
+  // Conta parada: as campanhas ativas não gastaram nada em ~2 h, campanha por campanha (contaParada) (uma vez a cada 2 h enquanto continuar parada)
   if (orcamento > 0 && horaLocal(new Date(atual.lidoEm)) >= PARADA_HORA_INICIO) {
     const antes = [...historico].reverse().find((l) => {
       const dt = (tAtual - new Date(l.lidoEm).getTime()) / 60_000;
       return dt >= PARADA_MIN - 10 && dt <= PARADA_MIN + 30 && diaLocal(new Date(l.lidoEm)) === hoje;
     });
-    if (antes && antes.status === 1 && somaOrcamento(antes) > 0 && somaGasto(atual) - somaGasto(antes) < PARADA_GASTO_MINIMO) {
+    if (antes && antes.status === 1 && somaOrcamento(antes) > 0 && contaParada(atual, antes)) {
       saida.push(alerta("ads_conta_sem_gasto", `ads_conta_sem_gasto:${id}:${hoje}:${Math.floor(minutosDoDia(new Date(atual.lidoEm)) / PARADA_MIN)}`, e.nome,
         { moeda, gasto: somaGasto(atual), orcamento, campanhas: atual.campanhas.filter((c) => c.orcamentoDia > 0).length,
           minutos: Math.round((tAtual - new Date(antes.lidoEm).getTime()) / 60_000), lido_em: atual.lidoEm }));

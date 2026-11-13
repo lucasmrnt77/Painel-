@@ -177,3 +177,25 @@ test("orçamento na Meta diferente do planejado: alerta só na 2ª leitura segui
   assert.deepEqual(avaliarConta(ctxPlan(segunda, [...hist, primeira], 275)), []);
   assert.deepEqual(avaliarConta(ctxPlan(segunda, [...hist, primeira], null)), []);
 });
+
+test("trocar campanhas no meio do dia (pausar antigas, criar novas): NÃO alerta — a soma cai, mas a conta está gastando", () => {
+  // 10/11/2026: às 10h havia 4 campanhas (US$ 337); às 12h as pausadas saíram da soma (US$ 225) → alarme falso
+  const c = (id: string, gastoHoje: number) => ({ id, nome: `[PC][LEADS][DEZ26][AR][General] ${id}`, orcamentoDia: 136, gastoHoje });
+  const antes = leitura("2026-12-06", 10, 7, undefined, { campanhas: [c("1", 40), c("2", 47), c("3", 120), c("4", 130)] });
+  const atual = leitura("2026-12-06", 12, 7, undefined, { campanhas: [c("1", 55), c("2", 60), c("5", 0)] });
+  assert.deepEqual(avaliarConta(ctx(atual, [...historicoNormal(), antes])).filter((a) => a.tipo === "ads_conta_sem_gasto"), []);
+});
+
+test("só campanhas novas (ainda em análise) depois de pausar todas as antigas: não é conta parada", () => {
+  const c = (id: string, gastoHoje: number) => ({ id, nome: `[PC][LEADS][DEZ26][AR][General] ${id}`, orcamentoDia: 136, gastoHoje });
+  const antes = leitura("2026-12-06", 10, 7, undefined, { campanhas: [c("1", 40), c("2", 47)] });
+  const atual = leitura("2026-12-06", 12, 7, undefined, { campanhas: [c("7", 0), c("8", 0)] });
+  assert.deepEqual(avaliarConta(ctx(atual, [...historicoNormal(), antes])).filter((a) => a.tipo === "ads_conta_sem_gasto"), []);
+});
+
+test("campanhas que já existiam pararam de gastar, mesmo com outra pausada no meio: alerta", () => {
+  const c = (id: string, gastoHoje: number) => ({ id, nome: `[PC][LEADS][DEZ26][AR][General] ${id}`, orcamentoDia: 136, gastoHoje });
+  const antes = leitura("2026-12-06", 10, 7, undefined, { campanhas: [c("1", 40), c("2", 47), c("3", 80)] });
+  const atual = leitura("2026-12-06", 12, 7, undefined, { campanhas: [c("1", 40), c("2", 47.2)] });
+  assert.equal(avaliarConta(ctx(atual, [...historicoNormal(), antes])).filter((a) => a.tipo === "ads_conta_sem_gasto").length, 1);
+});

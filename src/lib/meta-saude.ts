@@ -54,10 +54,18 @@ async function testes24h(): Promise<Record<string, number>> {
 async function nossos24h(): Promise<Record<string, number> | null> {
   try {
     const desde = new Date(Date.now() - 86_400_000).toISOString();
-    const { data, error } = await db().from("eventos_meta").select("event_name").eq("teste", false).eq("status", "enviado").gte("criado_em", desde).limit(20000);
-    if (error) throw error;
+    // Lê em páginas de 1.000: o Supabase devolve no máximo 1.000 linhas por consulta (o .limit(20000) não passava disso).
+    // Com mais de 1.000 eventos em 24 h, a contagem saía cortada e o alerta acusava "Meta com MAIS" (13/11/2026:
+    // 1.093 eventos → Lead Jubilado contado como 80 quando foram 94).
     const c: Record<string, number> = {};
-    for (const x of (data ?? []) as { event_name: string }[]) c[x.event_name] = (c[x.event_name] ?? 0) + 1;
+    for (let de = 0; de < 50_000; de += 1000) {
+      const { data, error } = await db().from("eventos_meta").select("event_name").eq("teste", false).eq("status", "enviado")
+        .gte("criado_em", desde).order("id", { ascending: true }).range(de, de + 999);
+      if (error) throw error;
+      const lote = (data ?? []) as { event_name: string }[];
+      for (const x of lote) c[x.event_name] = (c[x.event_name] ?? 0) + 1;
+      if (lote.length < 1000) break;
+    }
     if (grupoConfigurado()) {
       const g = await rpcGrupo<{ total: number }>("painel_resumo", { p_desde: desde, p_ate: null, p_pais: null, p_source: null, p_campaign: null, p_content: null });
       c.Lead = (c.Lead ?? 0) + (Number(g.total) || 0);
