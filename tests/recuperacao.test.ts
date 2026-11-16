@@ -72,3 +72,14 @@ test("recuperação: funil, período e série do gráfico (30/10)", async () => 
   assert.equal(sete[2].recebidos, 1); // 26/10
   assert.equal(sete[1].taxa, null); // dia sem envio
 });
+
+test("recuperação: telefones da consulta 'já está no grupo?'", async () => {
+  const { lerTelefonesConsulta } = await import("../src/lib/recuperacao");
+  const r = lerTelefonesConsulta({ telefones: ["59899123456", "+54 9 11 6410-9699", "123", 5491164109699, "59899123456", null] });
+  assert.deepEqual(r, [
+    { telefone: "59899123456", chave: "99123456" },
+    { telefone: "+54 9 11 6410-9699", chave: "64109699" },
+    { telefone: "5491164109699", chave: "64109699" },
+  ]);
+  assert.deepEqual(lerTelefonesConsulta({}), []);
+});

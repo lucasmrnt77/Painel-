@@ -152,3 +152,26 @@ export function serieRecuperacao(linhas: LinhaRecuperacao[], p: PeriodoRec, agor
     return { chave: k, rotulo, ...g, taxa: g.recebidos ? g.entraram / g.recebidos : null };
   });
 }
+
+/**
+ * Consulta "já está no grupo?" antes da recuperação (16/11/2026). O Apps Script do chequeo manda os telefones
+ * que vai recuperar; o painel devolve quais já entraram num grupo do lançamento (webhook do Sendflow), para
+ * não gastar template nem arriscar bloqueio do número. Lê { telefones: [...] } (até 500); devolve
+ * telefone original + chave (últimos 8 dígitos, a mesma do banco). Telefone inválido fica fora.
+ */
+export const MAX_CONSULTA_GRUPO = 500;
+export function lerTelefonesConsulta(corpo: Record<string, unknown>): { telefone: string; chave: string }[] {
+  const lista = Array.isArray(corpo.telefones) ? corpo.telefones : [];
+  const vistos = new Set<string>();
+  const out: { telefone: string; chave: string }[] = [];
+  for (const v of lista.slice(0, MAX_CONSULTA_GRUPO)) {
+    const telefone = typeof v === "number" ? String(Math.trunc(v)) : typeof v === "string" ? v.trim() : "";
+    const d = telefone.replace(/\D/g, "");
+    if (d.length < 8 || d.length > 15) continue;
+    const chave = d.slice(-8);
+    if (vistos.has(telefone)) continue;
+    vistos.add(telefone);
+    out.push({ telefone, chave });
+  }
+  return out;
+}
