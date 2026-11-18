@@ -24,6 +24,7 @@ const MENU: Grupo[] = [
       { href: "/inscritos", rotulo: "Inscritos", icone: "pessoas" },
       { href: "/inscricoes", rotulo: "Inscritos x grupo", icone: "pessoas" },
       { href: "/analise", rotulo: "Análise", icone: "grafico" },
+      { href: "/anuncios", rotulo: "Decisão por anúncio", icone: "tendencia" },
       { href: "/paginas", rotulo: "Páginas", icone: "camadas" },
       { href: "/recuperacao", rotulo: "Recuperação", icone: "chat" },
     ],
