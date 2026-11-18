@@ -20,7 +20,11 @@ function paginaSemGrupo() {
 export async function atenderFunil(req: Request, funil: string, contar: boolean): Promise<Response | null> {
   const url = new URL(req.url)
   const origem = [url.searchParams.get("utm_source"), url.searchParams.get("utm_campaign"), url.searchParams.get("src")].filter(Boolean).join(" | ") || null
-  const { data, error } = await db().rpc("redir_clique", { p_funil: funil.toLowerCase(), p_origem: origem, p_contar: contar })
+  // ?i=<código da inscrição> (páginas de captura, 18/11/2026): a mesma pessoa volta sempre ao mesmo grupo; sem código, igual a antes
+  const ident = url.searchParams.get("i")
+  const { data, error } = await db().rpc("redir_clique", {
+    p_funil: funil.toLowerCase(), p_origem: origem, p_contar: contar, p_ident: ident && ident.length <= 64 ? ident : null,
+  })
   if (error) {
     console.error("[redir] clique", error)
     return paginaSemGrupo()

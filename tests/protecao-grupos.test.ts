@@ -14,3 +14,9 @@ test("alerta de intrusos lista os números e o grupo, e vai para o WhatsApp", ()
   assert.match(m, /\+5493435063104\n\+5493624123451\n\+5493624694837/);
   assert.equal(monitorVaiProWhatsapp("intrusos_grupo"), true);
 });
+
+test("alerta de intrusos avisa que os números foram bloqueados e pede para redefinir o link", () => {
+  const m = mensagemAlerta("intrusos_grupo", "L", { grupo: "G", inicio: "2026-11-17T21:25:13Z", telefones: ["1", "2", "3"] });
+  assert.match(m, /bloqueados no redirecionador/);
+  assert.match(m, /Redefinir link/);
+});
