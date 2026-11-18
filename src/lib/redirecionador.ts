@@ -189,8 +189,8 @@ export async function despacharAlertas() {
     .in("id", ids).is("alertado_em", null).select("id")
   const meus = new Set(((marcados ?? []) as { id: number }[]).map((m) => m.id))
   const { data: funis } = await db().from("redir_funis").select("slug, nome, link_reserva")
-  const { data: grupos } = await db().from("redir_grupos").select("id, funil, nome, titulo_whatsapp, codigo, status, cliques, ordem").order("ordem").order("id")
-  const lg = (grupos ?? []) as Pick<Grupo, "id" | "funil" | "nome" | "titulo_whatsapp" | "codigo" | "status" | "cliques" | "ordem">[]
+  const { data: grupos } = await db().from("redir_grupos").select("id, funil, nome, titulo_whatsapp, codigo, status, cliques, ordem, sendflow_gid").order("ordem").order("id")
+  const lg = (grupos ?? []) as Pick<Grupo, "id" | "funil" | "nome" | "titulo_whatsapp" | "codigo" | "status" | "cliques" | "ordem" | "sendflow_gid">[]
   let enviados = 0
   const modelos = await modelosAlertas()
   for (const e of eventos.filter((x) => meus.has(x.id))) {
@@ -198,8 +198,15 @@ export async function despacharAlertas() {
     const g = lg.find((x) => x.id === e.grupo_id)
     const proximo = lg.find((x) => x.funil === e.funil && x.status === "ativo")
     const nomeG = (x?: typeof g) => (x ? x.nome || x.titulo_whatsapp || `grupo #${x.id}` : "—")
+    // Convite inválido (possível suspensão): quantas pessoas estavam no grupo
+    let membros: number | undefined
+    if (e.tipo === "invalido" && g?.sendflow_gid) {
+      const { count } = await db().from("membros_grupo").select("id", { count: "exact", head: true }).eq("grupo_id", `${g.sendflow_gid}@g.us`)
+      if (typeof count === "number") membros = count
+    }
     const texto = mensagemRedirecionador(e.tipo, f?.nome ?? e.funil, {
       ...e.detalhe,
+      ...(membros !== undefined ? { membros } : {}),
       grupo: nomeG(g),
       proximo: proximo ? `${nomeG(proximo)} (${proximo.cliques} cliques)` : null,
       restantes: lg.filter((x) => x.funil === e.funil && x.status === "ativo").length,

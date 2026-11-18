@@ -13,7 +13,7 @@ test("redirecionador: só o que precisa de ajuste", () => {
   for (const t of ["sem_grupos", "redefinicao_sem_retorno", "redefinicao_falhou"]) assert.equal(redirecionadorVaiProWhatsapp(t, true), true, t);
   assert.equal(redirecionadorVaiProWhatsapp("cheio", true), false);
   assert.equal(redirecionadorVaiProWhatsapp("cheio", false), true);
-  assert.equal(redirecionadorVaiProWhatsapp("invalido", true), false);
+  assert.equal(redirecionadorVaiProWhatsapp("invalido", true), true); // possível suspensão: sempre
   assert.equal(redirecionadorVaiProWhatsapp("invalido", false), true);
   assert.equal(redirecionadorVaiProWhatsapp("link_novo", false), false);
 });

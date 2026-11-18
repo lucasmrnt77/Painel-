@@ -76,7 +76,10 @@ export function mensagemRedirecionador(tipo: string, funil: string, d: Record<st
     linha_proximo: d.proximo ? `Agora os cliques vão para *${d.proximo}*.` : "⚠️ Não há outro grupo disponível na fila!",
     linha_fila: typeof d.restantes === "number" ? `Grupos ativos na fila: ${d.restantes}.` : "",
   }
-  if (tipo === "cheio" || tipo === "invalido") return montar(tipo, base, modelos)
+  if (tipo === "invalido") {
+    return montar(tipo, { ...base, linha_membros: typeof d.membros === "number" ? `Pessoas que entraram no grupo: ${d.membros}.` : "" }, modelos)
+  }
+  if (tipo === "cheio") return montar(tipo, base, modelos)
   if (tipo === "link_novo") return montar(tipo, { ...base, do_sendflow: d.origem === "sendflow" ? " do Sendflow" : "" }, modelos)
   if (tipo === "sem_grupos") {
     return montar(tipo, { funil, destino: d.reserva ? `o link reserva (${d.reserva}).` : "lugar nenhum (sem link reserva)." }, modelos)

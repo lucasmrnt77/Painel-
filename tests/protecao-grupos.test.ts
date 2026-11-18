@@ -20,3 +20,13 @@ test("alerta de intrusos avisa que os números foram bloqueados e pede para rede
   assert.match(m, /bloqueados no redirecionador/);
   assert.match(m, /Redefinir link/);
 });
+
+test("convite inválido (possível suspensão) sempre vai ao WhatsApp, com o número de membros", async () => {
+  const { redirecionadorVaiProWhatsapp } = await import("../src/lib/politica-alertas");
+  const { mensagemRedirecionador } = await import("../src/lib/mensagens");
+  assert.equal(redirecionadorVaiProWhatsapp("invalido", true), true);
+  const m = mensagemRedirecionador("invalido", "Geral", { grupo: "#49", membros: 283, proximo: "#47 (0 cliques)", restantes: 3 }) ?? "";
+  assert.match(m, /suspensão do grupo pelo WhatsApp/);
+  assert.match(m, /Pessoas que entraram no grupo: 283\./);
+  assert.match(m, /Agora os cliques vão para \*#47/);
+});
