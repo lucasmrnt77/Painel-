@@ -115,7 +115,7 @@ export default async function GruposRedirecionador({ searchParams }: PageProps<"
                       <div className="text-zinc-500">{hora(g.verificado_em)}</div>
                       {g.titulo_whatsapp && <div className="max-w-[160px] truncate text-zinc-500" title={g.titulo_whatsapp}>“{g.titulo_whatsapp}”</div>}
                     </td>
-                    <td className={td}><AcoesGrupo id={g.id} status={g.status} temSendflow={!!g.sendflow_group_id} /></td>
+                    <td className={td}><AcoesGrupo id={g.id} status={g.status} temSendflow={!!g.sendflow_group_id} gid={g.sendflow_gid} nome={g.nome ?? g.titulo_whatsapp} /></td>
                   </tr>
                 );
               })}

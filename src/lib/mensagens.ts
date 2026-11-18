@@ -44,6 +44,13 @@ export function mensagemAlerta(tipo: string, lancamento: string, dados: Record<s
   if (tipo === "planilha_parada") {
     return montar(tipo, { lancamento, tempo: duracao(Number(dados.minutos_parada)), ultima_busca: diaHora(dados.ultima_em as string) }, modelos);
   }
+  if (tipo === "intrusos_grupo") {
+    const tel = (dados.telefones as string[] | undefined) ?? [];
+    return montar(tipo, {
+      lancamento, grupo: String(dados.grupo ?? "—"), quantidade: tel.length, hora: hora(dados.inicio as string),
+      telefones: tel.map((t) => `+${t}`).join("\n"),
+    }, modelos);
+  }
   if (tipo === "leads_retomados") {
     return montar(tipo, { lancamento, retomada_em: diaHora(dados.retomada_em as string), tempo: duracao(Number(dados.minutos_sem_lead)) }, modelos);
   }

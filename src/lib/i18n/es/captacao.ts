@@ -114,6 +114,7 @@ export const ES_CAPTACAO: Dic = {
   "Sem leads": "Sin leads",
   "Leads retomados": "Leads retomados",
   "Planilha parada": "Planilla detenida",
+  "Intrusos no grupo": "Intrusos en el grupo",
   "Grupo cheio": "Grupo lleno",
   "Convite inválido": "Invitación inválida",
   "Sem grupos": "Sin grupos",
@@ -465,6 +466,8 @@ export const ES_CAPTACAO: Dic = {
   "Remover": "Quitar",
   "Remover este grupo da lista?": "¿Quitar este grupo de la lista?",
   "Trocar link": "Cambiar link",
+  "Baixar membros": "Descargar miembros",
+  "E-mail e telefone de todos que entraram no grupo (para resgatar a base se o grupo cair)": "Email y teléfono de todos los que entraron al grupo (para rescatar la base si el grupo cae)",
   "Processando…": "Procesando…",
   "Salvar": "Guardar",
   // ações (server actions)

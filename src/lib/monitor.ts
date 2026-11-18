@@ -126,6 +126,26 @@ async function verificarPlanilhas(): Promise<unknown[]> {
   return criados;
 }
 
+/**
+ * Intrusos: 3+ números sem inscrição no lançamento entrando juntos no mesmo grupo (< 2 min entre eles).
+ * Foi o que aconteceu no #49 cinco minutos antes da suspensão (17/11/2026). Um alerta por rajada.
+ */
+async function verificarIntrusos(l: Lanc): Promise<unknown[]> {
+  const { data, error } = await db().rpc("intrusos_grupo", { p_lancamento: l.id, p_minutos: 30 });
+  if (error) {
+    console.error("[monitor] intrusos", error.message); // antes da migração 062
+    return [];
+  }
+  const criados: unknown[] = [];
+  for (const r of (data ?? []) as { grupo_id: string; grupo_nome: string | null; inicio: string; fim: string; telefones: string[] }[]) {
+    const c = await criarEEnviar(l, "intrusos_grupo", `intrusos:${r.grupo_id}:${Math.floor(new Date(r.inicio).getTime() / 1000)}`, {
+      grupo: r.grupo_nome ?? r.grupo_id, grupo_id: r.grupo_id, inicio: r.inicio, fim: r.fim, telefones: r.telefones,
+    });
+    if (c) criados.push(c);
+  }
+  return criados;
+}
+
 /** Roda uma rodada do monitor para todos os lançamentos com monitor ligado. */
 export async function executarMonitor() {
   const { data, error } = await db()
@@ -148,6 +168,7 @@ export async function executarMonitor() {
       const c = await criarEEnviar(l, a.tipo, a.chave, a.dados);
       if (c) criados.push(c);
     }
+    if (l.tipo !== "grupo_gratuito") criados.push(...(await verificarIntrusos(l)));
   }
   criados.push(...(await verificarPlanilhas()));
   return { lancamentos: (data ?? []).length, alertas: criados };

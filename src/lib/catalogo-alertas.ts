@@ -161,6 +161,26 @@ export const CATALOGO: ItemCatalogo[] = [
     exemplo: (m?: Modelos) => mensagemAlerta("leads_retomados", "OP Futuros", { retomada_em: H(15, 30), minutos_sem_lead: 1700 }, m),
   },
 
+  {
+    tipo: "intrusos_grupo", area: "lancamento", envio: "whatsapp",
+    nome: { pt: "Intrusos no grupo", es: "Intrusos en el grupo" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: {
+      pt: "3 ou mais números que não se inscreveram no lançamento entraram no mesmo grupo com menos de 2 min entre um e outro (conferido a cada 2 min, com 3 min de folga para a inscrição chegar).",
+      es: "3 o más números que no se inscribieron en el lanzamiento entraron al mismo grupo con menos de 2 min entre uno y otro (revisado cada 2 min, con 3 min de margen para que llegue la inscripción).",
+    },
+    repeticao: { pt: "Uma vez por rajada.", es: "Una vez por ráfaga." },
+    diagnostico: {
+      pt: "O link do grupo vazou ou alguém está colocando números de fora. Esses números costumam mandar spam ou denunciar o grupo — no #49 entraram 4 em 32 s e o grupo foi suspenso 5 min depois.",
+      es: "El link del grupo se filtró o alguien está metiendo números de afuera. Esos números suelen mandar spam o denunciar el grupo — en el #49 entraron 4 en 32 s y el grupo fue suspendido 5 min después.",
+    },
+    verificar: {
+      pt: ["Abrir o grupo e ver se esses números postaram algo.", "Se não forem inscritos reais: remover do grupo e denunciar.", "Se a rajada se repetir no mesmo grupo: redefinir o link no Sendflow."],
+      es: ["Abrir el grupo y ver si esos números publicaron algo.", "Si no son inscritos reales: sacarlos del grupo y denunciarlos.", "Si la ráfaga se repite en el mismo grupo: redefinir el link en Sendflow."],
+    },
+    exemplo: (m?: Modelos) => mensagemAlerta("intrusos_grupo", "Lanzamiento Diciembre", { grupo: "La Semana del Inversionista #49", inicio: H(18, 25), telefones: ["5493435063104", "5493624123451", "5493624694837", "5493644675056"] }, m),
+  },
+
   // ------------------------------------------------------------------ Planilhas
   {
     tipo: "planilha_parada", area: "planilha", envio: "whatsapp",

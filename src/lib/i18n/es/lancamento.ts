@@ -307,6 +307,7 @@ export const ES_LANCAMENTO: Dic = {
   "Sem leads": "Sin leads",
   "Leads retomados": "Leads retomados",
   "Planilha parada": "Planilla detenida",
+  "Intrusos no grupo": "Intrusos en el grupo",
   "enviado": "enviado",
   "envio parcial": "envío parcial",
   "falhou": "falló",

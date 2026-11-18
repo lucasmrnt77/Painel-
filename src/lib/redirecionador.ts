@@ -23,6 +23,14 @@ const CONSULTA_GRUPOS_MIN = 10 // min entre consultas de grupos por campanha
 const VERIFICAR_PARADO_MIN = 15 // confere o grupo da vez mesmo sem cliques
 const ESPERA_LINK_NOVO_MIN = 30 // depois disso, avisa que o Sendflow não devolveu
 
+export const MOTIVO_RECUSA = "Sendflow recusou"
+/** Tira a mensagem do JSON de erro do Sendflow ({"message":"…"}); senão devolve o texto como veio. */
+export function textoRecusa(resposta: unknown): string {
+  const s = resposta == null ? "" : String(resposta)
+  try { const j = JSON.parse(s) as { message?: string }; if (j?.message) return j.message } catch { /* não é JSON */ }
+  return s
+}
+
 const minutosDesde = (iso: string | null) => (iso ? (Date.now() - new Date(iso).getTime()) / 60000 : Infinity)
 
 async function evento(funil: string, grupoId: number | null, tipo: string, detalhe: Record<string, unknown>, alertar = false) {
@@ -72,7 +80,13 @@ export async function solicitarRedefinicao(grupoId: number, manual = false): Pro
   }
   const r = await pedirNovoConvite(f.sendflow_release_id, [grupo.sendflow_gid])
   if (!r.ok) {
-    await evento(grupo.funil, grupo.id, "redefinicao_falhou", { http: r.http, resposta: r.resposta, manual }, true)
+    // Recusa do Sendflow (4xx, ex.: "Conta … não encontrada!", grupo suspenso): não adianta repetir a cada 2 min.
+    // Marca o grupo, alerta UMA vez e o cron para de pedir; o botão "Atualizar link" continua tentando à mão.
+    const jaRecusado = grupo.motivo?.startsWith(MOTIVO_RECUSA) ?? false
+    if (r.http && r.http >= 400 && r.http < 500 && r.http !== 429) {
+      await db().from("redir_grupos").update({ motivo: `${MOTIVO_RECUSA}: ${textoRecusa(r.resposta)}`.slice(0, 300), atualizado_em: new Date().toISOString() }).eq("id", grupo.id)
+    }
+    await evento(grupo.funil, grupo.id, "redefinicao_falhou", { http: r.http, resposta: r.resposta, manual }, manual || !jaRecusado)
     return { ok: false, mensagem: `O Sendflow recusou (${r.http ?? "rede"}): ${r.resposta ?? ""}` }
   }
   await db().from("redir_grupos").update({
@@ -151,7 +165,7 @@ export async function executarRedirecionador() {
     }
     // 2) inválidos que ainda não pediram link novo (ex.: o limite de 4/15 min estava cheio)
     if (f.auto_redefinir && f.sendflow_release_id) {
-      for (const g of todos.filter((x) => x.funil === f.slug && x.status === "invalido" && x.sendflow_group_id && !x.redefinicao_pedida_em)) {
+      for (const g of todos.filter((x) => x.funil === f.slug && x.status === "invalido" && x.sendflow_group_id && !x.redefinicao_pedida_em && !x.motivo?.startsWith(MOTIVO_RECUSA))) {
         const r = await solicitarRedefinicao(g.id)
         if (r.ok) pedidos++
         else break

@@ -179,7 +179,7 @@ const ACOES: Record<string, { rotulo: string; confirmar?: string }> = {
   remover: { rotulo: "Remover", confirmar: "Remover este grupo da lista?" },
 };
 
-export function AcoesGrupo({ id, status, temSendflow }: { id: number; status: string; temSendflow: boolean }) {
+export function AcoesGrupo({ id, status, temSendflow, gid, nome }: { id: number; status: string; temSendflow: boolean; gid?: string | null; nome?: string | null }) {
   const [estado, acao, pendente] = useActionState(acaoGrupo, undefined);
   const [trocando, setTrocando] = useState(false);
   const t = useT();
@@ -197,6 +197,12 @@ export function AcoesGrupo({ id, status, temSendflow }: { id: number; status: st
           <button key={op} name="op" value={op} disabled={pendente} className={botaoLeve}>{t(ACOES[op].rotulo)}</button>
         ))}
         <button type="button" className={botaoLeve} onClick={() => setTrocando(!trocando)}>{t("Trocar link")}</button>
+        {gid && (
+          <a className={botaoLeve} href={`/api/exportar/membros?gid=${encodeURIComponent(gid)}&nome=${encodeURIComponent(nome ?? "")}`}
+            title={t("E-mail e telefone de todos que entraram no grupo (para resgatar a base se o grupo cair)")}>
+            {t("Baixar membros")}
+          </a>
+        )}
       </form>
       {trocando && <FormTrocarLink id={id} />}
       {pendente ? <p className="text-xs text-zinc-500">{t("Processando…")}</p> : <Mensagem estado={estado} />}
