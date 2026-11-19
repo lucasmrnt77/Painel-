@@ -115,6 +115,7 @@ export const ES_CAPTACAO: Dic = {
   "Leads retomados": "Leads retomados",
   "Planilha parada": "Planilla detenida",
   "Intrusos no grupo": "Intrusos en el grupo",
+  "Recuperação sem efeito": "Recuperación sin efecto",
   "Grupo cheio": "Grupo lleno",
   "Convite inválido": "Invitación inválida",
   "Sem grupos": "Sin grupos",

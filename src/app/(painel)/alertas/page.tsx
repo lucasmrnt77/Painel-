@@ -35,6 +35,7 @@ const ROTULO_TIPO: Record<string, { rotulo: string; cor: string }> = {
   leads_retomados: { rotulo: "Leads retomados", cor: "text-emerald-600 dark:text-emerald-400" },
   planilha_parada: { rotulo: "Planilha parada", cor: "text-rose-600 dark:text-rose-400" },
   intrusos_grupo: { rotulo: "Intrusos no grupo", cor: "text-rose-600 dark:text-rose-400" },
+  recuperacao_sem_efeito: { rotulo: "Recuperação sem efeito", cor: "text-rose-600 dark:text-rose-400" },
   cheio: { rotulo: "Grupo cheio", cor: "text-amber-600 dark:text-amber-400" },
   invalido: { rotulo: "Convite inválido", cor: "text-rose-600 dark:text-rose-400" },
   sem_grupos: { rotulo: "Sem grupos", cor: "text-rose-600 dark:text-rose-400" },

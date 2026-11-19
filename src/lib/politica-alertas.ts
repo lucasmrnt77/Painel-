@@ -11,8 +11,9 @@ export function monitorVaiProWhatsapp(tipo: string): boolean {
   // teste: só quando alguém clica em "enviar teste" no painel
   // sem_leads: grupo gratuito sem lead novo na página no prazo configurado (padrão 24 h)
   // planilha_parada: a planilha unificada parou de buscar dados do painel (15 min)
+  // recuperacao_sem_efeito: 100 envios de recuperação seguidos sem ninguém entrar (linha do Unnichat bloqueada)
   // intrusos_grupo: 3+ números sem inscrição entraram juntos no mesmo grupo (risco de denúncia/suspensão)
-  return tipo === "sem_entradas" || tipo === "sem_leads" || tipo === "planilha_parada" || tipo === "teste" || tipo === "intrusos_grupo";
+  return tipo === "sem_entradas" || tipo === "sem_leads" || tipo === "planilha_parada" || tipo === "teste" || tipo === "intrusos_grupo" || tipo === "recuperacao_sem_efeito";
 }
 
 /** Redirecionador de grupos. `temProximo` = ainda há grupo ativo na fila. */

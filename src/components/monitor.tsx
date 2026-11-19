@@ -15,6 +15,7 @@ const ROTULO_ALERTA: Record<string, string> = {
   leads_retomados: "Leads retomados",
   planilha_parada: "Planilha parada",
   intrusos_grupo: "Intrusos no grupo",
+  recuperacao_sem_efeito: "Recuperação sem efeito",
 };
 const COR_ALERTA: Record<string, string> = {
   sem_entradas: "text-rose-700 dark:text-rose-400",
@@ -25,6 +26,7 @@ const COR_ALERTA: Record<string, string> = {
   leads_retomados: "text-emerald-700 dark:text-emerald-400",
   planilha_parada: "text-rose-700 dark:text-rose-400",
   intrusos_grupo: "text-rose-700 dark:text-rose-400",
+  recuperacao_sem_efeito: "text-rose-700 dark:text-rose-400",
 };
 const ROTULO_ENVIO: Record<string, string> = {
   enviado: "enviado", parcial: "envio parcial", falhou: "falhou", sem_envio: "só no painel", pendente: "enviando",

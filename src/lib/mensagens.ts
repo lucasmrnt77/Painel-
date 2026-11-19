@@ -44,6 +44,12 @@ export function mensagemAlerta(tipo: string, lancamento: string, dados: Record<s
   if (tipo === "planilha_parada") {
     return montar(tipo, { lancamento, tempo: duracao(Number(dados.minutos_parada)), ultima_busca: diaHora(dados.ultima_em as string) }, modelos);
   }
+  if (tipo === "recuperacao_sem_efeito") {
+    return montar(tipo, {
+      lancamento, envios: Number(dados.envios), desde: diaHora(dados.desde as string),
+      linha_ultima_entrada: dados.ultima_entrada_em ? `Última entrada depois de uma recuperação: ${diaHora(dados.ultima_entrada_em as string)}.` : "",
+    }, modelos);
+  }
   if (tipo === "intrusos_grupo") {
     const tel = (dados.telefones as string[] | undefined) ?? [];
     return montar(tipo, {

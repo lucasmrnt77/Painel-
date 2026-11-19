@@ -30,3 +30,11 @@ test("convite inválido (possível suspensão) sempre vai ao WhatsApp, com o nú
   assert.match(m, /Pessoas que entraram no grupo: 283\./);
   assert.match(m, /Agora os cliques vão para \*#47/);
 });
+
+test("recuperação sem efeito vai ao WhatsApp e diz quantos envios e desde quando", () => {
+  const m = mensagemAlerta("recuperacao_sem_efeito", "Lanzamiento Diciembre", { envios: 168, desde: "2026-11-19T00:21:00Z", ultima_entrada_em: "2026-11-19T00:14:00Z" });
+  assert.match(m, /\*168 mensagens\*/);
+  assert.match(m, /19\/11, 21:21|18\/11, 21:21/);
+  assert.match(m, /ninguém entrou no grupo/);
+  assert.equal(monitorVaiProWhatsapp("recuperacao_sem_efeito"), true);
+});

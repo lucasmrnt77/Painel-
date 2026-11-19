@@ -162,6 +162,25 @@ export const CATALOGO: ItemCatalogo[] = [
   },
 
   {
+    tipo: "recuperacao_sem_efeito", area: "lancamento", envio: "whatsapp",
+    nome: { pt: "Recuperação sem efeito", es: "Recuperación sin efecto" },
+    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    quando: {
+      pt: "100 mensagens de recuperação seguidas (com mais de 30 min) e ninguém entrou no grupo até 2 h depois de nenhuma delas. Conferido a cada 2 min.",
+      es: "100 mensajes de recuperación seguidos (con más de 30 min) y nadie entró al grupo hasta 2 h después de ninguno. Revisado cada 2 min.",
+    },
+    repeticao: { pt: "Uma vez por sequência (volta a valer depois que alguém entrar).", es: "Una vez por secuencia (vuelve a valer después de que alguien entre)." },
+    diagnostico: {
+      pt: "A taxa normal é ~5% de entrada. Em 18/11 a linha do Unnichat foi bloqueada às ~22h: o Unnichat seguia respondendo \"ok\", mas as mensagens não chegavam. Limite 100: no histórico, sequências normais sem entrada chegaram a 78; os bloqueios reais tiveram 168 e 376.",
+      es: "La tasa normal es ~5% de entrada. El 18/11 la línea de Unnichat fue bloqueada a las ~22h: Unnichat seguía respondiendo \"ok\", pero los mensajes no llegaban. Límite 100: en el historial, secuencias normales sin entrada llegaron a 78; los bloqueos reales tuvieron 168 y 376.",
+    },
+    verificar: {
+      pt: ["Status do número no Unnichat e no Gerenciador do WhatsApp (Meta): restrito, sinalizado ou desconectado.", "Enviar uma recuperação de teste para um número da equipe.", "Se bloqueado: trocar a linha da recuperação por um número de reserva."],
+      es: ["Estado del número en Unnichat y en el Administrador de WhatsApp (Meta): restringido, señalado o desconectado.", "Enviar una recuperación de prueba a un número del equipo.", "Si está bloqueado: cambiar la línea de la recuperación por un número de reserva."],
+    },
+    exemplo: (m?: Modelos) => mensagemAlerta("recuperacao_sem_efeito", "Lanzamiento Diciembre", { envios: 100, desde: H(21, 21), ultima_entrada_em: H(21, 14) }, m),
+  },
+  {
     tipo: "intrusos_grupo", area: "lancamento", envio: "whatsapp",
     nome: { pt: "Intrusos no grupo", es: "Intrusos en el grupo" },
     envioDetalhe: { pt: "Sempre.", es: "Siempre." },

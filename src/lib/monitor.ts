@@ -151,6 +151,25 @@ async function verificarIntrusos(l: Lanc): Promise<unknown[]> {
   return criados;
 }
 
+/**
+ * Recuperação sem efeito (19/11/2026): 100 envios seguidos sem ninguém entrar no grupo = linha do Unnichat
+ * provavelmente bloqueada (o Unnichat aceita o envio e a Meta recusa depois). Um alerta por sequência.
+ */
+async function verificarRecuperacao(l: Lanc): Promise<unknown[]> {
+  const { data, error } = await db().rpc("recuperacao_sem_efeito", { p_lancamento: l.id, p_minimo: 100 });
+  if (error) {
+    console.error("[monitor] recuperação sem efeito", error.message); // antes da migração 064
+    return [];
+  }
+  const r = ((data ?? []) as { desde: string; ultimo: string; envios: number; ultima_entrada_em: string | null }[])[0];
+  if (!r) return [];
+  const ancora = r.ultima_entrada_em ? Math.floor(new Date(r.ultima_entrada_em).getTime() / 1000) : 0;
+  const c = await criarEEnviar(l, "recuperacao_sem_efeito", `recuperacao_sem_efeito:${l.id}:${ancora}`, {
+    desde: r.desde, ultimo: r.ultimo, envios: r.envios, ultima_entrada_em: r.ultima_entrada_em,
+  });
+  return c ? [c] : [];
+}
+
 /** Roda uma rodada do monitor para todos os lançamentos com monitor ligado. */
 export async function executarMonitor() {
   const { data, error } = await db()
@@ -173,7 +192,10 @@ export async function executarMonitor() {
       const c = await criarEEnviar(l, a.tipo, a.chave, a.dados);
       if (c) criados.push(c);
     }
-    if (l.tipo !== "grupo_gratuito") criados.push(...(await verificarIntrusos(l)));
+    if (l.tipo !== "grupo_gratuito") {
+      criados.push(...(await verificarIntrusos(l)));
+      criados.push(...(await verificarRecuperacao(l)));
+    }
   }
   criados.push(...(await verificarPlanilhas()));
   return { lancamentos: (data ?? []).length, alertas: criados };
