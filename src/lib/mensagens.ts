@@ -85,6 +85,9 @@ export function mensagemRedirecionador(tipo: string, funil: string, d: Record<st
   if (tipo === "invalido") {
     return montar(tipo, { ...base, linha_membros: typeof d.membros === "number" ? `Pessoas que entraram no grupo: ${d.membros}.` : "" }, modelos)
   }
+  if (tipo === "parado_invalido") {
+    return montar(tipo, { ...base, estado: d.estado === "pausado" ? "pausado" : "cheio", linha_membros: typeof d.membros === "number" ? `Pessoas que entraram no grupo: ${d.membros}.` : "" }, modelos)
+  }
   if (tipo === "cheio") return montar(tipo, base, modelos)
   if (tipo === "link_novo") return montar(tipo, { ...base, do_sendflow: d.origem === "sendflow" ? " do Sendflow" : "" }, modelos)
   if (tipo === "sem_grupos") {

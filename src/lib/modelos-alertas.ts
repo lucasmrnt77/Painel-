@@ -32,6 +32,7 @@ export const MODELOS_PADRAO: Record<string, string> = {
   // Redirecionador
   cheio: "📦 *Redirecionador {funil}*\nO grupo *{grupo}* chegou a {cliques} cliques e foi considerado cheio.\n{linha_proximo}\n{linha_fila}",
   invalido: "🚨 *Redirecionador {funil}*\nO grupo *{grupo}* parou de aceitar entradas: o convite deixou de funcionar. Pode ser *suspensão do grupo pelo WhatsApp* ou link redefinido.\n{linha_membros}\n{linha_proximo}\nSe foi suspensão, a base está salva: painel → Redirecionador → Grupos → Baixar membros.\n{linha_fila}",
+  parado_invalido: "🚨 *Redirecionador {funil}*\nO grupo *{grupo}* (já {estado}, fora da fila) não abre mais: o convite deixou de funcionar na conferência diária. Pode ser *suspensão do grupo pelo WhatsApp* ou link redefinido.\n{linha_membros}\nOs cliques não são afetados (o grupo já não recebia ninguém).\nSe foi suspensão, a base está salva: painel → Redirecionador → Grupos → Baixar membros.",
   link_novo: "🔗 *Redirecionador {funil}*\nO grupo *{grupo}* recebeu link novo{do_sendflow} e voltou para a fila.",
   sem_grupos: "🆘 *Redirecionador {funil}*\nNenhum grupo disponível! Os cliques estão indo para {destino}\nAdicione ou reative grupos no painel.",
   redefinicao_sem_retorno: "⚠️ *Redirecionador {funil}*\nPedimos link novo do grupo *{grupo}* ao Sendflow há {minutos} min e ainda não chegou. Confira no Sendflow ou cole o link novo no painel.",
@@ -72,6 +73,7 @@ export const VARIAVEIS: Record<string, Variavel[]> = {
     v("linha_fila", "\"Grupos ativos na fila: 5.\"", "\"Grupos ativos na fila: 5.\"")],
   invalido: [FUNIL, GRUPO, v("linha_membros", "\"Pessoas que entraram no grupo: 283.\" (vazio se não houver dados)", "\"Personas que entraron al grupo: 283.\" (vacío si no hay datos)"), v("linha_proximo", "para qual grupo vão os cliques agora (ou aviso de fila vazia)", "a qué grupo van los clics ahora (o aviso de fila vacía)"),
     v("linha_fila", "\"Grupos ativos na fila: 5.\"", "\"Grupos ativos na fila: 5.\"")],
+  parado_invalido: [FUNIL, GRUPO, v("estado", "\"cheio\" ou \"pausado\"", "\"cheio\" o \"pausado\""), v("linha_membros", "\"Pessoas que entraram no grupo: 507.\" (vazio se não houver dados)", "\"Personas que entraron al grupo: 507.\" (vacío si no hay datos)")],
   link_novo: [FUNIL, GRUPO, v("do_sendflow", "\" do Sendflow\" quando veio do Sendflow", "\" do Sendflow\" cuando vino de Sendflow")],
   sem_grupos: [FUNIL, v("destino", "para onde vão os cliques (link reserva ou lugar nenhum)", "a dónde van los clics (link de reserva o ningún lugar)")],
   redefinicao_sem_retorno: [FUNIL, GRUPO, v("minutos", "minutos desde o pedido", "minutos desde el pedido")],

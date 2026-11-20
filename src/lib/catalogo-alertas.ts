@@ -263,6 +263,16 @@ export const CATALOGO: ItemCatalogo[] = [
     exemplo: (m?: Modelos) => mensagemRedirecionador("invalido", "Geral", { grupo: "La Semana del Inversionista #49", membros: 283, proximo: "La Semana del Inversionista #47 (0 cliques)", restantes: 22 }, m) ?? "",
   },
   {
+    tipo: "parado_invalido", area: "redirecionador", envio: "whatsapp",
+    nome: { pt: "Grupo cheio ou pausado suspenso", es: "Grupo lleno o pausado suspendido" },
+    envioDetalhe: { pt: "Sempre (desde 20/11/2026).", es: "Siempre (desde 20/11/2026)." },
+    quando: { pt: "Na conferência diária dos grupos que já saíram da fila (cheios ou pausados), o convite deixou de funcionar.", es: "En la revisión diaria de los grupos que ya salieron de la fila (llenos o pausados), la invitación dejó de funcionar." },
+    repeticao: { pt: "Uma vez por grupo (depois disso ele não é mais conferido).", es: "Una vez por grupo (después ya no se revisa)." },
+    diagnostico: { pt: "O WhatsApp suspendeu o grupo depois de cheio (foi o caso do #25, #58 e #45) ou alguém redefiniu o link. Os cliques não são afetados.", es: "WhatsApp suspendió el grupo después de lleno (fue el caso del #25, #58 y #45) o alguien redefinió el link. Los clics no se ven afectados." },
+    verificar: { pt: ["Abrir o grupo no WhatsApp: se aparecer que foi suspenso, baixar os membros (Redirecionador → Grupos → Baixar membros) e enviar o link do grupo atual para essa base."], es: ["Abrir el grupo en WhatsApp: si aparece que fue suspendido, descargar los miembros (Redireccionador → Grupos → Descargar miembros) y enviar el link del grupo actual a esa base."] },
+    exemplo: (m?: Modelos) => mensagemRedirecionador("parado_invalido", "Geral", { grupo: "La Semana del Inversionista #58", estado: "cheio", membros: 587 }, m) ?? "",
+  },
+  {
     tipo: "link_novo", area: "redirecionador", envio: "painel",
     nome: { pt: "Link novo recebido", es: "Link nuevo recibido" },
     envioDetalhe: { pt: "Nunca: é um aviso de que voltou a funcionar.", es: "Nunca: es un aviso de que volvió a funcionar." },

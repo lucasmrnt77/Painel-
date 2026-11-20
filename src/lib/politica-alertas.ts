@@ -21,6 +21,8 @@ export function redirecionadorVaiProWhatsapp(tipo: string, temProximo: boolean):
   if (tipo === "sem_grupos" || tipo === "redefinicao_sem_retorno" || tipo === "redefinicao_falhou") return true;
   // Convite inválido = grupo suspenso pelo WhatsApp ou link redefinido: sempre avisa (18/11/2026, quedas do #57 e #49)
   if (tipo === "invalido") return true;
+  // Grupo cheio ou pausado cujo convite parou de funcionar na conferência diária (20/11/2026): sempre avisa
+  if (tipo === "parado_invalido") return true;
   // Grupo cheio só é problema se não sobrou grupo para receber os cliques
   if (tipo === "cheio") return !temProximo;
   return false; // link_novo e o resto: só no painel

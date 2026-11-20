@@ -6,6 +6,7 @@ import { enviarWhatsapp, envioConfigurado } from "./whatsapp"
 import { redirecionadorVaiProWhatsapp } from "./politica-alertas"
 import { mensagemRedirecionador } from "./mensagens"
 import { modelosAlertas } from "./textos-alertas"
+import { paradosParaConferir } from "./redir-parados"
 
 export type Funil = {
   slug: string; nome: string; limite_cliques: number; verificar_a_cada: number; link_reserva: string | null
@@ -24,6 +25,7 @@ const LIMITE_REDEFINICOES = 4 // por 15 min na conta Sendflow
 const CONSULTA_GRUPOS_MIN = 10 // min entre consultas de grupos por campanha
 const VERIFICAR_PARADO_MIN = 15 // confere o grupo da vez mesmo sem cliques
 const ESPERA_LINK_NOVO_MIN = 30 // depois disso, avisa que o Sendflow não devolveu
+const PARADOS_POR_RODADA = 1 // 1 grupo por rodada do cron (2 min): espalha as consultas ao WhatsApp
 
 export const MOTIVO_RECUSA = "Sendflow recusou"
 /** Tira a mensagem do JSON de erro do Sendflow ({"message":"…"}); senão devolve o texto como veio. */
@@ -175,9 +177,25 @@ export async function executarRedirecionador() {
       }
     }
   }
+  const parados = await conferirParados(todos)
   const trocados = await buscarLinksNovos()
   const alertas = await despacharAlertas()
-  return { verificados, pedidos, trocados, alertas }
+  return { verificados, pedidos, trocados, alertas, parados }
+}
+
+/** Conferência diária do convite dos grupos parados; se não abre mais, alerta no WhatsApp (uma vez por grupo). */
+async function conferirParados(todos: Grupo[]) {
+  let conferidos = 0
+  for (const g of paradosParaConferir(todos).slice(0, PARADOS_POR_RODADA)) {
+    const r = await verificarConvite(g.codigo)
+    const { error } = await db().rpc("redir_registrar_verificacao", {
+      p_grupo_id: g.id, p_resultado: r.resultado, p_titulo: r.titulo, p_detalhe: r.detalhe,
+    })
+    if (error) throw new Error(`[redir] registrar verificação: ${error.message}`)
+    if (r.resultado === "invalido") await evento(g.funil, g.id, "parado_invalido", { codigo: g.codigo, status: g.status, detalhe: r.detalhe }, true)
+    conferidos++
+  }
+  return conferidos
 }
 
 /** Envia ao grupo de alertas os eventos importantes ainda não avisados. */
@@ -203,7 +221,7 @@ export async function despacharAlertas() {
     const nomeG = (x?: typeof g) => (x ? x.nome || x.titulo_whatsapp || `grupo #${x.id}` : "—")
     // Convite inválido (possível suspensão): quantas pessoas estavam no grupo
     let membros: number | undefined
-    if (e.tipo === "invalido" && g?.sendflow_gid) {
+    if ((e.tipo === "invalido" || e.tipo === "parado_invalido") && g?.sendflow_gid) {
       const { count } = await db().from("membros_grupo").select("id", { count: "exact", head: true }).eq("grupo_id", `${g.sendflow_gid}@g.us`)
       if (typeof count === "number") membros = count
     }
@@ -214,6 +232,7 @@ export async function despacharAlertas() {
       proximo: proximo ? `${nomeG(proximo)} (${proximo.cliques} cliques)` : null,
       restantes: lg.filter((x) => x.funil === e.funil && x.status === "ativo").length,
       reserva: f?.link_reserva ?? null,
+      ...(e.tipo === "parado_invalido" ? { estado: e.detalhe?.status === "pausado" ? "pausado" : "cheio" } : {}),
     }, modelos)
     // Só o que precisa de ajuste vai para o WhatsApp (ex.: sem grupo na fila); o resto fica no painel
     if (texto && redirecionadorVaiProWhatsapp(e.tipo, !!proximo)) { await enviarWhatsapp([], texto, `redir_${e.tipo}`); enviados++ }
