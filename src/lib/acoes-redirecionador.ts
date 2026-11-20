@@ -26,13 +26,15 @@ function lerConfig(fd: FormData, t: Tradutor): { erro: string } | { config: Reco
   const limite = Number(txt(fd, "limite_cliques") ?? "600");
   const cada = Number(txt(fd, "verificar_a_cada") ?? "20");
   const reserva = txt(fd, "link_reserva");
+  const simultaneos = Number(txt(fd, "grupos_simultaneos") ?? "1");
   if (!nome || nome.length < 2 || nome.length > 60) return { erro: t("Informe o nome do funil (2 a 60 caracteres)") };
   if (!Number.isInteger(limite) || limite < 1 || limite > 100000) return { erro: t("Limite de cliques entre 1 e 100.000") };
   if (!Number.isInteger(cada) || cada < 1 || cada > 10000) return { erro: t("Verificar a cada: entre 1 e 10.000 cliques") };
+  if (!Number.isInteger(simultaneos) || simultaneos < 1 || simultaneos > 20) return { erro: t("Grupos ao mesmo tempo: entre 1 e 20") };
   if (reserva && !/^https:\/\//.test(reserva)) return { erro: t("O link reserva deve começar com https://") };
   return {
     config: {
-      nome, limite_cliques: limite, verificar_a_cada: cada, link_reserva: reserva,
+      nome, limite_cliques: limite, verificar_a_cada: cada, link_reserva: reserva, grupos_simultaneos: simultaneos,
       sendflow_release_id: txt(fd, "sendflow_release_id"), auto_redefinir: fd.get("auto_redefinir") === "on",
     },
   };

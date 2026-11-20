@@ -34,7 +34,7 @@ export function CopiarLink({ url }: { url: string }) {
   );
 }
 
-type Funil = { slug: string; nome: string; limite_cliques: number; verificar_a_cada: number; link_reserva: string | null; sendflow_release_id: string | null; auto_redefinir: boolean };
+type Funil = { slug: string; nome: string; limite_cliques: number; verificar_a_cada: number; link_reserva: string | null; sendflow_release_id: string | null; auto_redefinir: boolean; grupos_simultaneos?: number };
 
 export function FormFunil({ funil }: { funil: Funil }) {
   const [estado, acao, pendente] = useActionState(salvarFunil, undefined);
@@ -67,6 +67,10 @@ function CamposConfig({ funil }: { funil?: Partial<Funil> }) {
       <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
         {t("Verificar o convite a cada quantos cliques")}
         <input name="verificar_a_cada" type="number" min={1} max={10000} defaultValue={funil?.verificar_a_cada ?? 20} className={campo} />
+      </label>
+      <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        {t("Grupos recebendo cliques ao mesmo tempo (1 = um por vez)")}
+        <input name="grupos_simultaneos" type="number" min={1} max={20} defaultValue={funil?.grupos_simultaneos ?? 1} className={campo} />
       </label>
       <label className="space-y-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
         {t("ID da campanha no Sendflow (para importar grupos e pedir link novo)")}

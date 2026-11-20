@@ -60,7 +60,9 @@ export default async function Redirecionador() {
         {funis.map(({ funil: f, grupos, cliques_hoje, cliques_1h }, i) => {
           const e = estados[i];
           const cor = COR_NIVEL[e.nivel];
-          const daVez = grupos.find((g) => g.status === "ativo");
+          const simultaneos = Math.max(1, (f as { grupos_simultaneos?: number }).grupos_simultaneos ?? 1);
+          const recebendo = grupos.filter((g) => g.status === "ativo").slice(0, simultaneos);
+          const daVez = recebendo[0];
           const link = `https://${dominio}/${f.slug}`;
           return (
             <section key={f.slug} className={`flex min-w-0 flex-col rounded-xl border border-l-4 border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 ${cor.borda}`}>
@@ -77,8 +79,13 @@ export default async function Redirecionador() {
               </header>
 
               <div className="grid grid-cols-2 gap-3 px-4 py-3 sm:grid-cols-4">
-                <Dado rotulo={t("Grupo da vez")} valor={daVez ? daVez.nome || daVez.titulo_whatsapp || `#${daVez.id}` : t("Nenhum")}
-                  detalhe={daVez ? t("{n} de {limite} cliques", { n: daVez.cliques, limite: f.limite_cliques }) : undefined} />
+                {simultaneos > 1 ? (
+                  <Dado rotulo={t("Grupos da vez")} valor={t("{n} ao mesmo tempo", { n: recebendo.length })}
+                    detalhe={recebendo.map((g) => (g.nome || g.titulo_whatsapp || `#${g.id}`).replace(/^.*#/, "#")).join(" ")} />
+                ) : (
+                  <Dado rotulo={t("Grupo da vez")} valor={daVez ? daVez.nome || daVez.titulo_whatsapp || `#${daVez.id}` : t("Nenhum")}
+                    detalhe={daVez ? t("{n} de {limite} cliques", { n: daVez.cliques, limite: f.limite_cliques }) : undefined} />
+                )}
                 <Dado rotulo={t("Grupos na fila")} valor={`${e.naFila} / ${e.total}`} detalhe={e.aguardandoLink ? t("{n} aguardando link", { n: e.aguardandoLink }) : undefined} />
                 <Dado rotulo={t("Vagas na fila")} valor={e.vagas.toLocaleString("pt-BR")} detalhe={t("cliques até acabar")} />
                 <Dado rotulo={t("Cliques hoje")} valor={cliques_hoje.toLocaleString("pt-BR")} detalhe={t("{n} na última hora", { n: cliques_1h })} />

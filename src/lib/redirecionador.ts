@@ -10,6 +10,8 @@ import { modelosAlertas } from "./textos-alertas"
 export type Funil = {
   slug: string; nome: string; limite_cliques: number; verificar_a_cada: number; link_reserva: string | null
   sendflow_release_id: string | null; auto_redefinir: boolean; sendflow_consultado_em: string | null
+  /** Quantos grupos recebem cliques ao mesmo tempo (migração 065; 1 = um por vez) */
+  grupos_simultaneos?: number
 }
 export type Grupo = {
   id: number; funil: string; ordem: number; nome: string | null; codigo: string; sendflow_group_id: string | null; sendflow_gid: string | null
@@ -157,10 +159,11 @@ export async function executarRedirecionador() {
   let pedidos = 0
 
   for (const f of (funis ?? []) as Funil[]) {
-    // 1) grupo da vez sem verificação recente → confere (pega redefinição mesmo com pouco tráfego)
-    const daVez = todos.find((g) => g.funil === f.slug && g.status === "ativo")
-    if (daVez && minutosDesde(daVez.verificado_em) >= VERIFICAR_PARADO_MIN) {
-      await verificarGrupo(daVez.id)
+    // 1) grupos da vez (os N que recebem cliques) sem verificação recente → confere (pega redefinição mesmo com pouco tráfego)
+    const daVez = todos.filter((g) => g.funil === f.slug && g.status === "ativo").slice(0, Math.max(1, f.grupos_simultaneos ?? 1))
+    for (const g of daVez) {
+      if (minutosDesde(g.verificado_em) < VERIFICAR_PARADO_MIN) continue
+      await verificarGrupo(g.id)
       verificados++
     }
     // 2) inválidos que ainda não pediram link novo (ex.: o limite de 4/15 min estava cheio)

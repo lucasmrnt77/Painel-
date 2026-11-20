@@ -83,7 +83,8 @@ export default async function GruposRedirecionador({ searchParams }: PageProps<"
       </div>
 
       {mostrar.map(({ funil: f, grupos }) => {
-        const daVez = grupos.find((g) => g.status === "ativo");
+        // Os N primeiros ativos recebem cliques ao mesmo tempo (migração 065)
+        const daVez = new Set(grupos.filter((g) => g.status === "ativo").slice(0, Math.max(1, (f as { grupos_simultaneos?: number }).grupos_simultaneos ?? 1)).map((g) => g.id));
         const lista = status ? grupos.filter((g) => g.status === status) : grupos;
         return (
           <Cartao key={f.slug} titulo={`${f.nome} — ${t("{n} grupos", { n: grupos.length })}`}>
@@ -93,10 +94,10 @@ export default async function GruposRedirecionador({ searchParams }: PageProps<"
                 const s = STATUS[g.status];
                 const posicao = grupos.findIndex((x) => x.id === g.id) + 1;
                 return (
-                  <tr key={g.id} className={g.id === daVez?.id ? "bg-emerald-50/60 dark:bg-emerald-950/30" : ""}>
+                  <tr key={g.id} className={daVez.has(g.id) ? "bg-emerald-50/60 dark:bg-emerald-950/30" : ""}>
                     <td className={`${td} tabular text-zinc-500`}>{posicao}</td>
                     <td className={`${td} max-w-[260px]`}>
-                      <div className="truncate font-medium">{g.nome || g.titulo_whatsapp || t("Sem nome")}{g.id === daVez?.id && <span className="ml-2 text-xs text-emerald-700 dark:text-emerald-400">← {t("da vez")}</span>}</div>
+                      <div className="truncate font-medium">{g.nome || g.titulo_whatsapp || t("Sem nome")}{daVez.has(g.id) && <span className="ml-2 text-xs text-emerald-700 dark:text-emerald-400">← {t("da vez")}</span>}</div>
                       <a href={`https://chat.whatsapp.com/${g.codigo}`} target="_blank" rel="noreferrer" className="block truncate text-xs text-zinc-500 hover:underline">chat.whatsapp.com/{g.codigo}</a>
                       {g.sendflow_group_id && <div className="text-[11px] text-zinc-400">Sendflow: {g.sendflow_group_id}</div>}
                     </td>
