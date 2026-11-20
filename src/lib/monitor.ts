@@ -141,12 +141,8 @@ async function verificarIntrusos(l: Lanc): Promise<unknown[]> {
     const c = await criarEEnviar(l, "intrusos_grupo", `intrusos:${r.grupo_id}:${Math.floor(new Date(r.inicio).getTime() / 1000)}`, {
       grupo: r.grupo_nome ?? r.grupo_id, grupo_id: r.grupo_id, inicio: r.inicio, fim: r.fim, telefones: r.telefones,
     });
-    if (c) {
-      criados.push(c);
-      // Bloqueia no redirecionador: se esses números se inscreverem para pegar o link, veem "grupos completos"
-      const b = await db().rpc("redir_bloquear", { p_telefones: r.telefones, p_motivo: `intrusos no grupo ${r.grupo_nome ?? r.grupo_id}` });
-      if (b.error) console.error("[monitor] bloquear intrusos", b.error.message);
-    }
+    // Sem bloqueio no redirecionador desde 20/11/2026 (inscrito nunca pode ver "grupos completos")
+    if (c) criados.push(c);
   }
   return criados;
 }

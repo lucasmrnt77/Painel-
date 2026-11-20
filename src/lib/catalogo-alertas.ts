@@ -194,8 +194,8 @@ export const CATALOGO: ItemCatalogo[] = [
       es: "El link del grupo se filtró o alguien está metiendo números de afuera. Esos números suelen mandar spam o denunciar el grupo — en el #49 entraron 4 en 32 s y el grupo fue suspendido 5 min después.",
     },
     verificar: {
-      pt: ["Os números já ficam bloqueados no redirecionador (se se inscreverem, veem \"grupos completos\").", "Remover esses números do grupo e denunciar.", "Redefinir o link do grupo no WhatsApp (Dados do grupo → Convidar via link → Redefinir link). A API do Sendflow não redefine link: só lê o atual. O painel percebe o link antigo inválido e pega o novo sozinho."],
-      es: ["Los números ya quedan bloqueados en el redireccionador (si se inscriben, ven \"grupos completos\").", "Sacar esos números del grupo y denunciarlos.", "Redefinir el link del grupo en WhatsApp (Info del grupo → Invitar vía enlace → Restablecer enlace). La API de Sendflow no redefine el link: solo lee el actual. El panel detecta el link viejo inválido y toma el nuevo solo."],
+      pt: ["Remover esses números do grupo e denunciar.", "Redefinir o link do grupo no WhatsApp (Dados do grupo → Convidar via link → Redefinir link). A API do Sendflow não redefine link: só lê o atual. O painel percebe o link antigo inválido e pega o novo sozinho."],
+      es: ["Sacar esos números del grupo y denunciarlos.", "Redefinir el link del grupo en WhatsApp (Info del grupo → Invitar vía enlace → Restablecer enlace). La API de Sendflow no redefine el link: solo lee el actual. El panel detecta el link viejo inválido y toma el nuevo solo."],
     },
     exemplo: (m?: Modelos) => mensagemAlerta("intrusos_grupo", "Lanzamiento Diciembre", { grupo: "La Semana del Inversionista #49", inicio: H(18, 25), telefones: ["5493435063104", "5493624123451", "5493624694837", "5493644675056"] }, m),
   },

@@ -15,9 +15,9 @@ test("alerta de intrusos lista os números e o grupo, e vai para o WhatsApp", ()
   assert.equal(monitorVaiProWhatsapp("intrusos_grupo"), true);
 });
 
-test("alerta de intrusos avisa que os números foram bloqueados e pede para redefinir o link", () => {
+test("alerta de intrusos pede para redefinir o link e não fala mais em bloqueio", () => {
   const m = mensagemAlerta("intrusos_grupo", "L", { grupo: "G", inicio: "2026-11-17T21:25:13Z", telefones: ["1", "2", "3"] });
-  assert.match(m, /bloqueados no redirecionador/);
+  assert.doesNotMatch(m, /bloquead/);
   assert.match(m, /Redefinir link/);
 });
 
