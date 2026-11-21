@@ -130,6 +130,9 @@ export async function importarDoSendflow(_: EstadoForm, fd: FormData): Promise<E
 
   const { data: atuais } = await db().from("redir_grupos").select("id, codigo, sendflow_group_id, status").eq("funil", funil);
   const lista = (atuais ?? []) as { id: number; codigo: string; sendflow_group_id: string | null; status: string }[];
+  // Grupos que já estão em OUTRO funil (ex.: reservas #24/#26 vêm na mesma campanha) não entram de novo (21/11/2026)
+  const { data: outros } = await db().from("redir_grupos").select("codigo, sendflow_group_id").neq("funil", funil);
+  const emOutroFunil = new Set(((outros ?? []) as { codigo: string; sendflow_group_id: string | null }[]).flatMap((x) => [x.codigo, x.sendflow_group_id ?? ""]).filter(Boolean));
   let ordem = await proximaOrdem(funil);
   let novos = 0, atualizados = 0, semLink = 0;
   for (const g of r.grupos) {
@@ -145,6 +148,9 @@ export async function importarDoSendflow(_: EstadoForm, fd: FormData): Promise<E
     } else if (porCodigo) {
       await db().from("redir_grupos").update({ sendflow_group_id: g.id, sendflow_gid: g.gid, nome: g.nome || null }).eq("id", porCodigo.id);
       atualizados++;
+    } else if (emOutroFunil.has(g.id) || emOutroFunil.has(g.codigo) || g.suspenso) {
+      // já usado em outro funil ou suspenso pelo WhatsApp (ex.: #57): não volta para a fila
+      continue;
     } else {
       const { error } = await db().from("redir_grupos").insert({ funil, ordem: ordem++, nome: g.nome || null, codigo: g.codigo, sendflow_group_id: g.id, sendflow_gid: g.gid });
       if (!error) novos++;

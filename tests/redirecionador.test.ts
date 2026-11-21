@@ -69,3 +69,9 @@ test("gid do WhatsApp sem @g.us", () => {
   assert.equal(g[0].id, "Mi2ssmaPI1gXAAVmsa4H");
   assert.equal(g[0].gid, "120363401234567890");
 });
+
+test("grupos do Sendflow: lê o campo suspended", () => {
+  const r = lerGruposSendflow([{ id: "a", name: "#57", inviteCode: "LZRHQfDRV0H2viylpXTd1q", suspended: true }, { id: "b", name: "#54", inviteCode: "IrrMtW0XLZYK4UqwglM81c" }]);
+  assert.equal(r[0].suspenso, true);
+  assert.equal(r[1].suspenso, undefined);
+});

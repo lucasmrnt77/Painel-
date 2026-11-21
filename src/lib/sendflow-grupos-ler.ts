@@ -1,6 +1,6 @@
 import { extrairCodigo } from "./convite"
 
-export type GrupoSendflow = { id: string; gid: string | null; nome: string; codigo: string | null; participantes: number | null }
+export type GrupoSendflow = { id: string; gid: string | null; nome: string; codigo: string | null; participantes: number | null; suspenso?: boolean }
 
 /** "120363...@g.us" → "120363..." */
 export const gidLimpo = (v: string) => v.trim().replace(/@g\.us$/i, "") || null
@@ -33,6 +33,7 @@ export function lerGruposSendflow(dados: unknown): GrupoSendflow[] {
         nome: texto(o, ["name", "subject", "title", "nome"]),
         codigo: extrairCodigo(texto(o, ["inviteCode", "invite_code", "inviteLink", "invite", "link", "url"])),
         participantes: Array.isArray(p) ? p.length : typeof p === "number" ? p : null,
+        ...(o.suspended === true || o.suspended === "true" ? { suspenso: true } : {}),
       }
     })
     .filter((g) => g.id)
