@@ -6,7 +6,7 @@ import { enviarWhatsapp, envioConfigurado } from "./whatsapp"
 import { redirecionadorVaiProWhatsapp } from "./politica-alertas"
 import { mensagemRedirecionador } from "./mensagens"
 import { modelosAlertas } from "./textos-alertas"
-import { paradosParaConferir } from "./redir-parados"
+import { paradosParaConferir, decidirConfirmacao } from "./redir-parados"
 
 export type Funil = {
   slug: string; nome: string; limite_cliques: number; verificar_a_cada: number; link_reserva: string | null
@@ -19,12 +19,15 @@ export type Grupo = {
   status: "ativo" | "cheio" | "invalido" | "redefinindo" | "pausado"; cliques: number; cliques_desde_verificacao: number
   verificacao: "valido" | "invalido" | "inconclusivo" | null; verificado_em: string | null; titulo_whatsapp: string | null
   redefinicao_pedida_em: string | null; motivo: string | null
+  /** Convite parou de funcionar e ainda não foi confirmado no Sendflow (migração 069) */
+  suspensao_pendente_desde?: string | null
 }
 
 const LIMITE_REDEFINICOES = 4 // por 15 min na conta Sendflow
 const CONSULTA_GRUPOS_MIN = 10 // min entre consultas de grupos por campanha
 const VERIFICAR_PARADO_MIN = 15 // confere o grupo da vez mesmo sem cliques
 const ESPERA_LINK_NOVO_MIN = 30 // depois disso, avisa que o Sendflow não devolveu
+const SINCRONIZAR_MIN = 30 // links de todos os grupos conferidos na lista do Sendflow a cada 30 min
 const PARADOS_POR_RODADA = 1 // 1 grupo por rodada do cron (2 min): espalha as consultas ao WhatsApp
 
 export const MOTIVO_RECUSA = "Sendflow recusou"
@@ -56,10 +59,9 @@ export async function verificarGrupo(grupoId: number) {
     p_grupo_id: grupo.id, p_resultado: r.resultado, p_titulo: r.titulo, p_detalhe: r.detalhe,
   })
   if (error) throw new Error(`[redir] registrar verificação: ${error.message}`)
-  if ((data as { saiu_da_fila?: boolean })?.saiu_da_fila) {
-    const f = await lerFunil(grupo.funil)
-    if (f?.auto_redefinir && f.sendflow_release_id && grupo.sendflow_group_id) await solicitarRedefinicao(grupo.id)
-  }
+  // Saiu da fila: o link novo vem da lista de grupos do Sendflow (confirmarSuspensoes). A ação "atualizar convite"
+  // do Sendflow falha desde 21/11 (conta da campanha não existe mais), então não é mais pedida automaticamente.
+  void data
   return { ok: true, ...r }
 }
 
@@ -168,16 +170,9 @@ export async function executarRedirecionador() {
       await verificarGrupo(g.id)
       verificados++
     }
-    // 2) inválidos que ainda não pediram link novo (ex.: o limite de 4/15 min estava cheio)
-    if (f.auto_redefinir && f.sendflow_release_id) {
-      for (const g of todos.filter((x) => x.funil === f.slug && x.status === "invalido" && x.sendflow_group_id && !x.redefinicao_pedida_em && !x.motivo?.startsWith(MOTIVO_RECUSA))) {
-        const r = await solicitarRedefinicao(g.id)
-        if (r.ok) pedidos++
-        else break
-      }
-    }
   }
   const parados = await conferirParados(todos)
+  pedidos = await confirmarSuspensoes((funis ?? []) as Funil[])
   const trocados = await buscarLinksNovos()
   const alertas = await despacharAlertas()
   return { verificados, pedidos, trocados, alertas, parados }
@@ -192,10 +187,83 @@ async function conferirParados(todos: Grupo[]) {
       p_grupo_id: g.id, p_resultado: r.resultado, p_titulo: r.titulo, p_detalhe: r.detalhe,
     })
     if (error) throw new Error(`[redir] registrar verificação: ${error.message}`)
-    if (r.resultado === "invalido") await evento(g.funil, g.id, "parado_invalido", { codigo: g.codigo, status: g.status, detalhe: r.detalhe }, true)
+    // não avisa na hora: pode ser só link redefinido; confirmarSuspensoes decide
+    if (r.resultado === "invalido") await db().from("redir_grupos").update({ suspensao_pendente_desde: new Date().toISOString() }).eq("id", g.id).is("suspensao_pendente_desde", null)
     conferidos++
   }
   return conferidos
+}
+
+/**
+ * Lista de grupos do Sendflow (1 consulta por campanha, no máx. a cada 10 min — limite do Sendflow):
+ * 1) a cada 30 min, atualiza o link de qualquer grupo que mudou (troca de permissões muda o link);
+ * 2) grupos com convite inválido aguardando confirmação: link novo → troca sem alerta;
+ *    mesmo link / suspenso no Sendflow / 30 min sem confirmar → alerta de suspensão.
+ */
+async function confirmarSuspensoes(funis: Funil[]) {
+  const { data } = await db().from("redir_grupos").select("*")
+  const grupos = (data ?? []) as Grupo[]
+  const porRelease = new Map<string, Funil[]>()
+  for (const f of funis) if (f.sendflow_release_id) porRelease.set(f.sendflow_release_id, [...(porRelease.get(f.sendflow_release_id) ?? []), f])
+  let resolvidos = 0
+  for (const [release, fs] of porRelease) {
+    const slugs = new Set(fs.map((f) => f.slug))
+    const doRelease = grupos.filter((g) => slugs.has(g.funil))
+    const pendentes = doRelease.filter((g) => g.suspensao_pendente_desde)
+    const ultima = fs.map((f) => f.sendflow_consultado_em).filter(Boolean).sort().pop() ?? null
+    const desde = minutosDesde(ultima)
+    if (desde < CONSULTA_GRUPOS_MIN) { resolvidos += await alertarVencidos(pendentes); continue }
+    if (pendentes.length === 0 && desde < SINCRONIZAR_MIN) continue
+    await db().from("redir_funis").update({ sendflow_consultado_em: new Date().toISOString() }).in("slug", [...slugs])
+    const lista = await listarGruposCampanha(release)
+    if (lista.erro) { resolvidos += await alertarVencidos(pendentes); continue }
+    for (const g of doRelease) {
+      const s = g.sendflow_group_id ? lista.grupos.find((x) => x.id === g.sendflow_group_id) ?? null : null
+      const mudou = !!(s?.codigo && s.codigo !== g.codigo)
+      if (!g.suspensao_pendente_desde) {
+        // sincronização: só troca se o link novo funciona (grupos confirmados como suspensos ficam como estão)
+        if (!mudou || g.verificacao === "invalido") continue
+        const v = await verificarConvite(s!.codigo!)
+        if (v.resultado === "valido") await trocarCodigo(g, s!.codigo!)
+        continue
+      }
+      const v = mudou ? await verificarConvite(s!.codigo!) : null
+      const decisao = decidirConfirmacao({
+        codigoPainel: g.codigo, noSendflow: s, novoValido: v ? v.resultado === "valido" : null,
+        minutosPendente: minutosDesde(g.suspensao_pendente_desde),
+      })
+      if (decisao === "trocar") { await trocarCodigo(g, s!.codigo!); resolvidos++ }
+      else if (decisao === "alertar") { await alertarSuspensao(g, s?.suspenso ? "Sendflow marca o grupo como suspenso" : "link não mudou no Sendflow"); resolvidos++ }
+    }
+  }
+  return resolvidos
+}
+
+/** Troca o link (volta para a fila se estava inválido) e limpa a pendência; grupo pausado por link antigo volta a ativo. */
+async function trocarCodigo(g: Grupo, codigo: string) {
+  const reativar = g.status === "pausado" && !!g.motivo?.startsWith("link antigo")
+  await db().rpc("redir_trocar_codigo", { p_grupo_id: g.id, p_codigo: codigo, p_origem: "sendflow" })
+  await db().from("redir_grupos").update({
+    suspensao_pendente_desde: null, verificacao: "valido", verificado_em: new Date().toISOString(),
+    ...(reativar ? { status: "ativo" } : {}),
+  }).eq("id", g.id)
+}
+
+async function alertarSuspensao(g: Grupo, porque: string) {
+  await db().from("redir_grupos").update({ suspensao_pendente_desde: null, motivo: `suspenso? (${porque})`.slice(0, 300) }).eq("id", g.id)
+  const tipo = g.status === "ativo" || g.status === "invalido" || g.status === "redefinindo" ? "invalido" : "parado_invalido"
+  await evento(g.funil, g.id, tipo, { codigo: g.codigo, status: g.status, confirmado: porque }, true)
+}
+
+/** Sem lista do Sendflow agora: só avisa os que já esperam há mais de 30 min. */
+async function alertarVencidos(pendentes: Grupo[]) {
+  let n = 0
+  for (const g of pendentes) {
+    if (decidirConfirmacao({ codigoPainel: g.codigo, noSendflow: null, novoValido: null, minutosPendente: minutosDesde(g.suspensao_pendente_desde ?? null) }) === "alertar") {
+      await alertarSuspensao(g, "não deu para confirmar no Sendflow em 30 min"); n++
+    }
+  }
+  return n
 }
 
 /** Envia ao grupo de alertas os eventos importantes ainda não avisados. */

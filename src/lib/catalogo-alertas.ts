@@ -293,9 +293,9 @@ export const CATALOGO: ItemCatalogo[] = [
     exemplo: (m?: Modelos) => mensagemRedirecionador("redefinicao_sem_retorno", "Geral", { grupo: "La Semana del Inversionista #39", minutos: 31 }, m) ?? "",
   },
   {
-    tipo: "redefinicao_falhou", area: "redirecionador", envio: "whatsapp",
+    tipo: "redefinicao_falhou", area: "redirecionador", envio: "painel",
     nome: { pt: "Sendflow recusou o pedido de link novo", es: "Sendflow rechazó el pedido de link nuevo" },
-    envioDetalhe: { pt: "Sempre.", es: "Siempre." },
+    envioDetalhe: { pt: "Nunca (desde 21/11/2026): o link novo vem da lista de grupos do Sendflow e a suspensão só é avisada depois de confirmada.", es: "Nunca (desde 21/11/2026): el link nuevo viene de la lista de grupos de Sendflow y la suspensión solo se avisa después de confirmada." },
     quando: { pt: "A API do Sendflow respondeu com erro ao pedido de link novo (limite: 4 pedidos a cada 15 min).", es: "La API de Sendflow respondió con error al pedido de link nuevo (límite: 4 pedidos cada 15 min)." },
     repeticao: { pt: "Uma vez por pedido recusado.", es: "Una vez por pedido rechazado." },
     diagnostico: { pt: "O link novo não vai chegar sozinho.", es: "El link nuevo no va a llegar solo." },

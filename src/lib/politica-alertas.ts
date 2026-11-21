@@ -18,7 +18,9 @@ export function monitorVaiProWhatsapp(tipo: string): boolean {
 
 /** Redirecionador de grupos. `temProximo` = ainda há grupo ativo na fila. */
 export function redirecionadorVaiProWhatsapp(tipo: string, temProximo: boolean): boolean {
-  if (tipo === "sem_grupos" || tipo === "redefinicao_sem_retorno" || tipo === "redefinicao_falhou") return true;
+  if (tipo === "sem_grupos" || tipo === "redefinicao_sem_retorno") return true;
+  // "Sendflow recusou link novo": desde 21/11 o link vem da lista do Sendflow; a recusa vira só registro no painel
+  if (tipo === "redefinicao_falhou") return false;
   // Convite inválido = grupo suspenso pelo WhatsApp ou link redefinido: sempre avisa (18/11/2026, quedas do #57 e #49)
   if (tipo === "invalido") return true;
   // Grupo cheio ou pausado cujo convite parou de funcionar na conferência diária (20/11/2026): sempre avisa

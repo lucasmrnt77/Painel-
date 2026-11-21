@@ -26,3 +26,14 @@ test("alerta de grupo parado suspenso vai sempre ao WhatsApp e cita membros", ()
   assert.match(m, /já cheio/)
   assert.match(m, /587/)
 })
+
+test("confirmar antes de avisar: link novo funcionando troca sem alerta; mesmo link ou suspenso alerta", async () => {
+  const { decidirConfirmacao } = await import("../src/lib/redir-parados")
+  const base = { codigoPainel: "AAA", minutosPendente: 3 }
+  assert.equal(decidirConfirmacao({ ...base, noSendflow: { codigo: "BBB" }, novoValido: true }), "trocar")
+  assert.equal(decidirConfirmacao({ ...base, noSendflow: { codigo: "BBB" }, novoValido: false }), "alertar")
+  assert.equal(decidirConfirmacao({ ...base, noSendflow: { codigo: "AAA" }, novoValido: null }), "alertar")
+  assert.equal(decidirConfirmacao({ ...base, noSendflow: { codigo: "BBB", suspenso: true }, novoValido: true }), "alertar")
+  assert.equal(decidirConfirmacao({ ...base, noSendflow: null, novoValido: null }), "esperar")
+  assert.equal(decidirConfirmacao({ ...base, minutosPendente: 31, noSendflow: null, novoValido: null }), "alertar")
+})
