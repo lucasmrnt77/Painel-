@@ -14,10 +14,6 @@
       "schedule": "47 10 * * *"
     },
     {
-      "path": "/api/cron/base-leads",
-      "schedule": "23 * * * *"
-    },
-    {
       "path": "/api/cron/meta-ads",
       "schedule": "7,37 * * * *"
     }
