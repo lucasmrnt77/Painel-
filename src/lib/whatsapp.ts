@@ -1,4 +1,5 @@
 import "server-only";
+import { db } from "./supabase";
 
 /**
  * Envio dos alertas por WhatsApp.
@@ -31,7 +32,8 @@ export type ModoEnvio = "sendflow_grupo" | "sendflow_direto" | "webhook" | "nenh
 type Detalhe = { destino: string; ok: boolean; http?: number; erro?: string; resposta?: unknown };
 
 export type ResultadoEnvio = {
-  status: "enviado" | "parcial" | "falhou" | "sem_envio";
+  /** "pendente" = na fila (limite de envios), sai nas próximas rodadas do cron */
+  status: "enviado" | "parcial" | "falhou" | "sem_envio" | "pendente";
   detalhe: Detalhe[] | { motivo: string };
 };
 
@@ -79,7 +81,43 @@ function consolidar(detalhes: Detalhe[]): ResultadoEnvio {
   return { status: oks === detalhes.length ? "enviado" : oks === 0 ? "falhou" : "parcial", detalhe: detalhes };
 }
 
+/** Limite de envios pela linha dos alertas (23/11/2026): no máximo 2 mensagens a cada 2 min. */
+export const LIMITE_ENVIOS = 2;
+export const JANELA_ENVIOS_SEG = 120;
+const PAUSA_ENTRE_ENVIOS_MS = 3000;
+
+/**
+ * Todo alerta passa pela fila (tabela fila_whatsapp): sai na hora se houver vaga no limite,
+ * senão fica "pendente" e o cron (a cada 2 min) manda os próximos, em ordem.
+ */
 export async function enviarWhatsapp(telefones: string[], mensagem: string, tipo: string): Promise<ResultadoEnvio> {
+  if (modoEnvio() === "nenhum") return { status: "sem_envio", detalhe: { motivo: "nenhum envio de WhatsApp configurado" } };
+  const { data, error } = await db().from("fila_whatsapp").insert({ telefones, mensagem, tipo }).select("id").single();
+  if (error || !data) {
+    console.error("[whatsapp] fila indisponível", error?.message);
+    return { status: "pendente", detalhe: { motivo: `fila indisponível: ${error?.message ?? "sem id"}` } };
+  }
+  const enviados = await drenarFilaWhatsapp();
+  return enviados.get((data as { id: number }).id)
+    ?? { status: "pendente", detalhe: { motivo: `na fila: no máximo ${LIMITE_ENVIOS} alertas a cada ${JANELA_ENVIOS_SEG / 60} min` } };
+}
+
+/** Manda os próximos da fila dentro do limite. Chamado a cada envio e pelo cron. */
+export async function drenarFilaWhatsapp(): Promise<Map<number, ResultadoEnvio>> {
+  const saida = new Map<number, ResultadoEnvio>();
+  const { data, error } = await db().rpc("fila_whatsapp_reservar", { p_max: LIMITE_ENVIOS, p_janela_seg: JANELA_ENVIOS_SEG });
+  if (error) { console.error("[whatsapp] reservar fila", error.message); return saida; }
+  const lote = (data ?? []) as { id: number; telefones: string[] | null; mensagem: string; tipo: string | null }[];
+  for (const [i, item] of lote.entries()) {
+    if (i > 0) await new Promise((r) => setTimeout(r, PAUSA_ENTRE_ENVIOS_MS));
+    const r = await enviarAgora(item.telefones ?? [], item.mensagem, item.tipo ?? "");
+    await db().from("fila_whatsapp").update({ enviado_em: new Date().toISOString(), status: r.status, detalhe: r.detalhe }).eq("id", item.id);
+    saida.set(item.id, r);
+  }
+  return saida;
+}
+
+async function enviarAgora(telefones: string[], mensagem: string, tipo: string): Promise<ResultadoEnvio> {
   const modo = modoEnvio();
 
   if (modo === "sendflow_grupo") {
