@@ -32,7 +32,8 @@ test("confirmar antes de avisar: link novo funcionando troca sem alerta; mesmo l
   const base = { codigoPainel: "AAA", minutosPendente: 3 }
   assert.equal(decidirConfirmacao({ ...base, noSendflow: { codigo: "BBB" }, novoValido: true }), "trocar")
   assert.equal(decidirConfirmacao({ ...base, noSendflow: { codigo: "BBB" }, novoValido: false }), "alertar")
-  assert.equal(decidirConfirmacao({ ...base, noSendflow: { codigo: "AAA" }, novoValido: null }), "alertar")
+  assert.equal(decidirConfirmacao({ ...base, noSendflow: { codigo: "AAA" }, novoValido: null }), "esperar")
+  assert.equal(decidirConfirmacao({ ...base, minutosPendente: 30, noSendflow: { codigo: "AAA" }, novoValido: null }), "alertar")
   assert.equal(decidirConfirmacao({ ...base, noSendflow: { codigo: "BBB", suspenso: true }, novoValido: true }), "alertar")
   assert.equal(decidirConfirmacao({ ...base, noSendflow: null, novoValido: null }), "esperar")
   assert.equal(decidirConfirmacao({ ...base, minutosPendente: 31, noSendflow: null, novoValido: null }), "alertar")

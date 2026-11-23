@@ -17,8 +17,9 @@ export const CONFIRMAR_MAX_MIN = 30
 /**
  * Convite parou de funcionar: o que fazer, com a lista de grupos do Sendflow em mãos (puro — testável).
  * - "trocar": o Sendflow tem um link novo que funciona → foi só link redefinido, sem alerta;
- * - "alertar": o Sendflow marca suspenso, ou o link é o mesmo e não funciona, ou passou do tempo máximo;
- * - "esperar": ainda não deu para confirmar.
+ * - "alertar": o Sendflow marca suspenso, ou o link novo dele também não funciona, ou passou do tempo máximo;
+ * - "esperar": ainda não deu para confirmar — inclusive quando o Sendflow ainda mostra o mesmo link
+ *   (23/11/2026: conta criadora bloqueada → WhatsApp trocou os links e o Sendflow demorou a atualizar).
  */
 export function decidirConfirmacao(p: {
   codigoPainel: string; noSendflow: { codigo: string | null; suspenso?: boolean } | null; novoValido: boolean | null; minutosPendente: number
@@ -29,6 +30,5 @@ export function decidirConfirmacao(p: {
     if (p.novoValido === true) return "trocar"
     if (p.novoValido === false) return "alertar"
   }
-  if (s?.codigo && s.codigo === p.codigoPainel) return "alertar"
   return p.minutosPendente >= CONFIRMAR_MAX_MIN ? "alertar" : "esperar"
 }

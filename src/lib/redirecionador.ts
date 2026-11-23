@@ -233,7 +233,7 @@ async function confirmarSuspensoes(funis: Funil[]) {
         minutosPendente: minutosDesde(g.suspensao_pendente_desde),
       })
       if (decisao === "trocar") { await trocarCodigo(g, s!.codigo!); resolvidos++ }
-      else if (decisao === "alertar") { await alertarSuspensao(g, s?.suspenso ? "Sendflow marca o grupo como suspenso" : "link não mudou no Sendflow"); resolvidos++ }
+      else if (decisao === "alertar") { await alertarSuspensao(g, s?.suspenso ? "Sendflow marca o grupo como suspenso" : mudou ? "o link novo do Sendflow também não funciona" : "link não mudou no Sendflow em 30 min"); resolvidos++ }
     }
   }
   return resolvidos
