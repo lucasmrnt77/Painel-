@@ -47,7 +47,11 @@ export function corpoAtualizarConvite(releaseId: string, gids: string[]) {
     : { releaseId, accountsFrom: "release", ...alvo }
 }
 
+export const PEDIR_CONVITE_DESLIGADO = true
+
 export async function pedirNovoConvite(releaseId: string, gids: string[]): Promise<{ ok: boolean; http?: number; resposta?: string }> {
+  // 27/11/2026: pedido automático/do painel de link novo DESLIGADO — redefinir só à mão, dentro do Sendflow.
+  if (PEDIR_CONVITE_DESLIGADO) return { ok: false, resposta: "pedido de link novo pelo painel desligado (27/11/2026): redefina no Sendflow" }
   if (!env("SENDFLOW_API_TOKEN")) return { ok: false, resposta: "SENDFLOW_API_TOKEN não configurado" }
   try {
     const r = await fetch(`${base()}/sendapi/actions/update-group-invite-code`, {

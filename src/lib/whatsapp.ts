@@ -90,7 +90,14 @@ const PAUSA_ENTRE_ENVIOS_MS = 3000;
  * Todo alerta passa pela fila (tabela fila_whatsapp): sai na hora se houver vaga no limite,
  * senão fica "pendente" e o cron (a cada 2 min) manda os próximos, em ordem.
  */
+/**
+ * 27/11/2026: todo envio automático pelo WhatsApp DESLIGADO (decisão do Martín/Lucas), para nada do painel
+ * parecer automação para a Meta. Os alertas ficam só no painel. Para religar, trocar para false.
+ */
+export const WHATSAPP_DESLIGADO = true;
+
 export async function enviarWhatsapp(telefones: string[], mensagem: string, tipo: string): Promise<ResultadoEnvio> {
+  if (WHATSAPP_DESLIGADO) return { status: "sem_envio", detalhe: { motivo: "envio pelo WhatsApp desligado (27/11/2026)" } };
   if (modoEnvio() === "nenhum") return { status: "sem_envio", detalhe: { motivo: "nenhum envio de WhatsApp configurado" } };
   const { data, error } = await db().from("fila_whatsapp").insert({ telefones, mensagem, tipo }).select("id").single();
   if (error || !data) {
@@ -105,6 +112,7 @@ export async function enviarWhatsapp(telefones: string[], mensagem: string, tipo
 /** Manda os próximos da fila dentro do limite. Chamado a cada envio e pelo cron. */
 export async function drenarFilaWhatsapp(): Promise<Map<number, ResultadoEnvio>> {
   const saida = new Map<number, ResultadoEnvio>();
+  if (WHATSAPP_DESLIGADO) return saida;
   const { data, error } = await db().rpc("fila_whatsapp_reservar", { p_max: LIMITE_ENVIOS, p_janela_seg: JANELA_ENVIOS_SEG });
   if (error) { console.error("[whatsapp] reservar fila", error.message); return saida; }
   const lote = (data ?? []) as { id: number; telefones: string[] | null; mensagem: string; tipo: string | null }[];
